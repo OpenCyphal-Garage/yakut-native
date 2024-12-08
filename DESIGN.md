@@ -39,45 +39,46 @@ namespace ocvsmd::dsdl
 /// Represents a DSDL object of any type.
 class Object
 {
-	friend class Type;
+    friend class Type;
 public:
-	/// Field accessor by name. Empty if no such field.
-	std::optional<Object> operator[](const std::string_view field_name) const;
+    /// Field accessor by name. Empty if no such field.
+    std::optional<Object> operator[](const std::string_view field_name) const;
 
-	/// Array element accessor by index. Empty if out of range.
-	std::optional<std::span<Object>> operator[](const std::size_t array_index);
-	std::optional<std::span<const Object>> operator[](const std::size_t array_index) const;
+    /// Array element accessor by index. Empty if out of range.
+    std::optional<std::span<Object>> operator[](const std::size_t array_index);
+    std::optional<std::span<const Object>> operator[](const std::size_t array_index) const;
 
-	/// Coercion to primitives (implicit truncation or the loss of precision are possible).
-	operator std::optional<std::int64_t>() const;
-	operator std::optional<std::uint64_t>() const;
-	operator std::optional<double>() const;
-	
-	/// Coercion from primitives (implicit truncation or the loss of precision are possible).
-	Object& operator=(const std::int64_t value);
-	Object& operator=(const std::uint64_t value);
-	Object& operator=(const double value);
+    /// Coercion to primitives (implicit truncation or the loss of precision are possible).
+    operator std::optional<std::int64_t>() const;
+    operator std::optional<std::uint64_t>() const;
+    operator std::optional<double>() const;
 
-	const class Type& get_type() const noexcept;
+    /// Coercion from primitives (implicit truncation or the loss of precision are possible).
+    Object& operator=(const std::int64_t value);
+    Object& operator=(const std::uint64_t value);
+    Object& operator=(const double value);
 
-	std::expected<void, Error> serialize(const std::span<std::byte> output) const;
-	std::expected<void, Error> deserialize(const std::span<const std::byte> input);
+    const class Type& get_type() const noexcept;
+
+    std::expected<void, Error> serialize(const std::span<std::byte> output) const;
+    std::expected<void, Error> deserialize(const std::span<const std::byte> input);
 };
 
 /// Represents a parsed DSDL definition.
 class Type
 {
-	friend std::pmr::unordered_map<TypeNameAndVersion, Type> read_namespaces(directories, pmr, ...);
+    friend std::pmr::unordered_map<TypeNameAndVersion, Type> read_namespaces(directories, pmr, ...);
 public:
-	/// Constructs a default-initialized Object of this Type.
-	Object instantiate() const;
-	...
+    /// Constructs a default-initialized Object of this Type.
+    Object instantiate() const;
+    ...
 };
 
 using TypeNameAndVersion = std::tuple<std::pmr::string, std::uint8_t, std::uint8_t>;
 
 /// Reads all definitions from the specified namespaces and returns mapping from the full type name
 /// and version to its type model.
+/// Optionally, the function should cache the results per namespace, with an option to disable the cache.
 std::pmr::unordered_map<TypeNameAndVersion, Type> read_namespaces(directories, pmr, ...);
 }
 ```
@@ -90,23 +91,24 @@ Being a daemon designed for unattended operation in deeply-embedded vehicular co
 - Startup time much faster than that of Yakut. This should not be an issue for a native application since most of the Yakut startup time is spent on the Python runtime initialization, compilation, and module importing.
 - Local node configuration ((redundant) transport configuration, node-ID, node description, etc) is loaded from a file, which is common for daemons.
 
-The API will consist of several well-segregated C++ interfaces, each dedicated to a particular feature subset. The interface-based design is chosen to simplify testing in client applications.
+The API will consist of several well-segregated C++ interfaces, each dedicated to a particular feature subset. The interface-based design is chosen to simplify testing in client applications. The API is intentionally designed to not hide the structure of the Cyphal protocol itself; that is to say that it is intentionally low-level. Higher-level abstractions can be built on top of it on the client side rather than the daemon side to keep the IPC protocol stable. The `Error` type used in the API definition here is a placeholder for the actual algebraic type listing all possible error states per API entity.
 
 ```c++
 namespace ocvsmd
 {
 /// The daemon will implicitly instantiate a publisher on the specified port-ID the first time it is requested.
 /// Once instantiated, the published may live on until the daemon process is terminated.
+/// Internally, published messages may be transferred to the daemon via an IPC message queue.
 class Publisher
 {
 public:
-	/// True on success, false on timeout.
-	virtual std::expected<bool, Error> publish(const std::span<const std::bytes> data,
-	                                           const std::chrono::microseconds timeout) = 0;
-	std::expected<bool, Error> publish(const dsdl::Object& obj, const std::chrono::microseconds timeout)
-	{
-		// obj.serialize() and this->publish() ...
-	}
+    /// True on success, false on timeout.
+    virtual std::expected<bool, Error> publish(const std::span<const std::bytes> data,
+                                               const std::chrono::microseconds timeout) = 0;
+    std::expected<bool, Error> publish(const dsdl::Object& obj, const std::chrono::microseconds timeout)
+    {
+        // obj.serialize() and this->publish() ...
+    }
 };
 
 /// The daemon will implicitly instantiate a subscriber on the specified port-ID the first time it is requested.
@@ -119,10 +121,10 @@ public:
 class Subscriber
 {
 public:
-	/// Empty if no message received within the timeout.
-	virtual std::expected<std::optional<Object>, Error> receive(const std::chrono::microseconds timeout) = 0;
-	
-	/// TODO: add methods for setting the transfer-ID timeout.
+    /// Empty if no message received within the timeout.
+    virtual std::expected<std::optional<Object>, Error> receive(const std::chrono::microseconds timeout) = 0;
+
+    /// TODO: add methods for setting the transfer-ID timeout.
 };
 
 /// The daemon will implicitly instantiate a client on the specified port-ID and server node when it is requested.
@@ -130,24 +132,30 @@ public:
 class RPCClient
 {
 public:
-	/// Returns the response object on success, empty on timeout.
-	virtual std::expected<std::optional<Object>, Error> call(const dsdl::Object& obj,
-															 const std::chrono::microseconds timeout) = 0;
+    /// Returns the response object on success, empty on timeout.
+    virtual std::expected<std::optional<Object>, Error> call(const dsdl::Object& obj,
+                                                             const std::chrono::microseconds timeout) = 0;
 };
 
 /// The daemon always has the standard file server running.
 /// This interface can be used to configure it.
+/// It is not possible to stop the server; the closest alternative is to remove all root directories.
 class FileServerController
 {
 public:
-	/// When the file server handles a request, it will attempt to locate the path relative to each of its root
-	/// directories. See Yakut for a hands-on example.
-	/// The daemon will canonicalize the path and resolve symlinks.
-	virtual std::expected<void, Error> add_root(const std::string_view directory);
+    /// When the file server handles a request, it will attempt to locate the path relative to each of its root
+    /// directories. See Yakut for a hands-on example.
+    /// The daemon will canonicalize the path and resolve symlinks.
+    /// The same path may be added multiple times to avoid interference across different clients.
+    virtual std::expected<void, Error> add_root(const std::string_view directory);
 
-	/// Does nothing if such root does not exist.
-	/// The daemon will canonicalize the path and resolve symlinks.
-	virtual std::expected<void, Error> remove_root(const std::string_view directory);
+    /// Does nothing if such root does not exist (no error reported).
+    /// If such root is listed more than once, only one copy is removed.
+    /// The daemon will canonicalize the path and resolve symlinks.
+    virtual std::expected<void, Error> remove_root(const std::string_view directory);
+
+    /// The returned paths are canonicalized. The entries are not unique.
+    virtual std::expected<std::pmr::vector<std::pmr::string>, Error> list_roots() const;
 };
 
 /// A helper for invoking the uavcan.node.ExecuteCommand service on the specified remote nodes.
@@ -155,65 +163,166 @@ public:
 class NodeCommandClient
 {
 public:
-	/// TODO: add constants for the response status codes.
+    /// TODO: add constants for the response status codes.
 
-	struct Response
-	{
-		std::uint8_t status;
-		std::pmr::string output;
-	};
+    struct Response
+    {
+        std::uint8_t status;
+        std::pmr::string output;
+    };
 
-	/// Empty option indicates that the corresponding node did not return a response on time.
-	virtual std::expected<std::pmr::unordered_map<std::uint16_t, std::optional<Response>>, Error>
-		call(const std::span<const std::uint16_t> node_ids,
-	         const std::uint16_t command,
-			 const std::string_view parameter = {},
-			 const std::chrono::microseconds timeout = 1s) = 0;
-			 
-	// TODO: add methods for the standard commands, like firmware update.
+    /// Empty response indicates that the associated node did not respond in time.
+    using Result = std::expected<std::pmr::unordered_map<std::uint16_t, std::optional<Response>>, Error>;
+
+    /// Empty option indicates that the corresponding node did not return a response on time.
+    /// All requests are sent concurrently and the call returns when the last response has arrived,
+    /// or the timeout has expired.
+    virtual Result send_custom_command(const std::span<const std::uint16_t> node_ids,
+                                       const std::uint16_t command,
+                                       const std::string_view parameter = {},
+                                       const std::chrono::microseconds timeout = 1s) = 0;
+
+    /// A convenience method for invoking send_custom_command() with COMMAND_RESTART.
+    Result restart(const std::span<const std::uint16_t> node_ids, const std::chrono::microseconds timeout = 1s)
+    {
+        return send_custom_command(node_ids, 65535, "", timeout);
+    }
+
+    /// A convenience method for invoking send_custom_command() with COMMAND_BEGIN_SOFTWARE_UPDATE.
+    /// The file_path is relative to one of the roots configured in the file server.
+    Result begin_software_update(const std::span<const std::uint16_t> node_ids,
+                                 const std::string_view file_path,
+                                 const std::chrono::microseconds timeout = 1s)
+    {
+        return send_custom_command(node_ids, 65533, file_path, timeout);
+    }
+
+    // TODO: add convenience methods for the other standard commands.
 };
+
+/// A long operation may fail with partial results being available. The conventional approach to error handling
+/// prescribes that the partial results are to be discarded and the error returned. However, said partial
+/// results may occasionally be useful, if only to provide the additional context for the error itself.
+///
+/// This type allows one to model the normal results obtained from querying multiple remote nodes along with
+/// non-exclusive error states both per-node and shared.
+///
+/// One alternative is to pass the output container or a callback as an out-parameter to the method,
+/// so that the method does not return a new container but updates one in-place.
+template <typename PerNodeResult, typename PerNodeError, typename SharedError>
+struct MulticastResult
+{
+    struct PerNode final
+    {
+        PerNodeResult result{};
+        PerNodeError error{};
+    };
+    std::pmr::unordered_map<std::uint16_t, PerNode> result;
+    std::optional<Error> error;
+};
+
+
+template <typename T, typename>
+struct Wrapper { T value; };
+
+using Float16 = Wrapper<float, class Float16Tag>;
+
+/// Here, we should be using fixed-capacity containers instead! Perhaps CETL needs helpers for this.
+/// The "empty" is represented with an optional wrapper.
+using RegisterValue = std::variant<
+    std::pmr::string,
+    std::pmr::vector<std::byte>,
+    std::pmr::vector<bool>,
+
+    std::pmr::vector<std::int64_t>,
+    std::pmr::vector<std::int32_t>,
+    std::pmr::vector<std::int16_t>,
+    std::pmr::vector<std::int8_t>,
+
+    std::pmr::vector<std::uint64_t>,
+    std::pmr::vector<std::uint32_t>,
+    std::pmr::vector<std::uint16_t>,
+    std::pmr::vector<std::uint8_t>,
+
+    std::pmr::vector<cetl::float64_t>,  // Add fixed-width float aliases to CETL (C++23 polyfill)
+    std::pmr::vector<cetl::float32_t>,
+    std::pmr::vector<Float16>,
+>;
+using MaybeRegisterValue = std::optional<RegisterValue>;
 
 /// A helper for manipulating registers on the specified remote nodes.
 class RegisterClient
 {
 public:
-	// TODO: partial results
-	virtual std::expected<
-				std::pmr::unordered_map<std::uint16_t, std::optional<std::pmr::vector<std::pmr::string>>>,
-				Error>
-		list(const std::span<const std::uint16_t> node_ids) = 0;
+    /// This method may return partial results.
+    virtual MulticastResult<std::pmr::vector<std::pmr::string>, Error, Error>
+        list(const std::span<const std::uint16_t> node_ids) = 0;
 
-	// TODO
+    /// Alternative definition of the list method using callbacks instead of partial results.
+    /// The callbacks do not have to be invoked in real-time to simplify the IPC interface;
+    /// instead, they can be postponed until the blocking IPC call is finished.
+    using ListCallback = cetl::function<void(std::uint16_t, const std::expected<std::string_view, Error>), ...>;
+    virtual std::expected<void, Error> list(const std::span<const std::uint16_t> node_ids, const ListCallback& cb) = 0;
+
+    /// This method may return partial results.
+    virtual MulticastResult<std::pmr::unordered_map<std::pmr::string, MaybeRegisterValue>, Error, Error>
+        read(const std::span<const std::uint16_t> node_ids,
+             const std::pmr::vector<std::pmr::string>& names) = 0;
+
+    /// This method may return partial results.
+    virtual MulticastResult<std::pmr::unordered_map<std::pmr::string, MaybeRegisterValue>, Error, Error>
+        write(const std::span<const std::uint16_t> node_ids,
+              const std::pmr::unordered_map<std::pmr::string, RegisterValue>& values) = 0;
+
+    /// Alternative definitions of the read/write methods using callbacks instead of partial results.
+    /// The callbacks do not have to be invoked in real-time to simplify the IPC interface;
+    /// instead, they can be postponed until the blocking IPC call is finished.
+    using ValueCallback = cetl::function<void(std::uint16_t, std::string_view, const std::expected<RegisterValue, Error>), ...>;
+    virtual std::expected<void, Error> read(const std::span<const std::uint16_t> node_ids,
+                                            const std::pmr::vector<std::pmr::string>& names,
+                                            const ValueCallback& cb) = 0;
+    virtual std::expected<void, Error> write(const std::span<const std::uint16_t> node_ids,
+                                             const std::pmr::unordered_map<std::pmr::string, RegisterValue>& values,
+                                             const ValueCallback& cb) = 0;
+
 };
 
 class Monitor
 {
 public:
-	// TODO
+    // TODO
+};
+
+class PnPNodeIDAllocatorController
+{
+public:
+    // TODO: PnP node-ID allocator controls (start/stop, read table, reset table)
 };
 
 /// An abstract factory for the specialized interfaces.
 class Daemon
 {
 public:
-	virtual std::expected<std::unique_ptr<Publisher>, Error> make_publisher(const dsdl::Type& type,
-																	        const std::uint16_t subject_id) = 0;
+    virtual std::expected<std::unique_ptr<Publisher>, Error> make_publisher(const dsdl::Type& type,
+                                                                            const std::uint16_t subject_id) = 0;
 
-	virtual std::expected<std::unique_ptr<Subscriber>, Error> make_subscriber(const dsdl::Type& type,
-																	          const std::uint16_t subject_id) = 0;
+    virtual std::expected<std::unique_ptr<Subscriber>, Error> make_subscriber(const dsdl::Type& type,
+                                                                              const std::uint16_t subject_id) = 0;
 
-	virtual std::expected<std::unique_ptr<RPCClient>, Error> make_client(const dsdl::Type& type,
-																	     const std::uint16_t service_id) = 0;
-	
-	virtual FileServerController& get_file_server_controller() = 0;
+    virtual std::expected<std::unique_ptr<RPCClient>, Error> make_client(const dsdl::Type& type,
+                                                                         const std::uint16_t service_id) = 0;
 
-	virtual NodeCommandClient& get_node_command_client() = 0;
-	
-	virtual RegisterClient& get_register_client() = 0;
-	
-	virtual Monitor& get_monitor() = 0;
-	
-	// TODO: PnP node-ID allocator controls (start/stop, read table, reset table)
+    virtual       FileServerController& get_file_server_controller() = 0;
+    virtual const FileServerController& get_file_server_controller() const = 0;
+
+    virtual NodeCommandClient& get_node_command_client() = 0;
+
+    virtual RegisterClient& get_register_client() = 0;
+
+    virtual       Monitor& get_monitor() = 0;
+    virtual const Monitor& get_monitor() const = 0;
+
+    virtual PnPNodeIDAllocatorController& get_pnp_node_id_allocator_controller() = 0;
 };
 
 /// A factory for the abstract factory that connects to the daemon.
