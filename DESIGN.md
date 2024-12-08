@@ -2,15 +2,15 @@
 
 This project implements a user-facing C++14 library backed by a GNU/Linux daemon used to asynchronously perform certain common operations on an OpenCyphal network. Being based on LibCyphal, the solution can theoretically support all transport protocols supported by LibCyphal, notably Cyphal/UDP and Cyphal/CAN.
 
-The implementation will be carried out in multiple stages. The milestones achieved at every stage are described here along with the overall longer-term vision.
+The implementation is planned to proceed in multiple stages. The milestones achieved at every stage are described here along with the overall longer-term vision.
 
 The design of the C++ API is inspired by the [`ravemodemfactory`](https://github.com/aleksander0m/ravemodemfactory) project (see `src/librmf/rmf-operations.h`).
 
-[Yakut](https://github.com/OpenCyphal/yakut) is a dispantly related project with the following key differences:
+[Yakut](https://github.com/OpenCyphal/yakut) is a distantly related project with the following key differences:
 
 - Yakut is a developer tool, while OCVSMD is a well-packaged component intended for deployment in production systems.
 
-- Yakut is a user-interactive tool with a CLI interface, while OCVSMD is equipped with a machine-friendly interface -- a C++ API. Eventually, OCVSDM may be equipped with a CLI interface as well, but it will always come secondary to the well-formalized C++ API.
+- Yakut is a user-interactive tool with a CLI, while OCVSMD is equipped with a machine-friendly interface -- a C++ API. Eventually, OCVSDM may be equipped with a CLI as well, but it will always come secondary to the well-formalized C++ API.
 
 - Yakut is entirely written in Python, and thus it tends to be resource-heavy when used in embedded computers.
 
@@ -339,7 +339,7 @@ public:
     // TODO: Eventually, we could equip the monitor with snooping support so that we could also obtain:
     //  - Actual traffic per port.
     //  - Update node info and local register cache without sending separate requests.
-    // Yakut does that with the help of the snooping support in PyCyphal, but LibCyphal does not currently has that capability.
+    // Yakut does that with the help of the snooping support in PyCyphal, but LibCyphal does not currently have that capability.
 };
 
 /// Implementation detail: internally, the PnP allocator uses the Monitor because the Monitor continuously
@@ -419,7 +419,7 @@ uavcan.udp.iface        192.168.1.33 192.168.2.33
 
 For the standard register names, refer to <https://github.com/OpenCyphal/public_regulated_data_types/blob/f9f67906cc0ca5d7c1b429924852f6b28f313cbf/uavcan/register/384.Access.1.0.dsdl#L103-L199>.
 
-### CLI interface
+### CLI
 
 TBD
 
@@ -430,7 +430,7 @@ TBD
 Per the design of the OpenCyphal's standard network services, the firmware update process is entirely driven by the node being updated (updatee) rather than the node providing the new firmware file (updater). While it is possible to indirectly infer the progress of the update process by observing the offset of the file reads done by the updatee, this solution is fragile because there is ultimately no guarantee that the updatee will read the file sequentially, or even read it in its entirety. Per the OpenCyphal design, the only relevant parameters of a remote node that can be identified robustly are:
 
 - Whether a firmware update is currently in progress or not.
-- The version numbers, CRC, and VCS ID of the firmare that is currently being executed.
+- The version numbers, CRC, and VCS ID of the firmware that is currently being executed.
 
 The proposed API allows one to commence an update process and wait for its completion as follows:
 
@@ -449,7 +449,7 @@ This milestone includes the very barebones implementation, including only:
 
 - The daemon itself, compatible with System V architecture only. Support for systemd will be introduced in a future milestone.
 - Running a local Cyphal/UDP node. No support for other transports yet.
-- Loading the configuration from the configuration file as defiend above.
+- Loading the configuration from the configuration file as defined above.
 - File server.
 - Node command client.
 
