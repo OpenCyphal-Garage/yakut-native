@@ -94,6 +94,12 @@ Being a daemon designed for unattended operation in deeply-embedded vehicular co
 The API will consist of several well-segregated C++ interfaces, each dedicated to a particular feature subset. The interface-based design is chosen to simplify testing in client applications. The API is intentionally designed to not hide the structure of the Cyphal protocol itself; that is to say that it is intentionally low-level. Higher-level abstractions can be built on top of it on the client side rather than the daemon side to keep the IPC protocol stable. The `Error` type used in the API definition here is a placeholder for the actual algebraic type listing all possible error states per API entity.
 
 ```c++
+#include <uavcan/node/Heartbeat_1.hpp>
+#include <uavcan/node/GetInfo_1.hpp>
+#include <uavcan/node/ExecuteCommand_1.hpp>
+#include <uavcan/_register/Value_1.hpp>
+#include <uavcan/_register/Name_1.hpp>
+
 namespace ocvsmd
 {
 /// The daemon will implicitly instantiate a publisher on the specified port-ID the first time it is requested.
@@ -163,13 +169,8 @@ public:
 class NodeCommandClient
 {
 public:
-    /// TODO: add constants for the response status codes.
-
-    struct Response
-    {
-        std::uint8_t status;
-        std::pmr::string output;
-    };
+    using Request = uavcan::node::ExecuteCommand_1::Request;
+    using Response = uavcan::node::ExecuteCommand_1::Response;
 
     /// Empty response indicates that the associated node did not respond in time.
     using Result = std::expected<std::pmr::unordered_map<std::uint16_t, std::optional<Response>>, Error>;
@@ -178,14 +179,13 @@ public:
     /// All requests are sent concurrently and the call returns when the last response has arrived,
     /// or the timeout has expired.
     virtual Result send_custom_command(const std::span<const std::uint16_t> node_ids,
-                                       const std::uint16_t command,
-                                       const std::string_view parameter = {},
+                                       const Request& request,
                                        const std::chrono::microseconds timeout = 1s) = 0;
 
     /// A convenience method for invoking send_custom_command() with COMMAND_RESTART.
     Result restart(const std::span<const std::uint16_t> node_ids, const std::chrono::microseconds timeout = 1s)
     {
-        return send_custom_command(node_ids, 65535, "", timeout);
+        return send_custom_command(node_ids, {65535, ""}, timeout);
     }
 
     /// A convenience method for invoking send_custom_command() with COMMAND_BEGIN_SOFTWARE_UPDATE.
@@ -194,7 +194,7 @@ public:
                                  const std::string_view file_path,
                                  const std::chrono::microseconds timeout = 1s)
     {
-        return send_custom_command(node_ids, 65533, file_path, timeout);
+        return send_custom_command(node_ids, {65533, file_path}, timeout);
     }
 
     // TODO: add convenience methods for the other standard commands.
@@ -222,69 +222,59 @@ struct MulticastResult
 };
 
 
-template <typename T, typename>
-struct Wrapper { T value; };
-
-using Float16 = Wrapper<float, class Float16Tag>;
-
-/// Here, we should be using fixed-capacity containers instead! Perhaps CETL needs helpers for this.
-/// The "empty" is represented with an optional wrapper.
-using RegisterValue = std::variant<
-    std::pmr::string,
-    std::pmr::vector<std::byte>,
-    std::pmr::vector<bool>,
-
-    std::pmr::vector<std::int64_t>,
-    std::pmr::vector<std::int32_t>,
-    std::pmr::vector<std::int16_t>,
-    std::pmr::vector<std::int8_t>,
-
-    std::pmr::vector<std::uint64_t>,
-    std::pmr::vector<std::uint32_t>,
-    std::pmr::vector<std::uint16_t>,
-    std::pmr::vector<std::uint8_t>,
-
-    std::pmr::vector<cetl::float64_t>,  // Add fixed-width float aliases to CETL (C++23 polyfill)
-    std::pmr::vector<cetl::float32_t>,
-    std::pmr::vector<Float16>,
->;
-using MaybeRegisterValue = std::optional<RegisterValue>;
-
 /// A helper for manipulating registers on the specified remote nodes.
 class RegisterClient
 {
 public:
+    using Name  = uavcan::_register::Name_1;
+    using Value = uavcan::_register::Value_1;
+
     /// This method may return partial results.
-    virtual MulticastResult<std::pmr::vector<std::pmr::string>, Error, Error>
+    virtual MulticastResult<std::pmr::vector<Name>, Error, Error>
         list(const std::span<const std::uint16_t> node_ids) = 0;
 
     /// Alternative definition of the list method using callbacks instead of partial results.
     /// The callbacks do not have to be invoked in real-time to simplify the IPC interface;
     /// instead, they can be postponed until the blocking IPC call is finished.
-    using ListCallback = cetl::function<void(std::uint16_t, const std::expected<std::string_view, Error>), ...>;
+    using ListCallback = cetl::function<void(std::uint16_t, const std::expected<Name, Error>), ...>;
     virtual std::expected<void, Error> list(const std::span<const std::uint16_t> node_ids, const ListCallback& cb) = 0;
 
     /// This method may return partial results.
-    virtual MulticastResult<std::pmr::unordered_map<std::pmr::string, MaybeRegisterValue>, Error, Error>
+    virtual MulticastResult<std::pmr::unordered_map<Name, Value>, Error, Error>
         read(const std::span<const std::uint16_t> node_ids,
-             const std::pmr::vector<std::pmr::string>& names) = 0;
+             const std::pmr::vector<Name>& names) = 0;
 
     /// This method may return partial results.
-    virtual MulticastResult<std::pmr::unordered_map<std::pmr::string, MaybeRegisterValue>, Error, Error>
+    virtual MulticastResult<std::pmr::unordered_map<Name, Value>, Error, Error>
         write(const std::span<const std::uint16_t> node_ids,
-              const std::pmr::unordered_map<std::pmr::string, RegisterValue>& values) = 0;
+              const std::pmr::unordered_map<Name, Value>& values) = 0;
 
     /// Alternative definitions of the read/write methods using callbacks instead of partial results.
     /// The callbacks do not have to be invoked in real-time to simplify the IPC interface;
     /// instead, they can be postponed until the blocking IPC call is finished.
-    using ValueCallback = cetl::function<void(std::uint16_t, std::string_view, const std::expected<RegisterValue, Error>), ...>;
+    using ValueCallback = cetl::function<void(std::uint16_t, const Name&, const std::expected<Value, Error>&), ...>;
     virtual std::expected<void, Error> read(const std::span<const std::uint16_t> node_ids,
-                                            const std::pmr::vector<std::pmr::string>& names,
+                                            const std::pmr::vector<Name>& names,
                                             const ValueCallback& cb) = 0;
     virtual std::expected<void, Error> write(const std::span<const std::uint16_t> node_ids,
-                                             const std::pmr::unordered_map<std::pmr::string, RegisterValue>& values,
+                                             const std::pmr::unordered_map<Name, Value>& values,
                                              const ValueCallback& cb) = 0;
 
+    /// Helper wrappers for the above that operate on a single remote node only.
+    std::tuple<std::pmr::vector<Name>, std::optional<Error>> list(const std::uint16_t node_id)
+    {
+        // non-virtual implementation
+    }
+    std::tuple<std::pmr::unordered_map<Name, Value>, Error>
+        read(const std::uint16_t node_id, const std::pmr::vector<Name>& names)
+    {
+        // non-virtual implementation
+    }
+    std::tuple<std::pmr::unordered_map<Name, Value>, Error>
+        write(const std::uint16_t node_id, const std::pmr::unordered_map<Name, Value>& values)
+    {
+        // non-virtual implementation
+    }
 };
 
 class Monitor
