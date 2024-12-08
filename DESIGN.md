@@ -277,16 +277,90 @@ public:
     }
 };
 
+/// The monitor continuously maintains a list of online nodes in the network.
 class Monitor
 {
 public:
-    // TODO
+    using Heartbeat = uavcan::node::Heartbeat_1;
+    using NodeInfo  = uavcan::node::GetInfo_1::Response;
+
+    /// An avatar represents the latest known state of the remote node.
+    /// The info struct is available only if the node responded to a uavcan.node.GetInfo request since last bootup.
+    /// GetInfo requests are sent continuously until a response is received.
+    /// If heartbeat publications cease, the corresponding node is marked as offline.
+    struct Avatar
+    {
+        std::uint16_t node_id;
+
+        bool is_online;  ///< If not online, the other fields contain the latest known information.
+
+        std::chrono::system_clock::time_point last_heartbeat_at;
+        Heartbeat             last_heartbeat;
+
+        /// The info is automatically reset when the remote node is detected to have restarted.
+        /// It is automatically re-populated as soon as a GetInfo response is received.
+        struct Info final
+        {
+            std::chrono::system_clock::time_point received_at;
+            NodeInfo                              info;
+        };
+        std::optional<Info> info;
+
+        /// The port list is automatically reset when the remote node is detected to have restarted.
+        /// It is automatically re-populated as soon as an update is received.
+        struct PortList final
+        {
+            std::chrono::system_clock::time_point received_at;
+            std::bitset<65536> publishers;
+            std::bitset<65536> subscribers;
+            std::bitset<512>   clients;
+            std::bitset<512>   servers;
+        };
+        std::optional<PortList> port_list;
+    };
+
+    struct Snapshot final
+    {
+        /// If a node appears online at least once, it will be given a slot in the table permanently.
+        /// If it goes offline, it will be retained in the table but it's is_online field will be false.
+        /// The table is ordered by node-ID. Use binary search for fast lookup.
+        std::pmr::vector<Avatar> table;
+        std::tuple<Heartbeat, NodeInfo> daemon;
+        bool has_anonymous;   ///< If any anonymous nodes are online (e.g., someone is trying to get a PnP node-ID allocation)
+    };
+
+    /// Returns a snapshot of the current network state plus the daemon's own node state.
+    virtual Snapshot snap() const = 0;
+
+    // TODO: Eventually, we could equip the monitor with snooping support so that we could also obtain:
+    //  - Actual traffic per port.
+    //  - Update node info and local register cache without sending separate requests.
+    // Yakut does that with the help of the snooping support in PyCyphal, but LibCyphal does not currently has that capability.
 };
 
+/// Implementation detail: internally, the PnP allocator uses the Monitor because the Monitor continuously
+/// maintains the mapping between node-IDs and their unique-IDs. It needs to subscribe to notifications from the
+/// monitor; this is not part of the API though. See pycyphal.application.plug_and_play.Allocator.
 class PnPNodeIDAllocatorController
 {
 public:
-    // TODO: PnP node-ID allocator controls (start/stop, read table, reset table)
+    /// Maps unique-ID <=> node-ID.
+    /// For some node-IDs there may be no unique-ID (at least temporarily until a GetInfo response is received).
+    /// The table includes the daemon's node as well.
+    using UID = std::array<std::uint8_t, 16>;
+    using Entry = std::tuple<std::uint16_t, std::optional<UID>>;
+    using Table = std::pmr::vector<Entry>;
+
+    /// The method is infallible because the corresponding publishers/subscribers are always active;
+    /// when enabled==false, the allocator simply refuses to send responses.
+    virtual void set_enabled(const bool enabled) = 0;
+    virtual bool is_enabled() const = 0;
+
+    /// The allocation table may or may not be persistent (retained across daemon restarts).
+    virtual Table get_table() const = 0;
+
+    /// Forget all allocations; the table will be rebuilt from the Monitor state.
+    virtual void drop_table() = 0;
 };
 
 /// An abstract factory for the specialized interfaces.
@@ -312,7 +386,8 @@ public:
     virtual       Monitor& get_monitor() = 0;
     virtual const Monitor& get_monitor() const = 0;
 
-    virtual PnPNodeIDAllocatorController& get_pnp_node_id_allocator_controller() = 0;
+    virtual       PnPNodeIDAllocatorController& get_pnp_node_id_allocator_controller() = 0;
+    virtual const PnPNodeIDAllocatorController& get_pnp_node_id_allocator_controller() const = 0;
 };
 
 /// A factory for the abstract factory that connects to the daemon.
@@ -320,6 +395,11 @@ public:
 std::unique_ptr<Daemon> connect();
 }
 ```
+
+Normally, the daemon should have a node-ID of its own. It should be possible to run it without one, in the anonymous mode, with limited functionality:
+
+- The Monitor will not be able to query GetInfo.
+- The RegisterClient, PnPNodeIDAllocatorController, FileServerController, NodeCommandClient, etc. will not be operational.
 
 TODO: configuration file format -- tab-separated values; first column contains register name, second column contains the value.
 
