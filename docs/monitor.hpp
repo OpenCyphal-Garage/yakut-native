@@ -11,11 +11,11 @@ public:
     using Heartbeat = uavcan::node::Heartbeat_1;
     using NodeInfo  = uavcan::node::GetInfo_1::Response;
 
-    /// An avatar represents the latest known state of the remote node.
+    /// A shadow represents the latest known state of the remote node.
     /// The info struct is available only if the node responded to a uavcan.node.GetInfo request since last bootup.
     /// GetInfo requests are sent continuously until a response is received.
     /// If heartbeat publications cease, the corresponding node is marked as offline.
-    struct Avatar
+    struct Shadow final
     {
         std::uint16_t node_id;
 
@@ -51,7 +51,7 @@ public:
         /// If a node appears online at least once, it will be given a slot in the table permanently.
         /// If it goes offline, it will be retained in the table but it's is_online field will be false.
         /// The table is ordered by node-ID. Use binary search for fast lookup.
-        std::pmr::vector<Avatar> table;
+        std::pmr::vector<Shadow> table;
         std::tuple<Heartbeat, NodeInfo> daemon;
         bool has_anonymous;   ///< If any anonymous nodes are online (e.g., someone is trying to get a PnP node-ID allocation)
     };

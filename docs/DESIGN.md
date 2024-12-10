@@ -10,11 +10,11 @@ The design of the C++ API is inspired by the [`ravemodemfactory`](https://github
 
 - Yakut is a developer tool, while OCVSMD is a well-packaged component intended for deployment in production systems.
 
-- Yakut is a user-interactive tool with a CLI, while OCVSMD is equipped with a machine-friendly interface -- a C++ API. Eventually, OCVSDM may be equipped with a CLI as well, but it will always come secondary to the well-formalized C++ API.
+- Yakut is a user-interactive tool with a CLI, while OCVSMD is equipped with a machine-friendly interface -- a C++ API. Eventually, OCVSMD may be equipped with a CLI as well, but it will always come secondary to the well-formalized C++ API.
 
-- Yakut is entirely written in Python, and thus it tends to be resource-heavy when used in embedded computers.
+- OCVSMD will be suitable for embedded Linux systems including such systems running on single-core "cross-over" processors.
 
-- Yakut is not designed to be highly robust.
+- OCVSMD will be robust.
 
 ## Long-term vision
 
@@ -30,8 +30,9 @@ OCVSMD is focused on solving problems that are pervasive in intra-vehicular Open
   - Automatic firmware update as implemented in Yakut.
   - Centralized (eventually could be distributed for fault tolerance) plug-and-play node-ID allocation server.
 - Depending on how the named topics project develops (many an intern has despaired over it), the Cyphal resource name server may also be implemented as part of OCVSMD at some point.
+- A possible future node authentication protocol may also be implemented in this project.
 
-Being a daemon designed for unattended operation in deeply-embedded vehicular computers, OCVSMD must meet the following requirements:
+Being a daemon designed for unattended operation in embedded vehicular computers, OCVSMD must meet the following requirements:
 
 - Ability to operate from a read-only filesystem.
 - Startup time much faster than that of Yakut. This should not be an issue for a native application since most of the Yakut startup time is spent on the Python runtime initialization, compilation, and module importing.
@@ -41,7 +42,9 @@ Being a daemon designed for unattended operation in deeply-embedded vehicular co
 
 Dynamic DSDL loading is proposed to be implemented by creating serializer objects whose behavior is defined by the DSDL definition ingested at runtime. The serialization method is to accept a byte stream and to produce a DSDL object model providing named field accessors, similar to what one would find in a JSON serialization library; the deserialization method is the inverse of that. Naturally, said model will heavily utilize PMR for storage. An API mockup is given in `dsdl.hpp`.
 
-One approach assumes that instances of `dsdl::Object` are not exchanged between the client and the daemon; instead, only their serialized representations are transferred between the processes; thus, the entire DSDL support machinery exists in the client's process only. This approach involves certain work duplication between clients, and may impair their ability to start up quickly if DSDL parsing needs to be done. Another approach is to use shared-memory-friendly containers like Boost Interprocess or specialized PMR.
+One approach assumes that instances of `dsdl::Object` are not exchanged between the client and the daemon; instead, only their serialized representations are transferred between the processes; thus, the entire DSDL support machinery exists in the client's process only. This approach involves certain work duplication between clients, and may impair their ability to start up quickly if DSDL parsing needs to be done. Another approach is to use shared-memory-friendly containers, e.g., via specialized PMR.
+
+Irrespective of how the dynamic DSDL loading is implemented, the standard data types located in the `uavcan` namespace will be compiled into both the daemon and the clients, as they are used in the API definition -- more on this below.
 
 ### C++ API
 

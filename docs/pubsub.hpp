@@ -1,7 +1,7 @@
 namespace ocvsmd
 {
 /// The daemon will implicitly instantiate a publisher on the specified port-ID the first time it is requested.
-/// Once instantiated, the published may live on until the daemon process is terminated.
+/// Once instantiated, the publisher may live on until the daemon process is terminated.
 /// Internally, published messages may be transferred to the daemon via an IPC message queue.
 class Publisher
 {
