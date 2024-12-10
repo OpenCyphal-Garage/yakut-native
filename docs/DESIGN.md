@@ -97,6 +97,18 @@ The proposed API allows one to commence an update process and wait for its compl
 
 It is possible to build a convenience method that manages the above steps. Said method will be executed on the client side as opposed the daemon side.
 
+##### Progress monitoring
+
+To enable monitoring the progress of a firmware update process, the following solutions have been considered and rejected:
+
+- Add an additional general-purpose numerical field to `uavcan.node.ExecuteCommand.1` that returns the progress information when an appropriate command (a new standard command) is sent. This is rejected because an RPC-based solution is undesirable.
+
+- Report the progress via `uavcan.node.Heartbeat.1.vendor_specific_status_code`. This is rejected because the VSSC is vendor-specific, so it shouldn't be relied on by the standard.
+
+The plan that is tentatively agreed upon is to define a new standard message with a fixed port-ID for needs of progress reporting. The message will likely be placed in the diagnostics namespace as `uavcan.diagnostic.ProgressReport` with a fixed port-ID of 8183. The `uavcan.node.ExecuteCommand.1` RPC may return a flag indicating if the progress of the freshly launched process will be reported via the new message.
+
+If this message-based approach is chosen, the daemon will subscribe to the message and provide the latest received progress value per node via the monitor interface.
+
 ## Milestone 0
 
 This milestone includes the very barebones implementation, including only:
