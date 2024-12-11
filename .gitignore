@@ -30,3 +30,18 @@
 *.exe
 *.out
 *.app
+
+# Build folders
+**/build/
+**/build_*
+
+# JetBrains
+.idea/*
+cmake-build-*/
+
+# Python
+.venv
+
+# Dumb OS crap
+.DS_Store
+*.bak
