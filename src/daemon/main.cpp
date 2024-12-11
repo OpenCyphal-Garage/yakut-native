@@ -1,13 +1,19 @@
+#include <array>
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <syslog.h>
 #include <unistd.h>
 
 namespace
 {
+
+volatile bool s_running = true;
 
 void fork_and_exit_parent()
 {
@@ -22,6 +28,19 @@ void fork_and_exit_parent()
     if (pid > 0)
     {
         ::exit(EXIT_SUCCESS);
+    }
+}
+
+void handle_signal(const int sig)
+{
+    switch (sig)
+    {
+    case SIGTERM:
+    case SIGINT:
+        s_running = false;
+        break;
+    default:
+        break;
     }
 }
 
@@ -41,29 +60,11 @@ void step_01_close_all_file_descriptors()
     }
 }
 
-void step_02_reset_all_signal_handlers_to_default()
+void step_02_03_setup_signal_handlers()
 {
-    for (int sig = 1; sig < _NSIG; ++sig)
-    {
-        (void) ::signal(sig, SIG_DFL);
-    }
-}
-
-void step_03_reset_signal_mask()
-{
-    sigset_t sigset_all{};
-    if (::sigfillset(&sigset_all) != 0)
-    {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to sigfillset(): " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
-    }
-    if (::sigprocmask(SIG_SETMASK, &sigset_all, nullptr) != 0)
-    {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to sigprocmask(SIG_SETMASK): " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
-    }
+    // Catch termination signals
+    (void) ::signal(SIGTERM, handle_signal);
+    (void) ::signal(SIGINT, handle_signal);
 }
 
 void step_04_sanitize_environment()
@@ -91,17 +92,120 @@ void step_07_08_fork_and_exit_again()
     fork_and_exit_parent();
 }
 
+void step_09_redirect_stdio_to_devnull()
+{
+    const int fd = ::open("/dev/null", O_RDWR);
+    if (fd == -1)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to open(/dev/null): " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
+    }
+
+    ::dup2(fd, STDIN_FILENO);
+    ::dup2(fd, STDOUT_FILENO);
+    ::dup2(fd, STDERR_FILENO);
+
+    if (fd > 2)
+    {
+        ::close(fd);
+    }
+}
+
+void step_10_reset_umask()
+{
+    ::umask(0);
+}
+
+void step_11_change_curr_dir()
+{
+    if (::chdir("/") != 0)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to chdir(/): " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
+    }
+}
+
+void step_12_create_pid_file(const char* const pid_file_name)
+{
+    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);
+    if (fd == -1)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to create on PID file: " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
+    }
+
+    if (::lockf(fd, F_TLOCK, 0) == -1)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to lock PID file: " << err_txt << "\n";
+        ::close(fd);
+        ::exit(EXIT_FAILURE);
+    }
+
+    if (::ftruncate(fd, 0) != 0)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to ftruncate PID file: " << err_txt << "\n";
+        ::close(fd);
+        ::exit(EXIT_FAILURE);
+    }
+
+    std::array<char, 32> buf{};
+    const auto           len = ::snprintf(buf.data(), buf.size(), "%ld\n", static_cast<long>(::getpid()));
+    if (::write(fd, buf.data(), len) != len)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to write to PID file: " << err_txt << "\n";
+        ::close(fd);
+        ::exit(EXIT_FAILURE);
+    }
+
+    // Keep the PID file open until the process exits.
+}
+
+void step_13_drop_privileges()
+{
+    // n the daemon process, drop privileges, if possible and applicable.
+    // TODO: Implement this step.
+}
+
+void step_14_notify_init_complete()
+{
+    // From the daemon process, notify the original process started that initialization is complete. This can be
+    // implemented via an unnamed pipe or similar communication channel that is created before the first fork() and
+    // hence available in both the original and the daemon process.
+    // TODO: Implement this step.
+}
+
+void step_15_exit_org_process()
+{
+    // Call exit() in the original process. The process that invoked the daemon must be able to rely on that this exit()
+    // happens after initialization is complete and all external communication channels are established and accessible.
+    // TODO: Implement this step.
+}
+
 /// Implements the daemonization procedure as described in the `man 7 daemon` manual page.
 ///
 void daemonize()
 {
     step_01_close_all_file_descriptors();
-    step_02_reset_all_signal_handlers_to_default();
-    step_03_reset_signal_mask();
+    step_02_03_setup_signal_handlers();
     step_04_sanitize_environment();
     step_05_fork_to_background();
     step_06_create_new_session();
     step_07_08_fork_and_exit_again();
+    step_09_redirect_stdio_to_devnull();
+    step_10_reset_umask();
+    step_11_change_curr_dir();
+    step_12_create_pid_file("/var/run/ocvsmd.pid");
+    step_13_drop_privileges();
+    step_14_notify_init_complete();
+    step_15_exit_org_process();
+
+    ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
 }
 
 }  // namespace
@@ -112,6 +216,17 @@ int main(const int argc, const char** const argv)
     (void) argv;
 
     daemonize();
+
+    ::syslog(LOG_NOTICE, "ocvsmd daemon started.");
+
+    while (s_running)
+    {
+        // TODO: Insert daemon code here.
+        ::sleep(1);
+    }
+
+    ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");
+    ::closelog();
 
     return EXIT_SUCCESS;
 }
