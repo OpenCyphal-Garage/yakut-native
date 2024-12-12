@@ -11,6 +11,8 @@ project(ocvsmd
         HOMEPAGE_URL https://github.com/OpenCyphal-Garage/opencyphal-vehicle-system-management-daemon
 )
 
+enable_testing()
+
 set(NO_STATIC_ANALYSIS OFF CACHE BOOL "disable static analysis")
 
 set(CMAKE_CXX_STANDARD 14)

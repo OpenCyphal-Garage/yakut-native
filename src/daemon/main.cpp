@@ -11,6 +11,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <signal.h>  // NOLINT *-deprecated-headers for `pid_t` type
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syslog.h>
@@ -19,7 +20,8 @@
 namespace
 {
 
-volatile int s_running = 1;  // NOLINT
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+volatile int s_running = 1;
 
 extern "C" void handle_signal(const int sig)
 {
@@ -100,7 +102,7 @@ void step_07_08_fork_and_exit_again()
 
 void step_09_redirect_stdio_to_devnull()
 {
-    const int fd = ::open("/dev/null", O_RDWR);  // NOLINT
+    const int fd = ::open("/dev/null", O_RDWR);  // NOLINT *-vararg
     if (fd == -1)
     {
         const char* const err_txt = ::strerror(errno);
@@ -135,7 +137,7 @@ void step_11_change_curr_dir()
 
 void step_12_create_pid_file(const char* const pid_file_name)
 {
-    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);  // NOLINT
+    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);  // NOLINT *-vararg
     if (fd == -1)
     {
         const char* const err_txt = ::strerror(errno);
@@ -159,8 +161,9 @@ void step_12_create_pid_file(const char* const pid_file_name)
         ::exit(EXIT_FAILURE);
     }
 
-    std::array<char, 32> buf{};
-    const auto           len = ::snprintf(buf.data(), buf.size(), "%ld\n", static_cast<long>(::getpid()));  // NOLINT
+    constexpr std::size_t             max_pid_str_len = 32;
+    std::array<char, max_pid_str_len> buf{};
+    const auto len = ::snprintf(buf.data(), buf.size(), "%ld\n", static_cast<long>(::getpid()));  // NOLINT *-vararg
     if (::write(fd, buf.data(), len) != len)
     {
         const char* const err_txt = ::strerror(errno);
@@ -223,7 +226,7 @@ int main(const int argc, const char** const argv)
 
     daemonize();
 
-    ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT
+    ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT *-vararg
 
     while (s_running == 1)
     {
@@ -231,7 +234,7 @@ int main(const int argc, const char** const argv)
         ::sleep(1);
     }
 
-    ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT
+    ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT *-vararg
     ::closelog();
 
     return EXIT_SUCCESS;
