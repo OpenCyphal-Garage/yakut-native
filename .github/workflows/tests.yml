@@ -40,7 +40,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{github.job}}
+          name: ${{github.job}}_debug_${{matrix.toolchain}}
           path: ${{github.workspace}}/**/*
           retention-days: 2
 
@@ -78,7 +78,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{github.job}}
+          name: ${{github.job}}_optimizations_${{matrix.toolchain}}_${{matrix.build_type}}
           path: ${{github.workspace}}/**/*
           retention-days: 2
 
