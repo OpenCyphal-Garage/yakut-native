@@ -30,9 +30,7 @@ jobs:
           cmake
           -B ${{ github.workspace }}/build
           -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_COMPILER=${{ matrix.c-compiler }}
           -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
-          ocvsmd
       - working-directory: ${{github.workspace}}/build
         run: |
           make VERBOSE=1
@@ -40,7 +38,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{github.job}}_debug_${{matrix.toolchain}}
+          name: ${{github.job}}_${{matrix.toolchain}}
           path: ${{github.workspace}}/**/*
           retention-days: 2
 
@@ -67,10 +65,8 @@ jobs:
           cmake
           -B ${{ github.workspace }}/build
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -DCMAKE_C_COMPILER=${{ matrix.c-compiler }}
           -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
           -DNO_STATIC_ANALYSIS=1
-          ocvsmd
       - working-directory: ${{github.workspace}}/build
         run: |
           make VERBOSE=1
@@ -78,7 +74,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{github.job}}_optimizations_${{matrix.toolchain}}_${{matrix.build_type}}
+          name: ${{github.job}}_${{matrix.toolchain}}_${{matrix.build_type}}
           path: ${{github.workspace}}/**/*
           retention-days: 2
 
