@@ -4,6 +4,7 @@
 //
 
 #include <array>
+#include <cassert>
 #include <cerrno>
 #include <csignal>
 #include <cstdio>
@@ -36,23 +37,7 @@ extern "C" void handle_signal(const int sig)
     }
 }
 
-void fork_and_exit_parent()
-{
-    // Fork off the parent process
-    const pid_t pid = fork();
-    if (pid < 0)
-    {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to fork: " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
-    }
-    if (pid > 0)
-    {
-        ::exit(EXIT_SUCCESS);
-    }
-}
-
-void step_01_close_all_file_descriptors()
+void step_01_close_all_file_descriptors(std::array<int, 2>& pipe_fds)
 {
     rlimit rlimit_files{};
     if (getrlimit(RLIMIT_NOFILE, &rlimit_files) != 0)
@@ -65,6 +50,15 @@ void step_01_close_all_file_descriptors()
     for (int fd = first_fd_to_close; fd <= rlimit_files.rlim_max; ++fd)
     {
         (void) ::close(fd);
+    }
+
+    // Create a pipe to communicate with the original process.
+    //
+    if (::pipe(pipe_fds.data()) == -1)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to create pipe: " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
     }
 }
 
@@ -80,9 +74,31 @@ void step_04_sanitize_environment()
     // TODO: Implement this step.
 }
 
-void step_05_fork_to_background()
+bool step_05_fork_to_background(std::array<int, 2>& pipe_fds)
 {
-    fork_and_exit_parent();
+    // Fork off the parent process
+    const pid_t parent_pid = fork();
+    if (parent_pid < 0)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to fork: " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
+    }
+
+    if (parent_pid == 0)
+    {
+        // Close read end on the child side.
+        ::close(pipe_fds[0]);
+        pipe_fds[0] = -1;
+    }
+    else
+    {
+        // Close write end on the parent side.
+        ::close(pipe_fds[1]);
+        pipe_fds[1] = -1;
+    }
+
+    return parent_pid == 0;
 }
 
 void step_06_create_new_session()
@@ -95,9 +111,24 @@ void step_06_create_new_session()
     }
 }
 
-void step_07_08_fork_and_exit_again()
+void step_07_08_fork_and_exit_again(int& pipe_write_fd)
 {
-    fork_and_exit_parent();
+    assert(pipe_write_fd != -1);
+
+    // Fork off the parent process
+    const pid_t pid = fork();
+    if (pid < 0)
+    {
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to fork: " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
+    }
+    if (pid > 0)
+    {
+        ::close(pipe_write_fd);
+        pipe_write_fd = -1;
+        ::exit(EXIT_SUCCESS);
+    }
 }
 
 void step_09_redirect_stdio_to_devnull()
@@ -181,38 +212,67 @@ void step_13_drop_privileges()
     // TODO: Implement this step.
 }
 
-void step_14_notify_init_complete()
+void step_14_notify_init_complete(int& pipe_write_fd)
 {
+    assert(pipe_write_fd != -1);
+
     // From the daemon process, notify the original process started that initialization is complete. This can be
     // implemented via an unnamed pipe or similar communication channel that is created before the first fork() and
     // hence available in both the original and the daemon process.
-    // TODO: Implement this step.
+
+    // Closing the writing end of the pipe will signal the original process that the daemon is ready.
+    ::close(pipe_write_fd);
+    pipe_write_fd = -1;
 }
 
-void step_15_exit_org_process()
+void step_15_exit_org_process(int& pipe_read_fd)
 {
     // Call exit() in the original process. The process that invoked the daemon must be able to rely on that this exit()
     // happens after initialization is complete and all external communication channels are established and accessible.
-    // TODO: Implement this step.
+
+    constexpr std::size_t      buf_size = 16;
+    std::array<char, buf_size> buf{};
+    if (::read(pipe_read_fd, buf.data(), buf.size()) > 0)
+    {
+        std::cout << "Child has finished initialization.\n";
+    }
+    ::close(pipe_read_fd);
+    pipe_read_fd = -1;
+    ::exit(EXIT_SUCCESS);
 }
 
 /// Implements the daemonization procedure as described in the `man 7 daemon` manual page.
 ///
 void daemonize()
 {
-    step_01_close_all_file_descriptors();
+    std::array<int, 2> pipe_fds{-1, -1};
+
+    step_01_close_all_file_descriptors(pipe_fds);
     step_02_03_setup_signal_handlers();
     step_04_sanitize_environment();
-    step_05_fork_to_background();
-    step_06_create_new_session();
-    step_07_08_fork_and_exit_again();
-    step_09_redirect_stdio_to_devnull();
-    step_10_reset_umask();
-    step_11_change_curr_dir();
-    step_12_create_pid_file("/var/run/ocvsmd.pid");
-    step_13_drop_privileges();
-    step_14_notify_init_complete();
-    step_15_exit_org_process();
+    if (step_05_fork_to_background(pipe_fds))
+    {
+        // Child process.
+        assert(pipe_fds[0] == -1);
+        assert(pipe_fds[1] != -1);
+
+        step_06_create_new_session();
+        step_07_08_fork_and_exit_again(pipe_fds[1]);
+        step_09_redirect_stdio_to_devnull();
+        step_10_reset_umask();
+        step_11_change_curr_dir();
+        step_12_create_pid_file("/var/run/ocvsmd.pid");
+        step_13_drop_privileges();
+        step_14_notify_init_complete(pipe_fds[1]);
+    }
+    else
+    {
+        // Original parent process.
+        assert(pipe_fds[0] != -1);
+        assert(pipe_fds[1] == -1);
+
+        step_15_exit_org_process(pipe_fds[0]);
+    }
 
     ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
 }

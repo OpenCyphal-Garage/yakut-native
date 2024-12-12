@@ -31,5 +31,6 @@ sudo update-rc.d ocvsmd defaults
 ```
 sudo /etc/init.d/ocvsmd start
 sudo /etc/init.d/ocvsmd status
+sudo /etc/init.d/ocvsmd restart
 sudo /etc/init.d/ocvsmd stop
 ```
