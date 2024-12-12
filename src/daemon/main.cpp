@@ -21,6 +21,8 @@
 namespace
 {
 
+const auto* const s_init_complete = "init_complete";
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile int s_running = 1;
 
@@ -35,6 +37,14 @@ extern "C" void handle_signal(const int sig)
     default:
         break;
     }
+}
+
+void exit_with_failure(const int fd, const char* const msg)
+{
+    const char* const err_txt = strerror(errno);
+    ::write(fd, msg, strlen(msg));
+    ::write(fd, err_txt, strlen(err_txt));
+    ::exit(EXIT_FAILURE);
 }
 
 void step_01_close_all_file_descriptors(std::array<int, 2>& pipe_fds)
@@ -101,13 +111,11 @@ bool step_05_fork_to_background(std::array<int, 2>& pipe_fds)
     return parent_pid == 0;
 }
 
-void step_06_create_new_session()
+void step_06_create_new_session(const int pipe_write_fd)
 {
     if (::setsid() < 0)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to setsid: " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to setsid: ");
     }
 }
 
@@ -119,9 +127,7 @@ void step_07_08_fork_and_exit_again(int& pipe_write_fd)
     const pid_t pid = fork();
     if (pid < 0)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to fork: " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to fork: ");
     }
     if (pid > 0)
     {
@@ -131,14 +137,12 @@ void step_07_08_fork_and_exit_again(int& pipe_write_fd)
     }
 }
 
-void step_09_redirect_stdio_to_devnull()
+void step_09_redirect_stdio_to_devnull(const int pipe_write_fd)
 {
     const int fd = ::open("/dev/null", O_RDWR);  // NOLINT *-vararg
     if (fd == -1)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to open(/dev/null): " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to open(/dev/null): ");
     }
 
     ::dup2(fd, STDIN_FILENO);
@@ -156,40 +160,30 @@ void step_10_reset_umask()
     ::umask(0);
 }
 
-void step_11_change_curr_dir()
+void step_11_change_curr_dir(const int pipe_write_fd)
 {
     if (::chdir("/") != 0)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to chdir(/): " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to chdir(/): ");
     }
 }
 
-void step_12_create_pid_file(const char* const pid_file_name)
+void step_12_create_pid_file(const int pipe_write_fd, const char* const pid_file_name)
 {
     const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);  // NOLINT *-vararg
     if (fd == -1)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to create on PID file: " << err_txt << "\n";
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to create on PID file: ");
     }
 
     if (::lockf(fd, F_TLOCK, 0) == -1)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to lock PID file: " << err_txt << "\n";
-        ::close(fd);
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to lock PID file: ");
     }
 
     if (::ftruncate(fd, 0) != 0)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to ftruncate PID file: " << err_txt << "\n";
-        ::close(fd);
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to ftruncate PID file: ");
     }
 
     constexpr std::size_t             max_pid_str_len = 32;
@@ -197,10 +191,7 @@ void step_12_create_pid_file(const char* const pid_file_name)
     const auto len = ::snprintf(buf.data(), buf.size(), "%ld\n", static_cast<long>(::getpid()));  // NOLINT *-vararg
     if (::write(fd, buf.data(), len) != len)
     {
-        const char* const err_txt = ::strerror(errno);
-        std::cerr << "Failed to write to PID file: " << err_txt << "\n";
-        ::close(fd);
-        ::exit(EXIT_FAILURE);
+        exit_with_failure(pipe_write_fd, "Failed to write to PID file: ");
     }
 
     // Keep the PID file open until the process exits.
@@ -217,10 +208,11 @@ void step_14_notify_init_complete(int& pipe_write_fd)
     assert(pipe_write_fd != -1);
 
     // From the daemon process, notify the original process started that initialization is complete. This can be
-    // implemented via an unnamed pipe or similar communication channel that is created before the first fork() and
+    // implemented via an unnamed pipe or similar communication channel created before the first fork() and
     // hence available in both the original and the daemon process.
 
     // Closing the writing end of the pipe will signal the original process that the daemon is ready.
+    (void) ::write(pipe_write_fd, s_init_complete, strlen(s_init_complete));
     ::close(pipe_write_fd);
     pipe_write_fd = -1;
 }
@@ -230,12 +222,22 @@ void step_15_exit_org_process(int& pipe_read_fd)
     // Call exit() in the original process. The process that invoked the daemon must be able to rely on that this exit()
     // happens after initialization is complete and all external communication channels are established and accessible.
 
-    constexpr std::size_t      buf_size = 16;
-    std::array<char, buf_size> buf{};
-    if (::read(pipe_read_fd, buf.data(), buf.size()) > 0)
+    constexpr std::size_t      buf_size = 256;
+    std::array<char, buf_size> msg_from_child{};
+    const auto                 res = ::read(pipe_read_fd, msg_from_child.data(), msg_from_child.size() - 1);
+    if (res == -1)
     {
-        std::cout << "Child has finished initialization.\n";
+        const char* const err_txt = ::strerror(errno);
+        std::cerr << "Failed to read pipe: " << err_txt << "\n";
+        ::exit(EXIT_FAILURE);
     }
+
+    if (::strcmp(msg_from_child.data(), s_init_complete) != 0)
+    {
+        std::cerr << "Child init failed: " << msg_from_child.data() << "\n";
+        ::exit(EXIT_FAILURE);
+    }
+
     ::close(pipe_read_fd);
     pipe_read_fd = -1;
     ::exit(EXIT_SUCCESS);
@@ -255,23 +257,25 @@ void daemonize()
         // Child process.
         assert(pipe_fds[0] == -1);
         assert(pipe_fds[1] != -1);
+        auto& pipe_write_fd = pipe_fds[1];
 
-        step_06_create_new_session();
-        step_07_08_fork_and_exit_again(pipe_fds[1]);
-        step_09_redirect_stdio_to_devnull();
+        step_06_create_new_session(pipe_write_fd);
+        step_07_08_fork_and_exit_again(pipe_write_fd);
+        step_09_redirect_stdio_to_devnull(pipe_write_fd);
         step_10_reset_umask();
-        step_11_change_curr_dir();
-        step_12_create_pid_file("/var/run/ocvsmd.pid");
+        step_11_change_curr_dir(pipe_write_fd);
+        step_12_create_pid_file(pipe_write_fd, "/var/run/ocvsmd.pid");
         step_13_drop_privileges();
-        step_14_notify_init_complete(pipe_fds[1]);
+        step_14_notify_init_complete(pipe_write_fd);
     }
     else
     {
         // Original parent process.
         assert(pipe_fds[0] != -1);
         assert(pipe_fds[1] == -1);
+        auto& pipe_read_fd = pipe_fds[0];
 
-        step_15_exit_org_process(pipe_fds[0]);
+        step_15_exit_org_process(pipe_read_fd);
     }
 
     ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);

@@ -20,8 +20,14 @@ case "$1" in
             echo "$DAEMON_NAME is already running."
             exit 1
         fi
-        start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON_PATH
-        echo "$DAEMON_NAME started."
+        start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON_PATH
+        ret=$?
+        if [ $ret -eq 0 ]; then
+            echo "$DAEMON_NAME started."
+        else
+            echo "$DAEMON_NAME failed with exit code $ret"
+            exit 1
+        fi
         ;;
     stop)
         echo "Stopping $DAEMON_NAME..."
