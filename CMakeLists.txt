@@ -6,7 +6,6 @@
 cmake_minimum_required(VERSION 3.22.0)
 
 project(ocvsmd
-        VERSION ${OCVSMD_VERSION}
         LANGUAGES CXX
         HOMEPAGE_URL https://github.com/OpenCyphal-Garage/opencyphal-vehicle-system-management-daemon
 )
