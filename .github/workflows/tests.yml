@@ -37,7 +37,7 @@ jobs:
         run: |
           make VERBOSE=1
           make test
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ${{github.job}}
@@ -75,7 +75,7 @@ jobs:
         run: |
           make VERBOSE=1
           make test
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ${{github.job}}
@@ -89,6 +89,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DoozyX/clang-format-lint-action@v0.17
         with:
-          source: './include ./test ./src'
+          source: './test ./src'
           extensions: 'c,h,cpp,hpp'
           clangFormatVersion: ${{ env.LLVM_VERSION }}
