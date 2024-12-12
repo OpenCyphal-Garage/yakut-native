@@ -1,19 +1,33 @@
 #include <array>
 #include <cerrno>
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <syslog.h>
+#include <sys/syslog.h>
 #include <unistd.h>
 
 namespace
 {
 
-volatile bool s_running = true;
+volatile int s_running = 1;  // NOLINT
+
+extern "C" void handle_signal(const int sig)
+{
+    switch (sig)
+    {
+    case SIGTERM:
+    case SIGINT:
+        s_running = 0;
+        break;
+    default:
+        break;
+    }
+}
 
 void fork_and_exit_parent()
 {
@@ -28,19 +42,6 @@ void fork_and_exit_parent()
     if (pid > 0)
     {
         ::exit(EXIT_SUCCESS);
-    }
-}
-
-void handle_signal(const int sig)
-{
-    switch (sig)
-    {
-    case SIGTERM:
-    case SIGINT:
-        s_running = false;
-        break;
-    default:
-        break;
     }
 }
 
@@ -94,7 +95,7 @@ void step_07_08_fork_and_exit_again()
 
 void step_09_redirect_stdio_to_devnull()
 {
-    const int fd = ::open("/dev/null", O_RDWR);
+    const int fd = ::open("/dev/null", O_RDWR);  // NOLINT
     if (fd == -1)
     {
         const char* const err_txt = ::strerror(errno);
@@ -129,7 +130,7 @@ void step_11_change_curr_dir()
 
 void step_12_create_pid_file(const char* const pid_file_name)
 {
-    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);
+    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);  // NOLINT
     if (fd == -1)
     {
         const char* const err_txt = ::strerror(errno);
@@ -154,7 +155,7 @@ void step_12_create_pid_file(const char* const pid_file_name)
     }
 
     std::array<char, 32> buf{};
-    const auto           len = ::snprintf(buf.data(), buf.size(), "%ld\n", static_cast<long>(::getpid()));
+    const auto           len = ::snprintf(buf.data(), buf.size(), "%ld\n", static_cast<long>(::getpid()));  // NOLINT
     if (::write(fd, buf.data(), len) != len)
     {
         const char* const err_txt = ::strerror(errno);
@@ -217,15 +218,15 @@ int main(const int argc, const char** const argv)
 
     daemonize();
 
-    ::syslog(LOG_NOTICE, "ocvsmd daemon started.");
+    ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT
 
-    while (s_running)
+    while (s_running == 1)
     {
         // TODO: Insert daemon code here.
         ::sleep(1);
     }
 
-    ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");
+    ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT
     ::closelog();
 
     return EXIT_SUCCESS;
