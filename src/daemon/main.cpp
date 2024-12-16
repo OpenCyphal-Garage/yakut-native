@@ -39,11 +39,17 @@ extern "C" void handle_signal(const int sig)
     }
 }
 
+bool write_string(const int fd, const char* const str)
+{
+    const auto str_len = strlen(str);
+    return str_len == ::write(fd, str, str_len);
+}
+
 void exit_with_failure(const int fd, const char* const msg)
 {
     const char* const err_txt = strerror(errno);
-    ::write(fd, msg, strlen(msg));
-    ::write(fd, err_txt, strlen(err_txt));
+    write_string(fd, msg);
+    write_string(fd, err_txt);
     ::exit(EXIT_FAILURE);
 }
 
@@ -168,9 +174,9 @@ void step_11_change_curr_dir(const int pipe_write_fd)
     }
 }
 
-void step_12_create_pid_file(const int pipe_write_fd, const char* const pid_file_name)
+void step_12_create_pid_file(const int pipe_write_fd)
 {
-    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);  // NOLINT *-vararg
+    const int fd = ::open("/var/run/ocvsmd.pid", O_RDWR | O_CREAT, 0644);  // NOLINT *-vararg
     if (fd == -1)
     {
         exit_with_failure(pipe_write_fd, "Failed to create on PID file: ");
@@ -212,7 +218,7 @@ void step_14_notify_init_complete(int& pipe_write_fd)
     // hence available in both the original and the daemon process.
 
     // Closing the writing end of the pipe will signal the original process that the daemon is ready.
-    (void) ::write(pipe_write_fd, s_init_complete, strlen(s_init_complete));
+    write_string(pipe_write_fd, s_init_complete);
     ::close(pipe_write_fd);
     pipe_write_fd = -1;
 }
@@ -264,7 +270,7 @@ void daemonize()
         step_09_redirect_stdio_to_devnull(pipe_write_fd);
         step_10_reset_umask();
         step_11_change_curr_dir(pipe_write_fd);
-        step_12_create_pid_file(pipe_write_fd, "/var/run/ocvsmd.pid");
+        step_12_create_pid_file(pipe_write_fd);
         step_13_drop_privileges();
         step_14_notify_init_complete(pipe_write_fd);
     }
@@ -277,19 +283,27 @@ void daemonize()
 
         step_15_exit_org_process(pipe_read_fd);
     }
-
-    ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
 }
 
 }  // namespace
 
 int main(const int argc, const char** const argv)
 {
-    (void) argc;
-    (void) argv;
+    bool is_dev = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        if (::strcmp(argv[i], "--dev") == 0)  // NOLINT
+        {
+            is_dev = true;
+        }
+    }
 
-    daemonize();
+    if (!is_dev)
+    {
+        daemonize();
+    }
 
+    ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
     ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT *-vararg
 
     while (s_running == 1)
