@@ -1,32 +1,14 @@
-# Prerequisites
-*.d
+# Build folders
+**/build/
+**/build_*
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# JetBrains
+.idea/*
+cmake-build-*/
 
-# Precompiled Headers
-*.gch
-*.pch
+# Python
+.venv
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Dumb OS crap
+.DS_Store
+*.bak
