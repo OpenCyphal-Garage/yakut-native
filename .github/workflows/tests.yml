@@ -18,6 +18,8 @@ jobs:
             cxx-compiler: clang++
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -58,6 +60,8 @@ jobs:
             cxx-compiler: clang++
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - run: |
           sudo apt update -y && sudo apt upgrade -y
           sudo apt install gcc-multilib g++-multilib
