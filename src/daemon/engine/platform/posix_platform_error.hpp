@@ -6,7 +6,6 @@
 #ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
 
-
 #include <cetl/cetl.hpp>
 #include <libcyphal/transport/errors.hpp>
 
