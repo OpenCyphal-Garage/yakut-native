@@ -1,0 +1,20 @@
+[submodule "submodules/libcyphal"]
+	path = submodules/libcyphal
+	url = https://github.com/OpenCyphal-Garage/libcyphal.git
+[submodule "submodules/libudpard"]
+	path = submodules/libudpard
+	url = https://github.com/OpenCyphal/libudpard
+	branch = v2
+[submodule "submodules/nunavut"]
+	path = submodules/nunavut
+	url = https://github.com/OpenCyphal/nunavut.git
+	branch = 3.0.preview
+[submodule "submodules/pydsdl"]
+	path = submodules/pydsdl
+	url = https://github.com/OpenCyphal/pydsdl.git
+[submodule "submodules/public_regulated_data_types"]
+	path = submodules/public_regulated_data_types
+	url = https://github.com/UAVCAN/public_regulated_data_types
+[submodule "submodules/cetl"]
+	path = submodules/cetl
+	url = https://github.com/OpenCyphal/CETL.git
