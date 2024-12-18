@@ -47,8 +47,10 @@ target_link_libraries(ocvsmd_engine
 )
 target_include_directories(ocvsmd_engine
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-        SYSTEM PUBLIC ${submodules_dir}/cetl/include
-        SYSTEM PUBLIC ${submodules_dir}/libcyphal/include
+)
+target_include_directories(ocvsmd_engine SYSTEM
+        PUBLIC ${submodules_dir}/cetl/include
+        PUBLIC ${submodules_dir}/libcyphal/include
 )
 add_dependencies(ocvsmd_engine
         ${dsdl_transpiled_headers}
