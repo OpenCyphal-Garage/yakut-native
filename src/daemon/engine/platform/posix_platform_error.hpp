@@ -19,8 +19,6 @@ namespace engine
 {
 namespace platform
 {
-namespace posix
-{
 
 class PosixPlatformError final : public libcyphal::transport::IPlatformError
 {
@@ -48,7 +46,6 @@ private:
 
 };  // PosixPlatformError
 
-}  // namespace posix
 }  // namespace platform
 }  // namespace engine
 }  // namespace daemon

@@ -6,6 +6,7 @@
 #ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <libcyphal/executor.hpp>

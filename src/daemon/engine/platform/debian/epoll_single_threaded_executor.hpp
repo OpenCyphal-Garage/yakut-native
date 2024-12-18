@@ -103,7 +103,7 @@ public:
         if (epoll_result < 0)
         {
             const auto err = errno;
-            return libcyphal::transport::PlatformError{posix::PosixPlatformError{err}};
+            return libcyphal::transport::PlatformError{PosixPlatformError{err}};
         }
         if (epoll_result == 0)
         {
@@ -251,7 +251,7 @@ private:
     int         epollfd_;
     std::size_t total_awaitables_;
 
-};  // LinuxSingleThreadedExecutor
+};  // EpollSingleThreadedExecutor
 
 }  // namespace debian
 }  // namespace platform
