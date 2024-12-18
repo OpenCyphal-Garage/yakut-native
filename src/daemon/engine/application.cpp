@@ -60,7 +60,7 @@ cetl::optional<std::string> Application::init()
     return cetl::nullopt;
 }
 
-void Application::runWith(const std::function<bool()>& loop_predicate)
+void Application::runWhile(const std::function<bool()>& loop_predicate)
 {
     using std::chrono_literals::operator""s;
 
@@ -74,7 +74,12 @@ void Application::runWith(const std::function<bool()>& loop_predicate)
         {
             timeout = std::min(timeout, spin_result.next_exec_time.value() - executor_.now());
         }
-        (void) executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout));
+
+        // TODO: Don't ignore polling failures; come up with a strategy to handle them.
+        // Probably we should log it, break the loop,
+        // and exit with a failure code (b/c it is a critical and unexpected error).
+        auto maybe_poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout));
+        (void) maybe_poll_failure;
     }
 }
 

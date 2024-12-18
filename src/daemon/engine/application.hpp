@@ -30,7 +30,7 @@ class Application
 {
 public:
     CETL_NODISCARD cetl::optional<std::string> init();
-    void                                       runWith(const std::function<bool()>& loop_predicate);
+    void                                       runWhile(const std::function<bool()>& loop_predicate);
 
 private:
     using UniqueId = uavcan::node::GetInfo::Response_1_0::_traits_::TypeOf::unique_id;

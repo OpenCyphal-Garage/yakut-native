@@ -5,8 +5,6 @@
 
 #include "engine/application.hpp"
 
-#include <cetl/pf17/cetlpf.hpp>
-
 #include <array>
 #include <cassert>
 #include <cerrno>
@@ -15,7 +13,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
-#include <functional>
 #include <iostream>
 #include <string>
 #include <sys/resource.h>
@@ -256,7 +253,7 @@ void step_15_exit_org_process(int& pipe_read_fd)
 
 /// Implements the daemonization procedure as described in the `man 7 daemon` manual page.
 ///
-void daemonizeWith(const std::function<cetl::optional<std::string>()>& app_initializer)
+int daemonize()
 {
     std::array<int, 2> pipe_fds{-1, -1};
 
@@ -277,23 +274,19 @@ void daemonizeWith(const std::function<cetl::optional<std::string>()>& app_initi
         step_11_change_curr_dir(pipe_write_fd);
         step_12_create_pid_file(pipe_write_fd);
         step_13_drop_privileges();
-        if (const auto failure_str = app_initializer())
-        {
-            write_string(pipe_write_fd, "Failed to init application: ");
-            write_string(pipe_write_fd, failure_str.value().c_str());
-            ::exit(EXIT_FAILURE);
-        }
-        step_14_notify_init_complete(pipe_write_fd);
-    }
-    else
-    {
-        // Original parent process.
-        assert(pipe_fds[0] != -1);
-        assert(pipe_fds[1] == -1);
-        auto& pipe_read_fd = pipe_fds[0];
 
-        step_15_exit_org_process(pipe_read_fd);
+        // `step_14_notify_init_complete(pipe_write_fd);` will be called by the main
+        // when the application has been successfully initialized.
+        return pipe_write_fd;
     }
+
+    // Original parent process.
+    assert(pipe_fds[0] != -1);
+    assert(pipe_fds[1] == -1);
+    auto& pipe_read_fd = pipe_fds[0];
+
+    step_15_exit_org_process(pipe_read_fd);
+    return -1;  // Unreachable actually b/c of `::exit` call.
 }
 
 }  // namespace
@@ -302,37 +295,40 @@ int main(const int argc, const char** const argv)
 {
     using ocvsmd::daemon::engine::Application;
 
-    bool is_dev = false;
+    bool should_daemonize = true;
     for (int i = 1; i < argc; ++i)
     {
         if (::strcmp(argv[i], "--dev") == 0)  // NOLINT
         {
-            is_dev = true;
+            should_daemonize = false;
         }
     }
 
-    Application application;
-    if (!is_dev)
+    // If daemonizing is disabled (in dev mode) then use the standard error output for reporting,
+    // otherwise use the pipe to communicate with the parent process.
+    int pipe_write_fd = 2;
+    if (should_daemonize)
     {
-        daemonizeWith([&application] {
-            //
-            return application.init();
-        });
+        pipe_write_fd = daemonize();
+        // We are in a child process now!
     }
-    else
+
+    Application application;
+    if (const auto failure_str = application.init())
     {
-        if (const auto failure_str = application.init())
-        {
-            write_string(2, "Failed to init application: ");
-            write_string(2, failure_str.value().c_str());
-            ::exit(EXIT_FAILURE);
-        }
+        write_string(pipe_write_fd, "Failed to init application: ");
+        write_string(pipe_write_fd, failure_str.value().c_str());
+        ::exit(EXIT_FAILURE);
+    }
+    if (should_daemonize)
+    {
+        step_14_notify_init_complete(pipe_write_fd);
     }
 
     ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
     ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT *-vararg
 
-    application.runWith([] { return s_running == 1; });
+    application.runWhile([] { return s_running == 1; });
 
     ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT *-vararg
     ::closelog();

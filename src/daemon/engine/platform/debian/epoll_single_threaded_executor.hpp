@@ -9,6 +9,7 @@
 #include "platform/posix_executor_extension.hpp"
 #include "platform/posix_platform_error.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <cetl/visit_helpers.hpp>
@@ -68,7 +69,8 @@ public:
 
     using PollFailure = cetl::variant<libcyphal::transport::PlatformError, libcyphal::ArgumentError>;
 
-    cetl::optional<PollFailure> pollAwaitableResourcesFor(const cetl::optional<libcyphal::Duration> timeout) const
+    CETL_NODISCARD cetl::optional<PollFailure> pollAwaitableResourcesFor(
+        const cetl::optional<libcyphal::Duration> timeout) const
     {
         CETL_DEBUG_ASSERT((total_awaitables_ > 0) || timeout,
                           "Infinite timeout without awaitables means that we will sleep forever.");
