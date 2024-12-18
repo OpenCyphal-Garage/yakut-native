@@ -25,7 +25,7 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh $LLVM_VERSION
           sudo apt update -y && sudo apt upgrade -y
-          sudo apt-get -y install gcc-multilib g++-multilib clang-tidy-$LLVM_VERSION
+          sudo apt-get -y install gcc-multilib g++-multilib ninja-build clang-tidy-$LLVM_VERSION
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 50
           clang-tidy --version
       - run: |
@@ -58,7 +58,7 @@ jobs:
           submodules: recursive
       - run: |
           sudo apt update -y && sudo apt upgrade -y
-          sudo apt install gcc-multilib g++-multilib
+          sudo apt install gcc-multilib g++-multilib ninja-build 
       - run: |
           cmake --preset OCVSMD-Debian
           cmake --build --preset OCVSMD-Debian-Release -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
