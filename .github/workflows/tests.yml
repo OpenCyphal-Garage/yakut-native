@@ -28,7 +28,7 @@ jobs:
           sudo apt-get -y install gcc-multilib g++-multilib clang-tidy-$LLVM_VERSION
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 50
           clang-tidy --version
-      - run: >
+      - run: |
           cmake --preset OCVSMD-Debian
           cmake --build --preset OCVSMD-Debian-Debug -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
       - uses: actions/upload-artifact@v4
@@ -59,7 +59,7 @@ jobs:
       - run: |
           sudo apt update -y && sudo apt upgrade -y
           sudo apt install gcc-multilib g++-multilib
-      - run: >
+      - run: |
           cmake --preset OCVSMD-Debian
           cmake --build --preset OCVSMD-Debian-Release -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
       - uses: actions/upload-artifact@v4

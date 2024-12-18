@@ -1,8 +1,8 @@
 {
-  "version": 7,
+  "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 27,
+    "minor": 25,
     "patch": 0
   },
   "configurePresets": [
@@ -76,20 +76,10 @@
   ],
   "buildPresets": [
     {
-      "name": "OCVSMD-Darwin-Release",
-      "displayName": "Darwin Linux OCVSMD (Release)",
-      "description": "Builds OCVSMD for MacOS",
-      "configurePreset": "OCVSMD-Darwin",
-      "configuration": "Release",
-      "targets": [
-        "ocvsmd"
-      ]
-    },
-    {
-      "name": "OCVSMD-Darwin-Debug",
-      "displayName": "Darwin Linux OCVSMD (Debug)",
-      "description": "Builds OCVSMD for MacOS",
-      "configurePreset": "OCVSMD-Darwin",
+      "name": "OCVSMD-Debian-Debug",
+      "displayName": "Debian Linux OCVSMD (Debug)",
+      "description": "Builds OCVSMD for Debian Linux distributions",
+      "configurePreset": "OCVSMD-Debian",
       "configuration": "Debug",
       "targets": [
         "ocvsmd"
@@ -106,11 +96,21 @@
       ]
     },
     {
-      "name": "OCVSMD-Debian-Debug",
-      "displayName": "Debian Linux OCVSMD (Debug)",
-      "description": "Builds OCVSMD for Debian Linux distributions",
-      "configurePreset": "OCVSMD-Debian",
+      "name": "OCVSMD-Darwin-Debug",
+      "displayName": "Darwin Linux OCVSMD (Debug)",
+      "description": "Builds OCVSMD for MacOS",
+      "configurePreset": "OCVSMD-Darwin",
       "configuration": "Debug",
+      "targets": [
+        "ocvsmd"
+      ]
+    },
+    {
+      "name": "OCVSMD-Darwin-Release",
+      "displayName": "Darwin Linux OCVSMD (Release)",
+      "description": "Builds OCVSMD for MacOS",
+      "configurePreset": "OCVSMD-Darwin",
+      "configuration": "Release",
       "targets": [
         "ocvsmd"
       ]

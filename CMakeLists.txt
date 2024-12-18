@@ -31,7 +31,12 @@ find_program(clang_format NAMES clang-format)
 if (NOT clang_format)
     message(STATUS "Could not locate clang-format")
 else ()
-    file(GLOB_RECURSE format_files ${include_dir}/**/*.[ch]pp ${src_dir}/**/*.[ch]pp ${test_dir}/**/*.[ch]pp)
+    file(GLOB_RECURSE format_files
+            ${include_dir}/**/*.[ch]pp
+            ${src_dir}/**/*.[ch]
+            ${src_dir}/**/*.[ch]pp
+            ${test_dir}/**/*.[ch]pp
+    )
     message(STATUS "Using clang-format: ${clang_format}")
     add_custom_target(format COMMAND ${clang_format} -i -fallback-style=none -style=file --verbose ${format_files})
 endif ()
