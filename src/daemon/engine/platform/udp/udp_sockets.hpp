@@ -1,8 +1,7 @@
-// This software is distributed under the terms of the MIT License.
-// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
-// Copyright Amazon.com Inc. or its affiliates.
+//
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT
-// Author: Sergei Shirokov <sergei.shirokov@zubax.com>
+//
 
 #ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_UDP_SOCKETS_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_PLATFORM_UDP_SOCKETS_HPP_INCLUDED

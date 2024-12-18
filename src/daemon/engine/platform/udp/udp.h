@@ -1,3 +1,8 @@
+//
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT
+//
+
 ///                            ____                   ______            __          __
 ///                           / __ `____  ___  ____  / ____/_  ______  / /_  ____  / /
 ///                          / / / / __ `/ _ `/ __ `/ /   / / / / __ `/ __ `/ __ `/ /
@@ -15,10 +20,6 @@
 /// All addresses and values used in this API are in the host-native byte order.
 /// For example, 127.0.0.1 is represented as 0x7F000001 always.
 ///
-/// This software is distributed under the terms of the MIT License.
-/// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
-/// Copyright Amazon.com Inc. or its affiliates.
-/// SPDX-License-Identifier: MIT
 /// Author: Pavel Kirienko <pavel@opencyphal.org>
 
 #pragma once
