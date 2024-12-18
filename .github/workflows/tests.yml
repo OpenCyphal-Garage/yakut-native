@@ -19,8 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: '1'
+          submodules: true
       - run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -56,8 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: '1'
+          submodules: true
       - run: |
           sudo apt update -y && sudo apt upgrade -y
           sudo apt install gcc-multilib g++-multilib ninja-build 
