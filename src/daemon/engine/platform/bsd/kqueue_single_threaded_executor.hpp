@@ -108,7 +108,7 @@ public:
             timeout_spec_ptr = &timeout_spec;
         }
 
-        std::array<struct kevent, MaxEvents> evs{};
+        std::array<KEvent, MaxEvents> evs{};
         const int kqueue_result = ::kevent(kqueuefd_, nullptr, 0, evs.data(), evs.size(), timeout_spec_ptr);
         if (kqueue_result < 0)
         {
@@ -124,7 +124,7 @@ public:
         const auto now_time = now();
         for (std::size_t index = 0; index < kqueue_nfds; ++index)
         {
-            const struct kevent& ev = evs[index];
+            const KEvent& ev = evs[index];
             if (auto* const cb_interface = static_cast<AwaitableNode*>(ev.udata))
             {
                 cb_interface->schedule(Callback::Schedule::Once{now_time});
@@ -178,8 +178,9 @@ protected:
     }
 
 private:
-    using Base = SingleThreadedExecutor;
-    using Self = KqueueSingleThreadedExecutor;
+    using KEvent = struct kevent;
+    using Base   = SingleThreadedExecutor;
+    using Self   = KqueueSingleThreadedExecutor;
 
     /// No Sonar cpp:S4963 b/c `AwaitableNode` supports move operation.
     ///
@@ -197,7 +198,7 @@ private:
         {
             if (fd_ >= 0)
             {
-                struct kevent ev{0};
+                KEvent ev{};
                 EV_SET(&ev, fd_, events_, EV_DELETE, NOTE_DELETE, 0, 0);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
                 getExecutor().total_awaitables_--;
@@ -211,7 +212,7 @@ private:
         {
             if (fd_ >= 0)
             {
-                struct kevent ev{0};
+                KEvent ev{};
                 EV_SET(&ev, fd_, events_, EV_DELETE, NOTE_DELETE, 0, 0);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
                 EV_SET(&ev, fd_, events_, EV_ADD | EV_CLEAR, NOTE_WRITE, 0, this);
@@ -242,7 +243,7 @@ private:
             events_ = events | EVFILT_VNODE;
 
             getExecutor().total_awaitables_++;
-            struct kevent ev{0};
+            KEvent ev{};
             EV_SET(&ev, fd, events_, EV_ADD | EV_CLEAR, NOTE_WRITE, 0, this);
             ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
         }

@@ -40,7 +40,7 @@ int16_t udpTxInit(UDPTxHandle* const self, const uint32_t local_iface_address)
         bool      ok             = self->fd >= 0;
         //
         ok = ok && bind(self->fd,
-                        (struct sockaddr*) &(struct sockaddr_in){
+                        (struct sockaddr*) &(struct sockaddr_in) {
                             .sin_family = AF_INET,
                             .sin_addr   = {local_iface_be},
                             .sin_port   = 0,
@@ -82,9 +82,9 @@ int16_t udpTxSend(UDPTxHandle* const self,
                    payload,
                    payload_size,
                    MSG_DONTWAIT,
-                   (struct sockaddr*) &(struct sockaddr_in){.sin_family = AF_INET,
-                                                            .sin_addr   = {.s_addr = htonl(remote_address)},
-                                                            .sin_port   = htons(remote_port)},
+                   (struct sockaddr*) &(struct sockaddr_in) {.sin_family = AF_INET,
+                                                             .sin_addr   = {.s_addr = htonl(remote_address)},
+                                                             .sin_port   = htons(remote_port)},
                    sizeof(struct sockaddr_in));
         if (send_result == (ssize_t) payload_size)
         {
