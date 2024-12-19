@@ -91,7 +91,8 @@ public:
         // Convert libcyphal timeout (if any) to the `struct timespec` timeout in ns.
         // Any possible negative timeout will be treated as zero (return immediately from the `::kevent`).
         //
-        struct timespec        timeout_spec{};
+        struct timespec        timeout_spec
+        {};
         const struct timespec* timeout_spec_ptr = nullptr;
         if (timeout)
         {
