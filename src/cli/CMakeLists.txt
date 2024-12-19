@@ -4,3 +4,13 @@
 #
 
 cmake_minimum_required(VERSION 3.27)
+
+add_executable(ocvsmd-cli
+        main.cpp
+)
+target_link_libraries(ocvsmd-cli
+        PRIVATE ocvsmd_common
+)
+add_dependencies(ocvsmd-cli
+        ocvsmd
+)

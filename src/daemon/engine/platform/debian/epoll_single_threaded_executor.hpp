@@ -45,7 +45,7 @@ namespace debian
 /// @brief Defines Linux platform specific single-threaded executor based on `epoll` mechanism.
 ///
 class EpollSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor,
-                                          public IPosixExecutorExtension
+                                          public common::platform::IPosixExecutorExtension
 {
 public:
     EpollSingleThreadedExecutor()
