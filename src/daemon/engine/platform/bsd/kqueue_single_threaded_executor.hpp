@@ -197,7 +197,7 @@ private:
         {
             if (fd_ >= 0)
             {
-                struct kevent ev{};
+                struct kevent ev{0};
                 EV_SET(&ev, fd_, events_, EV_DELETE, NOTE_DELETE, 0, 0);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
                 getExecutor().total_awaitables_--;
@@ -211,7 +211,7 @@ private:
         {
             if (fd_ >= 0)
             {
-                struct kevent ev{};
+                struct kevent ev{0};
                 EV_SET(&ev, fd_, events_, EV_DELETE, NOTE_DELETE, 0, 0);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
                 EV_SET(&ev, fd_, events_, EV_ADD | EV_CLEAR, NOTE_WRITE, 0, this);
@@ -242,7 +242,7 @@ private:
             events_ = events | EVFILT_VNODE;
 
             getExecutor().total_awaitables_++;
-            struct kevent ev{};
+            struct kevent ev{0};
             EV_SET(&ev, fd, events_, EV_ADD | EV_CLEAR, NOTE_WRITE, 0, this);
             ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
         }

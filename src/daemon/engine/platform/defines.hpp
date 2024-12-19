@@ -7,9 +7,9 @@
 #define OCVSMD_DAEMON_ENGINE_PLATFORM_DEFINES_HPP_INCLUDED
 
 #ifdef PLATFORM_LINUX_TYPE_BSD
-#include "bsd/kqueue_single_threaded_executor.hpp"
+#    include "bsd/kqueue_single_threaded_executor.hpp"
 #else
-#include "debian/epoll_single_threaded_executor.hpp"
+#    include "debian/epoll_single_threaded_executor.hpp"
 #endif
 
 namespace ocvsmd
