@@ -67,6 +67,13 @@ add_definitions(
         -DVCS_REVISION_ID=0x${vcs_revision_id}ULL
         -DNODE_NAME="org.opencyphal.ocvsmd"
 )
+if (DEFINED PLATFORM_LINUX_TYPE)
+    if(${PLATFORM_LINUX_TYPE} STREQUAL "bsd")
+        add_definitions(-DPLATFORM_LINUX_TYPE_BSD)
+    elseif(${PLATFORM_LINUX_TYPE} STREQUAL "debian")
+        add_definitions(-DPLATFORM_LINUX_TYPE_DEBIAN)
+    endif()
+endif()
 
 add_subdirectory(src)
 add_subdirectory(test)
