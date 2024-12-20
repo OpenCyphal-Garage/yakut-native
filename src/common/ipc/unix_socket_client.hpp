@@ -28,7 +28,7 @@ public:
     ~UnixSocketClient();
 
     bool connect_to_server();
-    void send_message(const std::string& message);
+    void send_message(const std::string& message) const;
 
 private:
     std::string socket_path_;

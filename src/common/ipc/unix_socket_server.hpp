@@ -35,10 +35,10 @@ public:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerListenCallback(
         libcyphal::IExecutor::Callback::Function&& function) const;
 
-    void accept();
+    void accept() const;
 
 private:
-    void handle_client(int client_fd);
+    static void handle_client(const int client_fd);
 
     libcyphal::IExecutor& executor_;
     std::string           socket_path_;
