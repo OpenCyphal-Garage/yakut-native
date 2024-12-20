@@ -6,10 +6,14 @@
 #ifndef OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
+#include "platform/posix_executor_extension.hpp"
+
 #include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace ocvsmd
 {
@@ -35,14 +39,31 @@ public:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerListenCallback(
         libcyphal::IExecutor::Callback::Function&& function) const;
 
-    void accept() const;
+    void accept();
+
+    class ClientContext
+    {
+    public:
+        ClientContext() = default;
+
+        ClientContext(ClientContext&&)                 = delete;
+        ClientContext(const ClientContext&)            = delete;
+        ClientContext& operator=(ClientContext&&)      = delete;
+        ClientContext& operator=(const ClientContext&) = delete;
+
+        virtual ~ClientContext() = default;
+
+    };  // ClientContext
 
 private:
-    static void handle_client(const int client_fd);
+    void handle_client_connection(const int client_fd);
+    void handle_client_request(const int client_fd);
 
-    libcyphal::IExecutor& executor_;
-    std::string           socket_path_;
-    int                   server_fd_;
+    libcyphal::IExecutor&                                   executor_;
+    const std::string                                       socket_path_;
+    int                                                     server_fd_;
+    platform::IPosixExecutorExtension* const                posix_executor_ext_;
+    std::unordered_map<int, std::unique_ptr<ClientContext>> client_contexts_;
 
 };  // UnixSocketServer
 

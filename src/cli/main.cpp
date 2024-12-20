@@ -5,6 +5,8 @@
 
 #include "ipc/unix_socket_client.hpp"
 
+#include <unistd.h>
+
 int main(const int argc, const char** const argv)
 {
     (void) argc;
@@ -18,6 +20,9 @@ int main(const int argc, const char** const argv)
     }
 
     client.send_message("Hello, world!");
+    ::sleep(10);
+    client.send_message("Goodbye, world!");
+    ::sleep(10);
 
     return 0;
 }

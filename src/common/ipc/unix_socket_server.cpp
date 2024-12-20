@@ -15,6 +15,7 @@
 #include <array>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -33,13 +34,57 @@ namespace
 
 constexpr int MaxConnections = 5;
 
+class ClientContextImpl final : public UnixSocketServer::ClientContext
+{
+public:
+    explicit ClientContextImpl(const int client_fd)
+        : client_fd_{client_fd}
+    {
+        CETL_DEBUG_ASSERT(client_fd != -1, "");
+
+        std::cout << "New client connection on fd=" << client_fd << ".\n";
+    }
+
+    ~ClientContextImpl() override
+    {
+        std::cout << "Closing connection on fd=" << client_fd_ << ".\n";
+
+        platform::posixSyscallError([this] {
+            //
+            return ::close(client_fd_);
+        });
+    }
+
+    ClientContextImpl(ClientContextImpl&&)                 = delete;
+    ClientContextImpl(const ClientContextImpl&)            = delete;
+    ClientContextImpl& operator=(ClientContextImpl&&)      = delete;
+    ClientContextImpl& operator=(const ClientContextImpl&) = delete;
+
+    int getFd() const
+    {
+        return client_fd_;
+    }
+
+    void setCallback(libcyphal::IExecutor::Callback::Any&& callback)
+    {
+        callback_ = std::move(callback);
+    }
+
+private:
+    const int                           client_fd_;
+    libcyphal::IExecutor::Callback::Any callback_;
+
+};  // ClientContextImpl
+
 }  // namespace
 
 UnixSocketServer::UnixSocketServer(libcyphal::IExecutor& executor, std::string socket_path)
     : executor_{executor}
     , socket_path_{std::move(socket_path)}
     , server_fd_{-1}
+    , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor_)}
 {
+    CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
 
 UnixSocketServer::~UnixSocketServer()
@@ -102,7 +147,7 @@ bool UnixSocketServer::start()
     return true;
 }
 
-void UnixSocketServer::accept() const
+void UnixSocketServer::accept()
 {
     CETL_DEBUG_ASSERT(server_fd_ != -1, "");
 
@@ -116,15 +161,26 @@ void UnixSocketServer::accept() const
         return;
     }
 
-    handle_client(client_fd);
-
-    platform::posixSyscallError([this, client_fd] {
-        //
-        return ::close(client_fd);
-    });
+    handle_client_connection(client_fd);
 }
 
-void UnixSocketServer::handle_client(const int client_fd)
+void UnixSocketServer::handle_client_connection(const int client_fd)
+{
+    CETL_DEBUG_ASSERT(client_fd != -1, "");
+    CETL_DEBUG_ASSERT(client_contexts_.find(client_fd) == client_contexts_.end(), "");
+
+    auto client_context = std::make_unique<ClientContextImpl>(client_fd);
+    client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
+        [this, client_fd](const auto&) {
+            //
+            handle_client_request(client_fd);
+        },
+        platform::IPosixExecutorExtension::Trigger::Readable{client_fd}));
+
+    client_contexts_.emplace(client_fd, std::move(client_context));
+}
+
+void UnixSocketServer::handle_client_request(const int client_fd)
 {
     CETL_DEBUG_ASSERT(client_fd != -1, "");
 
@@ -141,8 +197,11 @@ void UnixSocketServer::handle_client(const int client_fd)
     }
     if (bytes_read == 0)
     {
+        // EOF which means the client has closed the connection.
+        client_contexts_.erase(client_fd);
         return;
     }
+
     buffer[bytes_read] = '\0';  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     std::cout << "Received: " << buffer.data() << "\n";
 
@@ -160,14 +219,9 @@ void UnixSocketServer::handle_client(const int client_fd)
 CETL_NODISCARD libcyphal::IExecutor::Callback::Any UnixSocketServer::registerListenCallback(
     libcyphal::IExecutor::Callback::Function&& function) const
 {
-    auto* const posix_executor_ext = cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor_);
-    if (nullptr == posix_executor_ext)
-    {
-        return {};
-    }
-
     CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-    return posix_executor_ext->registerAwaitableCallback(  //
+
+    return posix_executor_ext_->registerAwaitableCallback(  //
         std::move(function),
         platform::IPosixExecutorExtension::Trigger::Readable{server_fd_});
 }
