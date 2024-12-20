@@ -32,7 +32,7 @@ if (NOT clang_format)
     message(STATUS "Could not locate clang-format")
 else ()
     file(GLOB_RECURSE format_files
-            ${include_dir}/**/*.[ch]pp
+            ${include_dir}/**/*.hpp
             ${src_dir}/**/*.[ch]
             ${src_dir}/**/*.[ch]pp
             ${test_dir}/**/*.[ch]pp

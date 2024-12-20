@@ -34,7 +34,7 @@ namespace
 
 constexpr int MaxConnections = 5;
 
-class ClientContextImpl final : public UnixSocketServer::ClientContext
+class ClientContextImpl final : public detail::ClientContext
 {
 public:
     explicit ClientContextImpl(const int client_fd)

@@ -3,26 +3,17 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "ipc/unix_socket_client.hpp"
-
-#include <unistd.h>
+#include <ocvsmd/sdk/daemon.hpp>
 
 int main(const int argc, const char** const argv)
 {
     (void) argc;
     (void) argv;
 
-    ocvsmd::common::ipc::UnixSocketClient client{"/var/run/ocvsmd/local.sock"};
-
-    if (!client.connect_to_server())
+    if (auto daemon = ocvsmd::sdk::Daemon::make())
     {
-        return 1;
+        daemon->send_messages();
     }
-
-    client.send_message("Hello, world!");
-    ::sleep(10);
-    client.send_message("Goodbye, world!");
-    ::sleep(10);
 
     return 0;
 }

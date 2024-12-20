@@ -21,6 +21,24 @@ namespace common
 {
 namespace ipc
 {
+namespace detail
+{
+
+class ClientContext
+{
+public:
+    ClientContext() = default;
+
+    ClientContext(ClientContext&&)                 = delete;
+    ClientContext(const ClientContext&)            = delete;
+    ClientContext& operator=(ClientContext&&)      = delete;
+    ClientContext& operator=(const ClientContext&) = delete;
+
+    virtual ~ClientContext() = default;
+
+};  // ClientContext
+
+}  // namespace detail
 
 class UnixSocketServer final
 {
@@ -41,29 +59,15 @@ public:
 
     void accept();
 
-    class ClientContext
-    {
-    public:
-        ClientContext() = default;
-
-        ClientContext(ClientContext&&)                 = delete;
-        ClientContext(const ClientContext&)            = delete;
-        ClientContext& operator=(ClientContext&&)      = delete;
-        ClientContext& operator=(const ClientContext&) = delete;
-
-        virtual ~ClientContext() = default;
-
-    };  // ClientContext
-
 private:
     void handle_client_connection(const int client_fd);
     void handle_client_request(const int client_fd);
 
-    libcyphal::IExecutor&                                   executor_;
-    const std::string                                       socket_path_;
-    int                                                     server_fd_;
-    platform::IPosixExecutorExtension* const                posix_executor_ext_;
-    std::unordered_map<int, std::unique_ptr<ClientContext>> client_contexts_;
+    libcyphal::IExecutor&                                           executor_;
+    const std::string                                               socket_path_;
+    int                                                             server_fd_;
+    platform::IPosixExecutorExtension* const                        posix_executor_ext_;
+    std::unordered_map<int, std::unique_ptr<detail::ClientContext>> client_contexts_;
 
 };  // UnixSocketServer
 

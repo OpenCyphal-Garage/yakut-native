@@ -9,7 +9,7 @@ add_executable(ocvsmd-cli
         main.cpp
 )
 target_link_libraries(ocvsmd-cli
-        PRIVATE ocvsmd_common
+        PUBLIC ocvsmd_sdk
 )
 add_dependencies(ocvsmd-cli
         ocvsmd
