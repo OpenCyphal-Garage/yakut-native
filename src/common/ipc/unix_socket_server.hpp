@@ -41,8 +41,8 @@ private:
     void handle_client(int client_fd);
 
     libcyphal::IExecutor& executor_;
-    std::string socket_path_;
-    int         server_fd_;
+    std::string           socket_path_;
+    int                   server_fd_;
 
 };  // UnixSocketServer
 

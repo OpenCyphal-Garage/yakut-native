@@ -46,8 +46,8 @@ private:
     cetl::optional<libcyphal::presentation::Presentation> presentation_;
     cetl::optional<libcyphal::application::Node>          node_;
 
-    common::ipc::UnixSocketServer                         ipc_server_{executor_, "/var/run/ocvsmd/local.sock"};
-    libcyphal::IExecutor::Callback::Any                   ipc_server_callback_;
+    common::ipc::UnixSocketServer       ipc_server_{executor_, "/var/run/ocvsmd/local.sock"};
+    libcyphal::IExecutor::Callback::Any ipc_server_callback_;
 
 };  // Application
 
