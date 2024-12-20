@@ -6,13 +6,13 @@
 #include "unix_socket_server.hpp"
 
 #include "platform/posix_executor_extension.hpp"
+#include "platform/posix_utils.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/rtti.hpp>
 #include <libcyphal/executor.hpp>
 
 #include <array>
-#include <cerrno>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -46,17 +46,27 @@ UnixSocketServer::~UnixSocketServer()
 {
     if (server_fd_ != -1)
     {
-        ::close(server_fd_);
-        ::unlink(socket_path_.c_str());
+        platform::posixSyscallError([this] {
+            //
+            return ::close(server_fd_);
+        });
+        platform::posixSyscallError([this] {
+            //
+            return ::unlink(socket_path_.c_str());
+        });
     }
 }
 
 bool UnixSocketServer::start()
 {
-    server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd_ == -1)
+    CETL_DEBUG_ASSERT(server_fd_ == -1, "");
+
+    if (const auto err = platform::posixSyscallError([this] {
+            //
+            return server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
+        }))
     {
-        std::cerr << "Failed to create socket: " << ::strerror(errno) << "\n";
+        std::cerr << "Failed to create socket: " << ::strerror(err) << "\n";
         return false;
     }
 
@@ -64,18 +74,28 @@ bool UnixSocketServer::start()
     addr.sun_family = AF_UNIX;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
     ::strncpy(addr.sun_path, socket_path_.c_str(), sizeof(addr.sun_path) - 1);
-    ::unlink(socket_path_.c_str());
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    if (::bind(server_fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == -1)
+    platform::posixSyscallError([this] {
+        //
+        return ::unlink(socket_path_.c_str());
+    });
+
+    if (const auto err = platform::posixSyscallError([this, &addr] {
+            //
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            return ::bind(server_fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
+        }))
     {
-        std::cerr << "Failed to bind socket: " << ::strerror(errno) << "\n";
+        std::cerr << "Failed to bind socket: " << ::strerror(err) << "\n";
         return false;
     }
 
-    if (::listen(server_fd_, MaxConnections) == -1)
+    if (const auto err = platform::posixSyscallError([this] {
+            //
+            return ::listen(server_fd_, MaxConnections);
+        }))
     {
-        std::cerr << "Failed to listen on socket: " << ::strerror(errno) << "\n";
+        std::cerr << "Failed to listen on socket: " << ::strerror(err) << "\n";
         return false;
     }
 
@@ -84,27 +104,56 @@ bool UnixSocketServer::start()
 
 void UnixSocketServer::accept() const
 {
-    const int client_fd = ::accept(server_fd_, nullptr, nullptr);
-    if (client_fd == -1)
+    CETL_DEBUG_ASSERT(server_fd_ != -1, "");
+
+    int client_fd = -1;
+    if (const auto err = platform::posixSyscallError([this, &client_fd] {
+            //
+            return client_fd = ::accept(server_fd_, nullptr, nullptr);
+        }))
     {
-        std::cerr << "Failed to accept connection: " << ::strerror(errno) << "\n";
+        std::cerr << "Failed to accept connection: " << ::strerror(err) << "\n";
         return;
     }
 
     handle_client(client_fd);
-    ::close(client_fd);
+
+    platform::posixSyscallError([this, client_fd] {
+        //
+        return ::close(client_fd);
+    });
 }
 
 void UnixSocketServer::handle_client(const int client_fd)
 {
+    CETL_DEBUG_ASSERT(client_fd != -1, "");
+
     constexpr std::size_t      buf_size = 256;
     std::array<char, buf_size> buffer{};
-    const ssize_t              bytes_read = ::read(client_fd, buffer.data(), buffer.size() - 1);
-    if (bytes_read > 0)
+    ssize_t                    bytes_read = 0;
+    if (const auto err = platform::posixSyscallError([client_fd, &bytes_read, &buffer] {
+            //
+            return bytes_read = ::read(client_fd, buffer.data(), buffer.size() - 1);
+        }))
     {
-        buffer[bytes_read] = '\0';  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        std::cout << "Received: " << buffer.data() << "\n";
-        ::write(client_fd, buffer.data(), bytes_read);  // Echo back
+        std::cerr << "Failed to read: " << ::strerror(err) << "\n";
+        return;
+    }
+    if (bytes_read == 0)
+    {
+        return;
+    }
+    buffer[bytes_read] = '\0';  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    std::cout << "Received: " << buffer.data() << "\n";
+
+    // Echo back
+    //
+    if (const auto err = platform::posixSyscallError([client_fd, bytes_read, &buffer] {
+            //
+            return ::write(client_fd, buffer.data(), bytes_read);
+        }))
+    {
+        std::cerr << "Failed to write: " << ::strerror(err) << "\n";
     }
 }
 
