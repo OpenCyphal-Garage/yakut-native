@@ -12,7 +12,9 @@
 #include <cetl/rtti.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -95,10 +97,6 @@ UnixSocketServer::~UnixSocketServer()
             //
             return ::close(server_fd_);
         });
-        platform::posixSyscallError([this] {
-            //
-            return ::unlink(socket_path_.c_str());
-        });
     }
 }
 
@@ -116,19 +114,20 @@ bool UnixSocketServer::start()
     }
 
     sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
+    addr.sun_family                        = AF_UNIX;
+    const std::string abstract_socket_path = '\0' + socket_path_;
+    CETL_DEBUG_ASSERT(abstract_socket_path.size() <= sizeof(addr.sun_path), "");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-    ::strncpy(addr.sun_path, socket_path_.c_str(), sizeof(addr.sun_path) - 1);
+    std::memcpy(addr.sun_path,
+                abstract_socket_path.c_str(),
+                std::min(sizeof(addr.sun_path), abstract_socket_path.size()));
 
-    platform::posixSyscallError([this] {
-        //
-        return ::unlink(socket_path_.c_str());
-    });
-
-    if (const auto err = platform::posixSyscallError([this, &addr] {
+    if (const auto err = platform::posixSyscallError([this, &addr, &abstract_socket_path] {
             //
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            return ::bind(server_fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
+            return ::bind(server_fd_,
+                          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                          reinterpret_cast<const sockaddr*>(&addr),
+                          offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
         std::cerr << "Failed to bind socket: " << ::strerror(err) << "\n";

@@ -9,7 +9,9 @@
 
 #include <cetl/cetl.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -57,14 +59,20 @@ bool UnixSocketClient::connect_to_server()
     }
 
     sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
+    addr.sun_family                        = AF_UNIX;
+    const std::string abstract_socket_path = '\0' + socket_path_;
+    CETL_DEBUG_ASSERT(abstract_socket_path.size() <= sizeof(addr.sun_path), "");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-    ::strncpy(addr.sun_path, socket_path_.c_str(), sizeof(addr.sun_path) - 1);
+    std::memcpy(addr.sun_path,
+                abstract_socket_path.c_str(),
+                std::min(sizeof(addr.sun_path), abstract_socket_path.size()));
 
-    if (const auto err = platform::posixSyscallError([this, &addr] {
+    if (const auto err = platform::posixSyscallError([this, &addr, &abstract_socket_path] {
             //
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            return ::connect(client_fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
+            return ::connect(client_fd_,
+                             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                             reinterpret_cast<const sockaddr*>(&addr),
+                             offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
         std::cerr << "Failed to connect to server: " << ::strerror(err) << "\n";
