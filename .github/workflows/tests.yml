@@ -1,11 +1,10 @@
 name: Test Workflow
 on: [push, pull_request]
 env:
-  LLVM_VERSION: 15
+  LLVM_VERSION: 18
 jobs:
   debug:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         toolchain: ['clang', 'gcc']
@@ -18,23 +17,19 @@ jobs:
             cxx-compiler: clang++
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh $LLVM_VERSION
           sudo apt update -y && sudo apt upgrade -y
-          sudo apt-get -y install gcc-multilib g++-multilib clang-tidy-$LLVM_VERSION
+          sudo apt-get -y install gcc-multilib g++-multilib ninja-build clang-tidy-$LLVM_VERSION
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 50
           clang-tidy --version
-      - run: >
-          cmake
-          -B ${{ github.workspace }}/build
-          -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
-      - working-directory: ${{github.workspace}}/build
-        run: |
-          make VERBOSE=1
-          make test
+      - run: |
+          cmake --preset OCVSMD-Debian -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
+          cmake --build --preset OCVSMD-Debian-Debug
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -43,8 +38,7 @@ jobs:
           retention-days: 2
 
   optimizations:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         toolchain: ['clang', 'gcc']
@@ -58,19 +52,14 @@ jobs:
             cxx-compiler: clang++
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - run: |
           sudo apt update -y && sudo apt upgrade -y
-          sudo apt install gcc-multilib g++-multilib
-      - run: >
-          cmake
-          -B ${{ github.workspace }}/build
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
-          -DNO_STATIC_ANALYSIS=1
-      - working-directory: ${{github.workspace}}/build
-        run: |
-          make VERBOSE=1
-          make test
+          sudo apt install gcc-multilib g++-multilib ninja-build 
+      - run: |
+          cmake --preset OCVSMD-Debian -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
+          cmake --build --preset OCVSMD-Debian-Release
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+#include "engine/application.hpp"
+
 #include <array>
 #include <cassert>
 #include <cerrno>
@@ -12,10 +14,11 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
-#include <signal.h>  // NOLINT *-deprecated-headers for `pid_t` type
+#include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syslog.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 namespace
@@ -39,11 +42,17 @@ extern "C" void handle_signal(const int sig)
     }
 }
 
+bool write_string(const int fd, const char* const str)
+{
+    const auto str_len = strlen(str);
+    return str_len == ::write(fd, str, str_len);
+}
+
 void exit_with_failure(const int fd, const char* const msg)
 {
     const char* const err_txt = strerror(errno);
-    ::write(fd, msg, strlen(msg));
-    ::write(fd, err_txt, strlen(err_txt));
+    write_string(fd, msg);
+    write_string(fd, err_txt);
     ::exit(EXIT_FAILURE);
 }
 
@@ -81,7 +90,7 @@ void step_02_03_setup_signal_handlers()
 
 void step_04_sanitize_environment()
 {
-    // TODO: Implement this step.
+    // Not sure what to sanitize exactly.
 }
 
 bool step_05_fork_to_background(std::array<int, 2>& pipe_fds)
@@ -168,9 +177,9 @@ void step_11_change_curr_dir(const int pipe_write_fd)
     }
 }
 
-void step_12_create_pid_file(const int pipe_write_fd, const char* const pid_file_name)
+void step_12_create_pid_file(const int pipe_write_fd)
 {
-    const int fd = ::open(pid_file_name, O_RDWR | O_CREAT, 0644);  // NOLINT *-vararg
+    const int fd = ::open("/var/run/ocvsmd.pid", O_RDWR | O_CREAT, 0644);  // NOLINT *-vararg
     if (fd == -1)
     {
         exit_with_failure(pipe_write_fd, "Failed to create on PID file: ");
@@ -199,8 +208,7 @@ void step_12_create_pid_file(const int pipe_write_fd, const char* const pid_file
 
 void step_13_drop_privileges()
 {
-    // n the daemon process, drop privileges, if possible and applicable.
-    // TODO: Implement this step.
+    // Not sure what to drop exactly.
 }
 
 void step_14_notify_init_complete(int& pipe_write_fd)
@@ -212,7 +220,7 @@ void step_14_notify_init_complete(int& pipe_write_fd)
     // hence available in both the original and the daemon process.
 
     // Closing the writing end of the pipe will signal the original process that the daemon is ready.
-    (void) ::write(pipe_write_fd, s_init_complete, strlen(s_init_complete));
+    write_string(pipe_write_fd, s_init_complete);
     ::close(pipe_write_fd);
     pipe_write_fd = -1;
 }
@@ -245,7 +253,7 @@ void step_15_exit_org_process(int& pipe_read_fd)
 
 /// Implements the daemonization procedure as described in the `man 7 daemon` manual page.
 ///
-void daemonize()
+int daemonize()
 {
     std::array<int, 2> pipe_fds{-1, -1};
 
@@ -264,39 +272,63 @@ void daemonize()
         step_09_redirect_stdio_to_devnull(pipe_write_fd);
         step_10_reset_umask();
         step_11_change_curr_dir(pipe_write_fd);
-        step_12_create_pid_file(pipe_write_fd, "/var/run/ocvsmd.pid");
+        step_12_create_pid_file(pipe_write_fd);
         step_13_drop_privileges();
-        step_14_notify_init_complete(pipe_write_fd);
-    }
-    else
-    {
-        // Original parent process.
-        assert(pipe_fds[0] != -1);
-        assert(pipe_fds[1] == -1);
-        auto& pipe_read_fd = pipe_fds[0];
 
-        step_15_exit_org_process(pipe_read_fd);
+        // `step_14_notify_init_complete(pipe_write_fd);` will be called by the main
+        // when the application has been successfully initialized.
+        return pipe_write_fd;
     }
 
-    ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
+    // Original parent process.
+    assert(pipe_fds[0] != -1);
+    assert(pipe_fds[1] == -1);
+    auto& pipe_read_fd = pipe_fds[0];
+
+    step_15_exit_org_process(pipe_read_fd);
+    return -1;  // Unreachable actually b/c of `::exit` call.
 }
 
 }  // namespace
 
 int main(const int argc, const char** const argv)
 {
-    (void) argc;
-    (void) argv;
+    using ocvsmd::daemon::engine::Application;
 
-    daemonize();
+    bool should_daemonize = true;
+    for (int i = 1; i < argc; ++i)
+    {
+        if (::strcmp(argv[i], "--dev") == 0)  // NOLINT
+        {
+            should_daemonize = false;
+        }
+    }
 
+    // If daemonizing is disabled (in dev mode) then use the standard error output for reporting,
+    // otherwise use the pipe to communicate with the parent process.
+    int pipe_write_fd = 2;
+    if (should_daemonize)
+    {
+        pipe_write_fd = daemonize();
+        // We are in a child process now!
+    }
+
+    Application application;
+    if (const auto failure_str = application.init())
+    {
+        write_string(pipe_write_fd, "Failed to init application: ");
+        write_string(pipe_write_fd, failure_str.value().c_str());
+        ::exit(EXIT_FAILURE);
+    }
+    if (should_daemonize)
+    {
+        step_14_notify_init_complete(pipe_write_fd);
+    }
+
+    ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
     ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT *-vararg
 
-    while (s_running == 1)
-    {
-        // TODO: Insert daemon code here.
-        ::sleep(1);
-    }
+    application.runWhile([] { return s_running == 1; });
 
     ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT *-vararg
     ::closelog();
