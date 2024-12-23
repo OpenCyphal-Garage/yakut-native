@@ -67,10 +67,8 @@ public:
         }
     }
 
-    using PollFailure = cetl::variant<libcyphal::transport::PlatformError, libcyphal::ArgumentError>;
-
     CETL_NODISCARD cetl::optional<PollFailure> pollAwaitableResourcesFor(
-        const cetl::optional<libcyphal::Duration> timeout) const
+        const cetl::optional<libcyphal::Duration> timeout) const override
     {
         CETL_DEBUG_ASSERT((total_awaitables_ > 0) || timeout,
                           "Infinite timeout without awaitables means that we will sleep forever.");
