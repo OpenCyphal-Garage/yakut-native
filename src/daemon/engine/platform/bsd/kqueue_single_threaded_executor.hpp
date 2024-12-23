@@ -47,7 +47,7 @@ namespace bsd
 /// @brief Defines BSD Linux platform specific single-threaded executor based on `kqueue` mechanism.
 ///
 class KqueueSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor,
-                                           public IPosixExecutorExtension
+                                           public common::platform::IPosixExecutorExtension
 {
 public:
     KqueueSingleThreadedExecutor()
