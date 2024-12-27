@@ -53,6 +53,9 @@ if (NOT NO_STATIC_ANALYSIS)
     set(CMAKE_CXX_CLANG_TIDY ${clang_tidy})
 endif ()
 
+# Pull in Nunavut's cmake integration
+find_package("Nunavut" 3.0 REQUIRED)
+
 # Forward the revision information to the compiler so that we could expose it at runtime. This is entirely optional.
 execute_process(
         COMMAND git rev-parse --short=16 HEAD
@@ -67,11 +70,11 @@ add_definitions(
         -DVCS_REVISION_ID=0x${vcs_revision_id}ULL
         -DNODE_NAME="org.opencyphal.ocvsmd"
 )
-if (DEFINED PLATFORM_LINUX_TYPE)
-    if(${PLATFORM_LINUX_TYPE} STREQUAL "bsd")
-        add_definitions(-DPLATFORM_LINUX_TYPE_BSD)
-    elseif(${PLATFORM_LINUX_TYPE} STREQUAL "debian")
-        add_definitions(-DPLATFORM_LINUX_TYPE_DEBIAN)
+if (DEFINED PLATFORM_OS_TYPE)
+    if(${PLATFORM_OS_TYPE} STREQUAL "bsd")
+        add_definitions(-DPLATFORM_OS_TYPE_BSD)
+    elseif(${PLATFORM_OS_TYPE} STREQUAL "linux")
+        add_definitions(-DPLATFORM_OS_TYPE_LINUX)
     endif()
 endif()
 

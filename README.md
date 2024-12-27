@@ -1,22 +1,23 @@
 # OCVSMD - Open Cyphal Vehicle System Management Daemon
 
 ### Build
-- Change directory to the project root:
+- Change directory to the project root; init submodules:
   ```
   cd ocvsmd
+  git submodule update --init --recursive
   ```
 Then one of the two presets depending on your system:
-- `Demo-Debian` – Debian-based Linux distros like Ubuntu.
-- `Demo-Darwin` – MacOS
+- `Demo-Linux` – Linux distros like Ubuntu.
+- `Demo-BSD` – BSD based like MacOS.
   ###### Debug
   ```bash
-  cmake --preset OCVSMD-Debian
-  cmake --build --preset OCVSMD-Debian-Debug
+  cmake --preset OCVSMD-Linux
+  cmake --build --preset OCVSMD-Linux-Debug
   ```
   ###### Release
   ```bash
-  cmake --preset OCVSMD-Debian
-  cmake --build --preset OCVSMD-Debian-Release
+  cmake --preset OCVSMD-Linux
+  cmake --build --preset OCVSMD-Linux-Release
   ```
 
 ### Installing

@@ -6,10 +6,10 @@
 #ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_DEFINES_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_PLATFORM_DEFINES_HPP_INCLUDED
 
-#ifdef PLATFORM_LINUX_TYPE_BSD
+#ifdef PLATFORM_OS_TYPE_BSD
 #    include "bsd/kqueue_single_threaded_executor.hpp"
 #else
-#    include "debian/epoll_single_threaded_executor.hpp"
+#    include "linux/epoll_single_threaded_executor.hpp"
 #endif
 
 namespace ocvsmd
@@ -21,10 +21,10 @@ namespace engine
 namespace platform
 {
 
-#ifdef PLATFORM_LINUX_TYPE_BSD
+#ifdef PLATFORM_OS_TYPE_BSD
 using SingleThreadedExecutor = bsd::KqueueSingleThreadedExecutor;
 #else
-using SingleThreadedExecutor = debian::EpollSingleThreadedExecutor;
+using SingleThreadedExecutor = Linux::EpollSingleThreadedExecutor;
 #endif
 
 }  // namespace platform

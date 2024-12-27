@@ -26,47 +26,35 @@
       }
     },
     {
-      "name": "config-linux-debian",
+      "name": "config-linux",
       "hidden": true,
       "cacheVariables": {
-        "PLATFORM_LINUX_TYPE": "debian",
-        "PLATFORM_OS_TYPE": "generic"
+        "PLATFORM_OS_TYPE": "linux"
       }
     },
     {
-      "name": "config-linux-bsd",
+      "name": "config-bsd",
       "hidden": true,
       "cacheVariables": {
-        "PLATFORM_LINUX_TYPE": "bsd",
-        "PLATFORM_OS_TYPE": "generic"
+        "PLATFORM_OS_TYPE": "bsd"
       }
     },
     {
-      "name": "config-linux-darwin",
-      "hidden": true,
-      "inherits": [
-        "config-linux-bsd"
-      ],
-      "cacheVariables": {
-        "PLATFORM_OS_TYPE": "Darwin"
-      }
-    },
-    {
-      "name": "OCVSMD-Debian",
-      "displayName": "Debian Linux OCVSMD",
-      "description": "Configures OCVSMD for Linux distributions derived from Debian.",
+      "name": "OCVSMD-Linux",
+      "displayName": "Linux OCVSMD",
+      "description": "Configures OCVSMD for Linux.",
       "inherits": [
         "config-common",
-        "config-linux-debian"
+        "config-linux"
       ]
     },
     {
-      "name": "OCVSMD-Darwin",
-      "displayName": "Darwin Linux OCVSMD",
-      "description": "Configures OCVSMD for MacOS",
+      "name": "OCVSMD-BSD",
+      "displayName": "BSD OCVSMD",
+      "description": "Configures OCVSMD for BSD",
       "inherits": [
         "config-common",
-        "config-linux-darwin"
+        "config-bsd"
       ],
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
@@ -76,40 +64,40 @@
   ],
   "buildPresets": [
     {
-      "name": "OCVSMD-Debian-Debug",
-      "displayName": "Debian Linux OCVSMD (Debug)",
-      "description": "Builds OCVSMD for Debian Linux distributions",
-      "configurePreset": "OCVSMD-Debian",
+      "name": "OCVSMD-Linux-Debug",
+      "displayName": "Linux OCVSMD (Debug)",
+      "description": "Builds OCVSMD for Linux",
+      "configurePreset": "OCVSMD-Linux",
       "configuration": "Debug",
       "targets": [
         "ocvsmd"
       ]
     },
     {
-      "name": "OCVSMD-Debian-Release",
-      "displayName": "Debian Linux OCVSMD (Release)",
-      "description": "Builds OCVSMD for Debian Linux distributions",
-      "configurePreset": "OCVSMD-Debian",
+      "name": "OCVSMD-Linux-Release",
+      "displayName": "Linux OCVSMD (Release)",
+      "description": "Builds OCVSMD for Linux",
+      "configurePreset": "OCVSMD-Linux",
       "configuration": "Release",
       "targets": [
         "ocvsmd"
       ]
     },
     {
-      "name": "OCVSMD-Darwin-Debug",
-      "displayName": "Darwin Linux OCVSMD (Debug)",
-      "description": "Builds OCVSMD for MacOS",
-      "configurePreset": "OCVSMD-Darwin",
+      "name": "OCVSMD-BSD-Debug",
+      "displayName": "BSD OCVSMD (Debug)",
+      "description": "Builds OCVSMD for BSD",
+      "configurePreset": "OCVSMD-BSD",
       "configuration": "Debug",
       "targets": [
         "ocvsmd"
       ]
     },
     {
-      "name": "OCVSMD-Darwin-Release",
-      "displayName": "Darwin Linux OCVSMD (Release)",
-      "description": "Builds OCVSMD for MacOS",
-      "configurePreset": "OCVSMD-Darwin",
+      "name": "OCVSMD-BSD-Release",
+      "displayName": "BSD OCVSMD (Release)",
+      "description": "Builds OCVSMD for BSD",
+      "configurePreset": "OCVSMD-BSD",
       "configuration": "Release",
       "targets": [
         "ocvsmd"

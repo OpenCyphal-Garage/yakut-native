@@ -5,10 +5,6 @@
 
 cmake_minimum_required(VERSION 3.27)
 
-
-# Pull in Nunavut's cmake integration
-find_package("Nunavut" 3.0 REQUIRED)
-
 # Define type generation and header library all in one go.
 #
 set(dsdl_types_in_engine # List all the DSDL types used in the engine
