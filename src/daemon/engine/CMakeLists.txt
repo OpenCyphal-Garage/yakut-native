@@ -12,11 +12,11 @@ find_package("Nunavut" 3.0 REQUIRED)
 # Define type generation and header library all in one go.
 #
 set(dsdl_types_in_engine # List all the DSDL types used in the engine
-        ${submodules_dir}/public_regulated_data_types/uavcan:node/430.GetInfo.1.0.dsdl
-        ${submodules_dir}/public_regulated_data_types/uavcan:node/435.ExecuteCommand.1.3.dsdl
-        ${submodules_dir}/public_regulated_data_types/uavcan:node/7509.Heartbeat.1.0.dsdl
-        ${submodules_dir}/public_regulated_data_types/uavcan:register/384.Access.1.0.dsdl
-        ${submodules_dir}/public_regulated_data_types/uavcan:register/385.List.1.0.dsdl
+        uavcan/node/430.GetInfo.1.0.dsdl
+        uavcan/node/435.ExecuteCommand.1.3.dsdl
+        uavcan/node/7509.Heartbeat.1.0.dsdl
+        uavcan/register/384.Access.1.0.dsdl
+        uavcan/register/385.List.1.0.dsdl
 )
 add_cyphal_library(
         NAME engine
@@ -25,7 +25,6 @@ add_cyphal_library(
         LANGUAGE cpp
         LANGUAGE_STANDARD cetl++14-17
         OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dsdl_transpiled
-        PYDSDL_PATH ${submodules_dir}/pydsdl
         OUT_LIBRARY_TARGET dsdl_transpiled_headers
 )
 
