@@ -6,6 +6,8 @@
 #ifndef OCVSMD_SDK_DAEMON_HPP_INCLUDED
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
+
 #include <memory>
 
 namespace ocvsmd
@@ -18,7 +20,7 @@ namespace sdk
 class Daemon
 {
 public:
-    static std::unique_ptr<Daemon> make();
+    static std::unique_ptr<Daemon> make(cetl::pmr::memory_resource& memory);
 
     Daemon(Daemon&&)                 = delete;
     Daemon(const Daemon&)            = delete;

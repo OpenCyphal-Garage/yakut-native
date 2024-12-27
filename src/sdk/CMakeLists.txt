@@ -14,3 +14,6 @@ target_link_libraries(ocvsmd_sdk
 target_include_directories(ocvsmd_sdk
         PUBLIC ${include_dir}
 )
+target_include_directories(ocvsmd_sdk SYSTEM
+        PUBLIC ${submodules_dir}/cetl/include
+)

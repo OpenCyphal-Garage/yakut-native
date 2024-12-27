@@ -6,10 +6,13 @@
 #include <ocvsmd/sdk/daemon.hpp>
 
 #include "ipc/unix_socket_client.hpp"
+#include "ocvsmd/common/dsdl/Foo_1_0.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <memory>
-#include <utility>
 #include <unistd.h>
+#include <utility>
 
 namespace ocvsmd
 {
@@ -21,6 +24,11 @@ namespace
 class DaemonImpl final : public Daemon
 {
 public:
+    explicit DaemonImpl(cetl::pmr::memory_resource& memory)
+        : memory_{memory}
+    {
+    }
+
     bool connect()
     {
         return ipc_client_.connect_to_server();
@@ -28,22 +36,27 @@ public:
 
     void send_messages() const override
     {
-        ipc_client_.send_message("Hello, world!");
+        common::dsdl::Foo_1_0 foo_message{&memory_};
+        foo_message.some_stuff.push_back('A');  // NOLINT
+        ipc_client_.send_message(foo_message);
         ::sleep(1);
-        ipc_client_.send_message("Goodbye, world!");
+
+        foo_message.some_stuff.push_back('Z');  // NOLINT
+        ipc_client_.send_message(foo_message);
         ::sleep(1);
     }
 
 private:
-    common::ipc::UnixSocketClient ipc_client_{"/var/run/ocvsmd/local.sock"};
+    cetl::pmr::memory_resource&   memory_;
+    common::ipc::UnixSocketClient ipc_client_{memory_, "/var/run/ocvsmd/local.sock"};
 
 };  // DaemonImpl
 
 }  // namespace
 
-std::unique_ptr<Daemon> Daemon::make()
+std::unique_ptr<Daemon> Daemon::make(cetl::pmr::memory_resource& memory)
 {
-    auto daemon = std::make_unique<DaemonImpl>();
+    auto daemon = std::make_unique<DaemonImpl>(memory);
     if (!daemon->connect())
     {
         return nullptr;

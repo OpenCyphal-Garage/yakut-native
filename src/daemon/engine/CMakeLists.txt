@@ -21,7 +21,7 @@ add_cyphal_library(
         LANGUAGE cpp
         LANGUAGE_STANDARD cetl++14-17
         OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dsdl_transpiled
-        OUT_LIBRARY_TARGET dsdl_transpiled_headers
+        OUT_LIBRARY_TARGET engine_transpiled
 )
 
 add_library(udpard
@@ -38,7 +38,7 @@ add_library(ocvsmd_engine
 )
 target_link_libraries(ocvsmd_engine
         PUBLIC udpard
-        PUBLIC ${dsdl_transpiled_headers}
+        PUBLIC ${engine_transpiled}
         PUBLIC ocvsmd_common
 )
 target_include_directories(ocvsmd_engine
@@ -49,5 +49,5 @@ target_include_directories(ocvsmd_engine SYSTEM
         PUBLIC ${submodules_dir}/libcyphal/include
 )
 add_dependencies(ocvsmd_engine
-        ${dsdl_transpiled_headers}
+        ${engine_transpiled}
 )

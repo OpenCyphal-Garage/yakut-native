@@ -6,6 +6,10 @@
 #ifndef OCVSMD_COMMON_IPC_UNIX_SOCKET_CLIENT_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_UNIX_SOCKET_CLIENT_HPP_INCLUDED
 
+#include "ocvsmd/common/dsdl/Foo_1_0.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
+
 #include <string>
 
 namespace ocvsmd
@@ -18,7 +22,7 @@ namespace ipc
 class UnixSocketClient final
 {
 public:
-    explicit UnixSocketClient(std::string socket_path);
+    UnixSocketClient(cetl::pmr::memory_resource& memory, std::string socket_path);
 
     UnixSocketClient(UnixSocketClient&&)                 = delete;
     UnixSocketClient(const UnixSocketClient&)            = delete;
@@ -28,11 +32,12 @@ public:
     ~UnixSocketClient();
 
     bool connect_to_server();
-    void send_message(const std::string& message) const;
+    void send_message(const dsdl::Foo_1_0& foo_message) const;
 
 private:
-    std::string socket_path_;
-    int         client_fd_;
+    cetl::pmr::memory_resource& memory_;
+    std::string                 socket_path_;
+    int                         client_fd_;
 
 };  // UnixSocketClient
 

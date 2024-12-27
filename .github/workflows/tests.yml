@@ -28,8 +28,8 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 50
           clang-tidy --version
       - run: |
-          cmake --preset OCVSMD-Debian -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
-          cmake --build --preset OCVSMD-Debian-Debug
+          cmake --preset OCVSMD-Linux -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
+          cmake --build --preset OCVSMD-Linux-Debug
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,8 +58,8 @@ jobs:
           sudo apt update -y && sudo apt upgrade -y
           sudo apt install gcc-multilib g++-multilib ninja-build 
       - run: |
-          cmake --preset OCVSMD-Debian -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
-          cmake --build --preset OCVSMD-Debian-Release
+          cmake --preset OCVSMD-Linux -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
+          cmake --build --preset OCVSMD-Linux-Release
       - uses: actions/upload-artifact@v4
         if: always()
         with:

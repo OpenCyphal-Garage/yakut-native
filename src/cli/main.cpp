@@ -5,12 +5,16 @@
 
 #include <ocvsmd/sdk/daemon.hpp>
 
+#include <cetl/pf17/cetlpf.hpp>
+
 int main(const int argc, const char** const argv)
 {
     (void) argc;
     (void) argv;
 
-    if (auto daemon = ocvsmd::sdk::Daemon::make())
+    auto& memory = *cetl::pmr::new_delete_resource();
+
+    if (auto daemon = ocvsmd::sdk::Daemon::make(memory))
     {
         daemon->send_messages();
     }
