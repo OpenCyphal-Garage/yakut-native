@@ -31,24 +31,24 @@ public:
 
     bool connect()
     {
-        return ipc_client_.connect_to_server();
+        return ipc_client_.connectToServer();
     }
 
     void send_messages() const override
     {
         common::dsdl::Foo_1_0 foo_message{&memory_};
         foo_message.some_stuff.push_back('A');  // NOLINT
-        ipc_client_.send_message(foo_message);
+        ipc_client_.sendMessage(foo_message);
         ::sleep(1);
 
         foo_message.some_stuff.push_back('Z');  // NOLINT
-        ipc_client_.send_message(foo_message);
+        ipc_client_.sendMessage(foo_message);
         ::sleep(1);
     }
 
 private:
     cetl::pmr::memory_resource&   memory_;
-    common::ipc::UnixSocketClient ipc_client_{memory_, "/var/run/ocvsmd/local.sock"};
+    common::ipc::UnixSocketClient ipc_client_{"/var/run/ocvsmd/local.sock"};
 
 };  // DaemonImpl
 

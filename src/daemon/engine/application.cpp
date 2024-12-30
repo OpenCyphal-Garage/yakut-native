@@ -57,15 +57,13 @@ cetl::optional<std::string> Application::init()
         .setSoftwareVcsRevisionId(VCS_REVISION_ID)
         .setUniqueId(getUniqueId());
 
-    if (!ipc_server_.start())
+    if (!ipc_server_.start([](const auto& client_event) {
+            //
+            (void) client_event;
+        }))
     {
         return "Failed to start IPC server.";
     }
-
-    ipc_server_callback_ = ipc_server_.registerListenCallback([this](const auto&) {
-        //
-        ipc_server_.accept();
-    });
 
     return cetl::nullopt;
 }

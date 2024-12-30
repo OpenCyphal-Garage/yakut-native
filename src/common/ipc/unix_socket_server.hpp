@@ -7,10 +7,13 @@
 #define OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
 #include "platform/posix_executor_extension.hpp"
+#include "unix_socket_base.hpp"
 
-#include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -40,9 +43,31 @@ public:
 
 }  // namespace detail
 
-class UnixSocketServer final
+class UnixSocketServer final : public UnixSocketBase
 {
 public:
+    using ClientId = std::size_t;
+
+    struct ClientEvent
+    {
+        struct Message
+        {
+            ClientId                 client_id;
+            cetl::span<std::uint8_t> payload;
+        };
+        struct Connected
+        {
+            ClientId client_id;
+        };
+        struct Disconnected
+        {
+            ClientId client_id;
+        };
+
+        using Var = cetl::variant<Message, Connected, Disconnected>;
+
+    };  // ClientEvent
+
     UnixSocketServer(libcyphal::IExecutor& executor, std::string socket_path);
 
     UnixSocketServer(UnixSocketServer&&)                 = delete;
@@ -52,22 +77,21 @@ public:
 
     ~UnixSocketServer();
 
-    bool start();
-
-    CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerListenCallback(
-        libcyphal::IExecutor::Callback::Function&& function) const;
-
-    void accept();
+    bool start(std::function<int(const ClientEvent::Var&)>&& client_event_handler);
 
 private:
+    void handle_accept();
     void handle_client_connection(const int client_fd);
-    void handle_client_request(const int client_fd);
+    void handle_client_request(const ClientId client_id, const int client_fd);
 
     libcyphal::IExecutor&                                           executor_;
     const std::string                                               socket_path_;
     int                                                             server_fd_;
     platform::IPosixExecutorExtension* const                        posix_executor_ext_;
+    ClientId                                                        client_id_counter_;
+    std::function<int(const ClientEvent::Var&)>                     client_event_handler_;
     std::unordered_map<int, std::unique_ptr<detail::ClientContext>> client_contexts_;
+    libcyphal::IExecutor::Callback::Any                             accept_callback_;
 
 };  // UnixSocketServer
 

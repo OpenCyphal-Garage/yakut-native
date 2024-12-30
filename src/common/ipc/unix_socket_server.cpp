@@ -16,10 +16,11 @@
 #include <array>
 #include <cstddef>
 #include <cstring>
-#include <iostream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <sys/socket.h>
+#include <sys/syslog.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -39,21 +40,22 @@ constexpr int MaxConnections = 5;
 class ClientContextImpl final : public detail::ClientContext
 {
 public:
-    explicit ClientContextImpl(const int client_fd)
-        : client_fd_{client_fd}
+    explicit ClientContextImpl(const UnixSocketServer::ClientId id, const int fd)
+        : id_{id}
+        , fd_{fd}
     {
         CETL_DEBUG_ASSERT(client_fd != -1, "");
 
-        std::cout << "New client connection on fd=" << client_fd << ".\n";
+        ::syslog(LOG_NOTICE, "New client connection on fd=%d (id=%zu).", fd, id);
     }
 
     ~ClientContextImpl() override
     {
-        std::cout << "Closing connection on fd=" << client_fd_ << ".\n";
+        ::syslog(LOG_NOTICE, "Closing client connection on fd=%d (id=%zu).", fd_, id_);
 
         platform::posixSyscallError([this] {
             //
-            return ::close(client_fd_);
+            return ::close(fd_);
         });
     }
 
@@ -62,19 +64,15 @@ public:
     ClientContextImpl& operator=(ClientContextImpl&&)      = delete;
     ClientContextImpl& operator=(const ClientContextImpl&) = delete;
 
-    int getFd() const
+    void setCallback(libcyphal::IExecutor::Callback::Any&& fd_callback)
     {
-        return client_fd_;
-    }
-
-    void setCallback(libcyphal::IExecutor::Callback::Any&& callback)
-    {
-        callback_ = std::move(callback);
+        fd_callback_ = std::move(fd_callback);
     }
 
 private:
-    const int                           client_fd_;
-    libcyphal::IExecutor::Callback::Any callback_;
+    const UnixSocketServer::ClientId    id_;
+    const int                           fd_;
+    libcyphal::IExecutor::Callback::Any fd_callback_;
 
 };  // ClientContextImpl
 
@@ -85,6 +83,7 @@ UnixSocketServer::UnixSocketServer(libcyphal::IExecutor& executor, std::string s
     , socket_path_{std::move(socket_path)}
     , server_fd_{-1}
     , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor_)}
+    , client_id_counter_{0}
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
@@ -100,16 +99,19 @@ UnixSocketServer::~UnixSocketServer()
     }
 }
 
-bool UnixSocketServer::start()
+bool UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client_event_handler)
 {
     CETL_DEBUG_ASSERT(server_fd_ == -1, "");
+    CETL_DEBUG_ASSERT(client_event_handler, "");
+
+    client_event_handler_ = std::move(client_event_handler);
 
     if (const auto err = platform::posixSyscallError([this] {
             //
             return server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
         }))
     {
-        std::cerr << "Failed to create socket: " << ::strerror(err) << "\n";
+        ::syslog(LOG_ERR, "Failed to create server socket: %s", ::strerror(err));
         return false;
     }
 
@@ -130,7 +132,7 @@ bool UnixSocketServer::start()
                           offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
-        std::cerr << "Failed to bind socket: " << ::strerror(err) << "\n";
+        ::syslog(LOG_ERR, "Failed to bind server socket: %s", ::strerror(err));
         return false;
     }
 
@@ -139,14 +141,21 @@ bool UnixSocketServer::start()
             return ::listen(server_fd_, MaxConnections);
         }))
     {
-        std::cerr << "Failed to listen on socket: " << ::strerror(err) << "\n";
+        ::syslog(LOG_ERR, "Failed to listen on server socket: %s", ::strerror(err));
         return false;
     }
+
+    accept_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
+        [this](const auto&) {
+            //
+            handle_accept();
+        },
+        platform::IPosixExecutorExtension::Trigger::Readable{server_fd_});
 
     return true;
 }
 
-void UnixSocketServer::accept()
+void UnixSocketServer::handle_accept()
 {
     CETL_DEBUG_ASSERT(server_fd_ != -1, "");
 
@@ -156,73 +165,50 @@ void UnixSocketServer::accept()
             return client_fd = ::accept(server_fd_, nullptr, nullptr);
         }))
     {
-        std::cerr << "Failed to accept connection: " << ::strerror(err) << "\n";
+        ::syslog(LOG_WARNING, "Failed to accept client connection: %s", ::strerror(err));
         return;
     }
 
-    handle_client_connection(client_fd);
-}
-
-void UnixSocketServer::handle_client_connection(const int client_fd)
-{
     CETL_DEBUG_ASSERT(client_fd != -1, "");
     CETL_DEBUG_ASSERT(client_contexts_.find(client_fd) == client_contexts_.end(), "");
 
-    auto client_context = std::make_unique<ClientContextImpl>(client_fd);
+    const ClientId new_client_id  = ++client_id_counter_;
+    auto           client_context = std::make_unique<ClientContextImpl>(new_client_id, client_fd);
+    //
     client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
-        [this, client_fd](const auto&) {
+        [this, new_client_id, client_fd](const auto&) {
             //
-            handle_client_request(client_fd);
+            handle_client_request(new_client_id, client_fd);
         },
         platform::IPosixExecutorExtension::Trigger::Readable{client_fd}));
 
     client_contexts_.emplace(client_fd, std::move(client_context));
+    client_event_handler_(ClientEvent::Connected{new_client_id});
 }
 
-void UnixSocketServer::handle_client_request(const int client_fd)
+void UnixSocketServer::handle_client_request(const ClientId client_id, const int client_fd)
 {
-    CETL_DEBUG_ASSERT(client_fd != -1, "");
-
-    constexpr std::size_t      buf_size = 256;
-    std::array<char, buf_size> buffer{};
-    ssize_t                    bytes_read = 0;
-    if (const auto err = platform::posixSyscallError([client_fd, &bytes_read, &buffer] {
+    if (const auto err = readAndActOnMessage(client_fd, [this, client_fd](const auto payload) {
             //
-            return bytes_read = ::read(client_fd, buffer.data(), buffer.size() - 1);
+            return client_event_handler_(ClientEvent::Message{.client_id = client_fd, .payload = payload});
         }))
     {
-        std::cerr << "Failed to read: " << ::strerror(err) << "\n";
-        return;
-    }
-    if (bytes_read == 0)
-    {
-        // EOF which means the client has closed the connection.
+        if (err == -1)
+        {
+            ::syslog(LOG_DEBUG, "End of client stream - closing connection (id=%zu, fd=%d).", client_id, client_fd);
+        }
+        else
+        {
+            ::syslog(LOG_WARNING,
+                     "Failed to handle client request - closing connection (id=%zu, fd=%d): %s",
+                     client_id,
+                     client_fd,
+                     ::strerror(err));
+        }
+
         client_contexts_.erase(client_fd);
-        return;
+        client_event_handler_(ClientEvent::Disconnected{client_id});
     }
-
-    buffer[bytes_read] = '\0';  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    std::cout << "Received: " << buffer.data() << "\n";
-
-    // Echo back
-    //
-    if (const auto err = platform::posixSyscallError([client_fd, bytes_read, &buffer] {
-            //
-            return ::write(client_fd, buffer.data(), bytes_read);
-        }))
-    {
-        std::cerr << "Failed to write: " << ::strerror(err) << "\n";
-    }
-}
-
-CETL_NODISCARD libcyphal::IExecutor::Callback::Any UnixSocketServer::registerListenCallback(
-    libcyphal::IExecutor::Callback::Function&& function) const
-{
-    CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-
-    return posix_executor_ext_->registerAwaitableCallback(  //
-        std::move(function),
-        platform::IPosixExecutorExtension::Trigger::Readable{server_fd_});
 }
 
 }  // namespace ipc
