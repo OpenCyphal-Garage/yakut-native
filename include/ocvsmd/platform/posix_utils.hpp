@@ -3,14 +3,12 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_PLATFORM_POSIX_UTILS_HPP_INCLUDED
-#define OCVSMD_COMMON_PLATFORM_POSIX_UTILS_HPP_INCLUDED
+#ifndef OCVSMD_PLATFORM_POSIX_UTILS_HPP_INCLUDED
+#define OCVSMD_PLATFORM_POSIX_UTILS_HPP_INCLUDED
 
 #include <cerrno>
 
 namespace ocvsmd
-{
-namespace common
 {
 namespace platform
 {
@@ -30,7 +28,6 @@ int posixSyscallError(const Call& call)
 }
 
 }  // namespace platform
-}  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_PLATFORM_POSIX_UTILS_HPP_INCLUDED
+#endif  // OCVSMD_PLATFORM_POSIX_UTILS_HPP_INCLUDED

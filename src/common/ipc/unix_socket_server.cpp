@@ -5,8 +5,8 @@
 
 #include "unix_socket_server.hpp"
 
-#include "platform/posix_executor_extension.hpp"
-#include "platform/posix_utils.hpp"
+#include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "ocvsmd/platform/posix_utils.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/rtti.hpp>
@@ -77,10 +77,9 @@ private:
 }  // namespace
 
 UnixSocketServer::UnixSocketServer(libcyphal::IExecutor& executor, std::string socket_path)
-    : executor_{executor}
-    , socket_path_{std::move(socket_path)}
+    : socket_path_{std::move(socket_path)}
     , server_fd_{-1}
-    , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor_)}
+    , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor)}
     , unique_client_id_counter_{0}
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
@@ -97,7 +96,7 @@ UnixSocketServer::~UnixSocketServer()
     }
 }
 
-bool UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client_event_handler)
+int UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client_event_handler)
 {
     CETL_DEBUG_ASSERT(server_fd_ == -1, "");
     CETL_DEBUG_ASSERT(client_event_handler, "");
@@ -109,8 +108,8 @@ bool UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& clien
             return server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
         }))
     {
-        ::syslog(LOG_ERR, "Failed to create server socket: %s", ::strerror(err));
-        return false;
+        ::syslog(LOG_ERR, "Failed to create server socket: %s", std::strerror(err));
+        return err;
     }
 
     sockaddr_un addr{};
@@ -130,8 +129,8 @@ bool UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& clien
                           offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
-        ::syslog(LOG_ERR, "Failed to bind server socket: %s", ::strerror(err));
-        return false;
+        ::syslog(LOG_ERR, "Failed to bind server socket: %s", std::strerror(err));
+        return err;
     }
 
     if (const auto err = platform::posixSyscallError([this] {
@@ -139,8 +138,8 @@ bool UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& clien
             return ::listen(server_fd_, MaxConnections);
         }))
     {
-        ::syslog(LOG_ERR, "Failed to listen on server socket: %s", ::strerror(err));
-        return false;
+        ::syslog(LOG_ERR, "Failed to listen on server socket: %s", std::strerror(err));
+        return err;
     }
 
     accept_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
@@ -150,7 +149,7 @@ bool UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& clien
         },
         platform::IPosixExecutorExtension::Trigger::Readable{server_fd_});
 
-    return true;
+    return 0;
 }
 
 void UnixSocketServer::handle_accept()
@@ -163,7 +162,7 @@ void UnixSocketServer::handle_accept()
             return client_fd = ::accept(server_fd_, nullptr, nullptr);
         }))
     {
-        ::syslog(LOG_WARNING, "Failed to accept client connection: %s", ::strerror(err));
+        ::syslog(LOG_WARNING, "Failed to accept client connection: %s", std::strerror(err));
         return;
     }
 
@@ -190,7 +189,7 @@ void UnixSocketServer::handle_client_request(const ClientId client_id, const int
 {
     if (const auto err = receiveMessage(client_fd, [this, client_id](const auto payload) {
             //
-            return client_event_handler_(ClientEvent::Message{.client_id = client_id, .payload = payload});
+            return client_event_handler_(ClientEvent::Message{client_id, payload});
         }))
     {
         if (err == -1)
@@ -203,7 +202,7 @@ void UnixSocketServer::handle_client_request(const ClientId client_id, const int
                      "Failed to handle client request - closing connection (id=%zu, fd=%d): %s",
                      client_id,
                      client_fd,
-                     ::strerror(err));
+                     std::strerror(err));
         }
 
         client_id_to_fd_.erase(client_id);

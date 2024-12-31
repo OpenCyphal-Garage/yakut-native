@@ -7,7 +7,7 @@
 #define OCVSMD_COMMON_IPC_UNIX_SOCKET_BASE_HPP_INCLUDED
 
 #include "dsdl_helpers.hpp"
-#include "platform/posix_utils.hpp"
+#include "ocvsmd/platform/posix_utils.hpp"
 
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -58,13 +58,13 @@ protected:
         std::size_t msg_size = 0;
         {
             MsgHeader msg_header;
-            ssize_t bytes_read = 0;
+            ssize_t   bytes_read = 0;
             if (const auto err = platform::posixSyscallError([input_fd, &msg_header, &bytes_read] {
                     //
                     return bytes_read = ::read(input_fd, &msg_header, sizeof(msg_header));
                 }))
             {
-                ::syslog(LOG_ERR, "Failed to read message header (fd=%d): %s", input_fd, ::strerror(err));
+                ::syslog(LOG_ERR, "Failed to read message header (fd=%d): %s", input_fd, std::strerror(err));
                 return err;
             }
 
@@ -92,7 +92,7 @@ protected:
                     return read = ::read(input_fd, buf_span.data(), buf_span.size());
                 }))
             {
-                ::syslog(LOG_ERR, "Failed to read message payload (fd=%d): %s", input_fd, ::strerror(err));
+                ::syslog(LOG_ERR, "Failed to read message payload (fd=%d): %s", input_fd, std::strerror(err));
                 return err;
             }
             if (read != buf_span.size())

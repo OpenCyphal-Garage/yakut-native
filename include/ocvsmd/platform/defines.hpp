@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_DEFINES_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_PLATFORM_DEFINES_HPP_INCLUDED
+#ifndef OCVSMD_PLATFORM_DEFINES_HPP_INCLUDED
+#define OCVSMD_PLATFORM_DEFINES_HPP_INCLUDED
 
 #ifdef PLATFORM_OS_TYPE_BSD
 #    include "bsd/kqueue_single_threaded_executor.hpp"
@@ -13,10 +13,6 @@
 #endif
 
 namespace ocvsmd
-{
-namespace daemon
-{
-namespace engine
 {
 namespace platform
 {
@@ -28,8 +24,6 @@ using SingleThreadedExecutor = Linux::EpollSingleThreadedExecutor;
 #endif
 
 }  // namespace platform
-}  // namespace engine
-}  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_PLATFORM_DEFINES_HPP_INCLUDED
+#endif  // OCVSMD_PLATFORM_DEFINES_HPP_INCLUDED

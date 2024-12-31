@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_BSD_KQUEUE_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_PLATFORM_BSD_KQUEUE_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#ifndef OCVSMD_PLATFORM_BSD_KQUEUE_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#define OCVSMD_PLATFORM_BSD_KQUEUE_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
 
-#include "platform/posix_executor_extension.hpp"
-#include "platform/posix_platform_error.hpp"
+#include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "ocvsmd/platform/posix_platform_error.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -34,10 +34,6 @@
 #include <utility>
 
 namespace ocvsmd
-{
-namespace daemon
-{
-namespace engine
 {
 namespace platform
 {
@@ -273,8 +269,6 @@ private:
 
 }  // namespace bsd
 }  // namespace platform
-}  // namespace engine
-}  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_PLATFORM_BSD_KQUEUE_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#endif  // OCVSMD_PLATFORM_BSD_KQUEUE_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED

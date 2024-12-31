@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
-#include "platform/posix_executor_extension.hpp"
+#include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "unix_socket_base.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -79,7 +79,7 @@ public:
 
     ~UnixSocketServer();
 
-    bool start(std::function<int(const ClientEvent::Var&)>&& client_event_handler);
+    int start(std::function<int(const ClientEvent::Var&)>&& client_event_handler);
 
     int sendMessage(const ClientId client_id, const cetl::span<const std::uint8_t> payload) const
     {
@@ -96,7 +96,6 @@ private:
     void handle_client_connection(const int client_fd);
     void handle_client_request(const ClientId client_id, const int client_fd);
 
-    libcyphal::IExecutor&                                           executor_;
     const std::string                                               socket_path_;
     int                                                             server_fd_;
     platform::IPosixExecutorExtension* const                        posix_executor_ext_;

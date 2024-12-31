@@ -7,7 +7,7 @@
 #define OCVSMD_DAEMON_ENGINE_APPLICATION_HPP_INCLUDED
 
 #include "cyphal/udp_transport_bag.hpp"
-#include "platform/defines.hpp"
+#include "ocvsmd/platform/defines.hpp"
 
 #include <ipc/unix_socket_server.hpp>
 
@@ -40,7 +40,7 @@ private:
 
     static UniqueId getUniqueId();
 
-    platform::SingleThreadedExecutor                      executor_;
+    ocvsmd::platform::SingleThreadedExecutor              executor_;
     cetl::pmr::memory_resource&                           memory_{*cetl::pmr::get_default_resource()};
     cyphal::UdpTransportBag                               udp_transport_bag_{memory_, executor_};
     cetl::optional<libcyphal::presentation::Presentation> presentation_;

@@ -7,6 +7,7 @@
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 
 #include <memory>
 
@@ -20,7 +21,7 @@ namespace sdk
 class Daemon
 {
 public:
-    static std::unique_ptr<Daemon> make(cetl::pmr::memory_resource& memory);
+    static std::unique_ptr<Daemon> make(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor);
 
     Daemon(Daemon&&)                 = delete;
     Daemon(const Daemon&)            = delete;
@@ -28,8 +29,6 @@ public:
     Daemon& operator=(const Daemon&) = delete;
 
     virtual ~Daemon() = default;
-
-    virtual void send_messages() const = 0;
 
 protected:
     Daemon() = default;

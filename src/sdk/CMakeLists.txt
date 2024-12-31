@@ -16,4 +16,5 @@ target_include_directories(ocvsmd_sdk
 )
 target_include_directories(ocvsmd_sdk SYSTEM
         PUBLIC ${submodules_dir}/cetl/include
+        PUBLIC ${submodules_dir}/libcyphal/include
 )

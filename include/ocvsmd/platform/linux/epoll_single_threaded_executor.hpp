@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_LINUX_EPOLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_PLATFORM_LINUX_EPOLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#ifndef OCVSMD_PLATFORM_LINUX_EPOLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#define OCVSMD_PLATFORM_LINUX_EPOLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
 
-#include "platform/posix_executor_extension.hpp"
-#include "platform/posix_platform_error.hpp"
+#include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "ocvsmd/platform/posix_platform_error.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -33,10 +33,6 @@
 
 namespace ocvsmd
 {
-namespace daemon
-{
-namespace engine
-{
 namespace platform
 {
 namespace Linux
@@ -45,7 +41,7 @@ namespace Linux
 /// @brief Defines Linux platform specific single-threaded executor based on `epoll` mechanism.
 ///
 class EpollSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor,
-                                          public common::platform::IPosixExecutorExtension
+                                          public IPosixExecutorExtension
 {
 public:
     EpollSingleThreadedExecutor()
@@ -257,8 +253,6 @@ private:
 
 }  // namespace Linux
 }  // namespace platform
-}  // namespace engine
-}  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_PLATFORM_LINUX_EPOLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#endif  // OCVSMD_PLATFORM_LINUX_EPOLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED

@@ -27,6 +27,7 @@ target_link_libraries(ocvsmd_common
         PUBLIC ${common_transpiled}
 )
 target_include_directories(ocvsmd_common
+        PUBLIC ${include_dir}
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_include_directories(ocvsmd_common SYSTEM

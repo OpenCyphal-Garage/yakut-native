@@ -8,12 +8,12 @@
 #include <array>
 #include <cassert>
 #include <cerrno>
-#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <signal.h>
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -27,19 +27,28 @@ namespace
 const auto* const s_init_complete = "init_complete";
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-volatile int s_running = 1;
+volatile sig_atomic_t g_running = 1;
 
-extern "C" void handle_signal(const int sig)
+extern "C" void signal_handler(const int sig)
 {
     switch (sig)
     {
     case SIGTERM:
     case SIGINT:
-        s_running = 0;
+        g_running = 0;
         break;
     default:
         break;
     }
+}
+
+void setup_signal_handlers()
+{
+    struct sigaction sigbreak
+    {};
+    sigbreak.sa_handler = &signal_handler;
+    ::sigaction(SIGINT, &sigbreak, nullptr);
+    ::sigaction(SIGTERM, &sigbreak, nullptr);
 }
 
 bool write_string(const int fd, const char* const str)
@@ -50,7 +59,7 @@ bool write_string(const int fd, const char* const str)
 
 void exit_with_failure(const int fd, const char* const msg)
 {
-    const char* const err_txt = strerror(errno);
+    const char* const err_txt = std::strerror(errno);
     write_string(fd, msg);
     write_string(fd, err_txt);
     ::exit(EXIT_FAILURE);
@@ -61,7 +70,7 @@ void step_01_close_all_file_descriptors(std::array<int, 2>& pipe_fds)
     rlimit rlimit_files{};
     if (getrlimit(RLIMIT_NOFILE, &rlimit_files) != 0)
     {
-        const char* const err_txt = strerror(errno);
+        const char* const err_txt = std::strerror(errno);
         std::cerr << "Failed to getrlimit(RLIMIT_NOFILE): " << err_txt << "\n";
         ::exit(EXIT_FAILURE);
     }
@@ -75,7 +84,7 @@ void step_01_close_all_file_descriptors(std::array<int, 2>& pipe_fds)
     //
     if (::pipe(pipe_fds.data()) == -1)
     {
-        const char* const err_txt = ::strerror(errno);
+        const char* const err_txt = std::strerror(errno);
         std::cerr << "Failed to create pipe: " << err_txt << "\n";
         ::exit(EXIT_FAILURE);
     }
@@ -83,9 +92,7 @@ void step_01_close_all_file_descriptors(std::array<int, 2>& pipe_fds)
 
 void step_02_03_setup_signal_handlers()
 {
-    // Catch termination signals
-    (void) ::signal(SIGTERM, handle_signal);
-    (void) ::signal(SIGINT, handle_signal);
+    setup_signal_handlers();
 }
 
 void step_04_sanitize_environment()
@@ -99,7 +106,7 @@ bool step_05_fork_to_background(std::array<int, 2>& pipe_fds)
     const pid_t parent_pid = fork();
     if (parent_pid < 0)
     {
-        const char* const err_txt = ::strerror(errno);
+        const char* const err_txt = std::strerror(errno);
         std::cerr << "Failed to fork: " << err_txt << "\n";
         ::exit(EXIT_FAILURE);
     }
@@ -235,7 +242,7 @@ void step_15_exit_org_process(int& pipe_read_fd)
     const auto                 res = ::read(pipe_read_fd, msg_from_child.data(), msg_from_child.size() - 1);
     if (res == -1)
     {
-        const char* const err_txt = ::strerror(errno);
+        const char* const err_txt = std::strerror(errno);
         std::cerr << "Failed to read pipe: " << err_txt << "\n";
         ::exit(EXIT_FAILURE);
     }
@@ -312,24 +319,33 @@ int main(const int argc, const char** const argv)
         pipe_write_fd = daemonize();
         // We are in a child process now!
     }
-
-    Application application;
-    if (const auto failure_str = application.init())
+    else
     {
-        write_string(pipe_write_fd, "Failed to init application: ");
-        write_string(pipe_write_fd, failure_str.value().c_str());
-        ::exit(EXIT_FAILURE);
-    }
-    if (should_daemonize)
-    {
-        step_14_notify_init_complete(pipe_write_fd);
+        setup_signal_handlers();
     }
 
-    ::openlog("ocvsmd", LOG_PID, LOG_DAEMON);
+    ::openlog("ocvsmd", LOG_PID, should_daemonize ? LOG_DAEMON : LOG_USER);
     ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT *-vararg
+    {
+        Application application;
+        if (const auto failure_str = application.init())
+        {
+            write_string(pipe_write_fd, "Failed to init application: ");
+            write_string(pipe_write_fd, failure_str.value().c_str());
+            ::exit(EXIT_FAILURE);
+        }
+        if (should_daemonize)
+        {
+            step_14_notify_init_complete(pipe_write_fd);
+        }
 
-    application.runWhile([] { return s_running == 1; });
+        application.runWhile([] { return g_running == 1; });
 
+        if (g_running == 0)
+        {
+            ::syslog(LOG_NOTICE, "Received termination signal.");
+        }
+    }
     ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT *-vararg
     ::closelog();
 

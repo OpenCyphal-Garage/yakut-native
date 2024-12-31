@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
+#ifndef OCVSMD_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
+#define OCVSMD_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
 
 #include <cetl/cetl.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -12,10 +12,6 @@
 #include <cstdint>
 
 namespace ocvsmd
-{
-namespace daemon
-{
-namespace engine
 {
 namespace platform
 {
@@ -51,8 +47,6 @@ private:
 };  // PosixPlatformError
 
 }  // namespace platform
-}  // namespace engine
-}  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
+#endif  // OCVSMD_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED

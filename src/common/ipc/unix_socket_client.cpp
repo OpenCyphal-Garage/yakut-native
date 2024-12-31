@@ -5,13 +5,17 @@
 
 #include "unix_socket_client.hpp"
 
-#include "platform/posix_utils.hpp"
+#include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "ocvsmd/platform/posix_utils.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/rtti.hpp>
+#include <libcyphal/executor.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <sys/socket.h>
@@ -26,10 +30,12 @@ namespace common
 namespace ipc
 {
 
-UnixSocketClient::UnixSocketClient(std::string socket_path)
+UnixSocketClient::UnixSocketClient(libcyphal::IExecutor& executor, std::string socket_path)
     : socket_path_{std::move(socket_path)}
     , client_fd_{-1}
+    , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor)}
 {
+    CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
 
 UnixSocketClient::~UnixSocketClient()
@@ -43,17 +49,20 @@ UnixSocketClient::~UnixSocketClient()
     }
 }
 
-bool UnixSocketClient::connectToServer()
+int UnixSocketClient::start(std::function<int(const ServerEvent::Var&)>&& server_event_handler)
 {
     CETL_DEBUG_ASSERT(client_fd_ == -1, "");
+    CETL_DEBUG_ASSERT(server_event_handler, "");
+
+    server_event_handler_ = std::move(server_event_handler);
 
     if (const auto err = platform::posixSyscallError([this] {
             //
-            return client_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
+            return client_fd_ = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
         }))
     {
-        std::cerr << "Failed to create socket: " << ::strerror(err) << "\n";
-        return false;
+        std::cerr << "Failed to create socket: " << std::strerror(err) << "\n";
+        return err;
     }
 
     sockaddr_un addr{};
@@ -73,11 +82,43 @@ bool UnixSocketClient::connectToServer()
                              offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
-        std::cerr << "Failed to connect to server: " << ::strerror(err) << "\n";
-        return false;
+        std::cerr << "Failed to connect to server: " << std::strerror(err) << "\n";
+        return err;
     }
 
-    return true;
+    socket_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
+        [this](const auto&) {
+            //
+            handle_socket();
+        },
+        platform::IPosixExecutorExtension::Trigger::Readable{client_fd_});
+
+    server_event_handler_(ServerEvent::Connected{});
+    return 0;
+}
+
+void UnixSocketClient::handle_socket()
+{
+    if (const auto err = receiveMessage(client_fd_, [this](const auto payload) {
+            //
+            return server_event_handler_(ServerEvent::Message{payload});
+        }))
+    {
+        if (err == -1)
+        {
+            ::syslog(LOG_DEBUG, "End of server stream - closing connection.");
+        }
+        else
+        {
+            ::syslog(LOG_WARNING, "Failed to handle server response - closing connection: %s", std::strerror(err));
+        }
+
+        socket_callback_.reset();
+        ::close(client_fd_);
+        client_fd_ = -1;
+
+        server_event_handler_(ServerEvent::Disconnected{});
+    }
 }
 
 }  // namespace ipc

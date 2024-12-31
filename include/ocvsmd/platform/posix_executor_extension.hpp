@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
-#define OCVSMD_COMMON_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
+#ifndef OCVSMD_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
+#define OCVSMD_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -13,8 +13,6 @@
 #include <libcyphal/transport/errors.hpp>
 
 namespace ocvsmd
-{
-namespace common
 {
 namespace platform
 {
@@ -69,7 +67,6 @@ protected:
 };  // IPosixExecutorExtension
 
 }  // namespace platform
-}  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
+#endif  // OCVSMD_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED

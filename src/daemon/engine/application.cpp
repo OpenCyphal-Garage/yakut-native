@@ -59,15 +59,21 @@ cetl::optional<std::string> Application::init()
         .setSoftwareVcsRevisionId(VCS_REVISION_ID)
         .setUniqueId(getUniqueId());
 
-    if (!ipc_server_.start([this](const auto& client_event) {
+    if (const auto err = ipc_server_.start([this](const auto& client_event) {
             //
             using ClientEvent = common::ipc::UnixSocketServer::ClientEvent;
 
             cetl::visit(  //
                 cetl::make_overloaded(
-                    [](const ClientEvent::Connected& connected) {
+                    [this](const ClientEvent::Connected& connected) {
                         //
                         ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
+                        (void) ipc_server_.sendMessage(  //
+                            connected.client_id,
+                            {reinterpret_cast<const std::uint8_t*>("Status1"), 7});  // NOLINT
+                        (void) ipc_server_.sendMessage(                              //
+                            connected.client_id,
+                            {reinterpret_cast<const std::uint8_t*>("Status2"), 7});  // NOLINT
                     },
                     [this](const ClientEvent::Message& message) {
                         //
@@ -82,7 +88,7 @@ cetl::optional<std::string> Application::init()
             return 0;
         }))
     {
-        return "Failed to start IPC server.";
+        return std::string("Failed to start IPC server: ") + std::strerror(err);
     }
 
     return cetl::nullopt;
