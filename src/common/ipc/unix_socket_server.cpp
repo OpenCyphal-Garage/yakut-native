@@ -83,7 +83,7 @@ UnixSocketServer::UnixSocketServer(libcyphal::IExecutor& executor, std::string s
     , socket_path_{std::move(socket_path)}
     , server_fd_{-1}
     , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor_)}
-    , client_id_counter_{0}
+    , unique_client_id_counter_{0}
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
@@ -172,7 +172,7 @@ void UnixSocketServer::handle_accept()
     CETL_DEBUG_ASSERT(client_fd != -1, "");
     CETL_DEBUG_ASSERT(client_contexts_.find(client_fd) == client_contexts_.end(), "");
 
-    const ClientId new_client_id  = ++client_id_counter_;
+    const ClientId new_client_id  = ++unique_client_id_counter_;
     auto           client_context = std::make_unique<ClientContextImpl>(new_client_id, client_fd);
     //
     client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
@@ -182,15 +182,17 @@ void UnixSocketServer::handle_accept()
         },
         platform::IPosixExecutorExtension::Trigger::Readable{client_fd}));
 
-    client_contexts_.emplace(client_fd, std::move(client_context));
+    client_id_to_fd_[new_client_id] = client_fd;
+    client_fd_to_context_.emplace(client_fd, std::move(client_context));
+
     client_event_handler_(ClientEvent::Connected{new_client_id});
 }
 
 void UnixSocketServer::handle_client_request(const ClientId client_id, const int client_fd)
 {
-    if (const auto err = readAndActOnMessage(client_fd, [this, client_fd](const auto payload) {
+    if (const auto err = readAndActOnMessage(client_fd, [this, client_id](const auto payload) {
             //
-            return client_event_handler_(ClientEvent::Message{.client_id = client_fd, .payload = payload});
+            return client_event_handler_(ClientEvent::Message{.client_id = client_id, .payload = payload});
         }))
     {
         if (err == -1)
@@ -206,7 +208,9 @@ void UnixSocketServer::handle_client_request(const ClientId client_id, const int
                      ::strerror(err));
         }
 
-        client_contexts_.erase(client_fd);
+        client_id_to_fd_.erase(client_id);
+        client_fd_to_context_.erase(client_fd);
+
         client_event_handler_(ClientEvent::Disconnected{client_id});
     }
 }

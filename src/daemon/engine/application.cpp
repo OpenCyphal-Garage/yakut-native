@@ -4,8 +4,10 @@
 //
 
 #include "application.hpp"
+#include "ocvsmd/common/dsdl/Foo_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/visit_helpers.hpp>
 #include <libcyphal/application/node.hpp>
 #include <libcyphal/types.hpp>
 
@@ -57,9 +59,28 @@ cetl::optional<std::string> Application::init()
         .setSoftwareVcsRevisionId(VCS_REVISION_ID)
         .setUniqueId(getUniqueId());
 
-    if (!ipc_server_.start([](const auto& client_event) {
+    if (!ipc_server_.start([this](const auto& client_event) {
             //
-            (void) client_event;
+            using ClientEvent = common::ipc::UnixSocketServer::ClientEvent;
+
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [](const ClientEvent::Connected& connected) {
+                        //
+                        ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
+                    },
+                    [this](const ClientEvent::Message& message) {
+                        //
+                        ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
+                        const common::dsdl::Foo_1_0 foo_message{&memory_};
+                        (void) ipc_server_.sendMessage(message.client_id, foo_message);
+                    },
+                    [](const ClientEvent::Disconnected& disconnected) {
+                        //
+                        ::syslog(LOG_DEBUG, "Client disconnected (%zu).", disconnected.client_id);
+                    }),
+                client_event);
+            return 0;
         }))
     {
         return "Failed to start IPC server.";

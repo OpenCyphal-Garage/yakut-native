@@ -75,6 +75,11 @@ protected:
                 return err;
             }
 
+            if (bytes_read == 0)
+            {
+                return -1;  // EOF
+            }
+
             if ((bytes_read != sizeof(msg_header)) || (msg_header.signature != MsgSignature)  //
                 || (msg_header.size == 0) || (msg_header.size > MsgMaxSize))
             {
@@ -103,7 +108,7 @@ protected:
             }
 
             const cetl::span<const std::uint8_t> const_buf_span{buf_span};
-            return std::forward<Action>(act)(const_buf_span);
+            return act(const_buf_span);
         };
         if (msg_size <= MsgSmallPayloadSize)  // on stack buffer?
         {

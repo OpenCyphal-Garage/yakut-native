@@ -52,8 +52,8 @@ public:
     {
         struct Message
         {
-            ClientId                 client_id;
-            cetl::span<std::uint8_t> payload;
+            ClientId                       client_id;
+            cetl::span<const std::uint8_t> payload;
         };
         struct Connected
         {
@@ -79,6 +79,17 @@ public:
 
     bool start(std::function<int(const ClientEvent::Var&)>&& client_event_handler);
 
+    template <typename Message>
+    Failure sendMessage(const ClientId client_id, const Message& message) const
+    {
+        const auto id_and_fd = client_id_to_fd_.find(client_id);
+        if (id_and_fd == client_id_to_fd_.end())
+        {
+            return EINVAL;
+        }
+        return writeMessage(id_and_fd->second, message);
+    }
+
 private:
     void handle_accept();
     void handle_client_connection(const int client_fd);
@@ -88,9 +99,10 @@ private:
     const std::string                                               socket_path_;
     int                                                             server_fd_;
     platform::IPosixExecutorExtension* const                        posix_executor_ext_;
-    ClientId                                                        client_id_counter_;
+    ClientId                                                        unique_client_id_counter_;
     std::function<int(const ClientEvent::Var&)>                     client_event_handler_;
-    std::unordered_map<int, std::unique_ptr<detail::ClientContext>> client_contexts_;
+    std::unordered_map<int, std::unique_ptr<detail::ClientContext>> client_fd_to_context_;
+    std::unordered_map<ClientId, int>                               client_id_to_fd_;
     libcyphal::IExecutor::Callback::Any                             accept_callback_;
 
 };  // UnixSocketServer
