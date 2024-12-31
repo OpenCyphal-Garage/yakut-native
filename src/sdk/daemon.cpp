@@ -6,10 +6,10 @@
 #include <ocvsmd/sdk/daemon.hpp>
 
 #include "ipc/unix_socket_client.hpp"
-#include "ocvsmd/common/dsdl/Foo_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <unistd.h>
 #include <utility>
@@ -36,13 +36,10 @@ public:
 
     void send_messages() const override
     {
-        common::dsdl::Foo_1_0 foo_message{&memory_};
-        foo_message.some_stuff.push_back('A');  // NOLINT
-        ipc_client_.sendMessage(foo_message);
+        ipc_client_.sendMessage({reinterpret_cast<const std::uint8_t*>("Abc"), 3});  // NOLINT
         ::sleep(1);
 
-        foo_message.some_stuff.push_back('Z');  // NOLINT
-        ipc_client_.sendMessage(foo_message);
+        ipc_client_.sendMessage({reinterpret_cast<const std::uint8_t*>("xyZ"), 3});  // NOLINT
         ::sleep(1);
     }
 

@@ -13,7 +13,6 @@
 #include <libcyphal/executor.hpp>
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstring>
 #include <functional>
@@ -21,7 +20,6 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/syslog.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <utility>
@@ -190,7 +188,7 @@ void UnixSocketServer::handle_accept()
 
 void UnixSocketServer::handle_client_request(const ClientId client_id, const int client_fd)
 {
-    if (const auto err = readAndActOnMessage(client_fd, [this, client_id](const auto payload) {
+    if (const auto err = receiveMessage(client_fd, [this, client_id](const auto payload) {
             //
             return client_event_handler_(ClientEvent::Message{.client_id = client_id, .payload = payload});
         }))

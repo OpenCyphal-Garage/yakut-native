@@ -4,7 +4,6 @@
 //
 
 #include "application.hpp"
-#include "ocvsmd/common/dsdl/Foo_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
@@ -17,6 +16,7 @@
 #include <limits>
 #include <random>
 #include <string>
+#include <sys/syslog.h>
 #include <utility>
 
 namespace ocvsmd
@@ -72,8 +72,7 @@ cetl::optional<std::string> Application::init()
                     [this](const ClientEvent::Message& message) {
                         //
                         ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
-                        const common::dsdl::Foo_1_0 foo_message{&memory_};
-                        (void) ipc_server_.sendMessage(message.client_id, foo_message);
+                        (void) ipc_server_.sendMessage(message.client_id, message.payload);
                     },
                     [](const ClientEvent::Disconnected& disconnected) {
                         //

@@ -10,8 +10,10 @@
 #include "unix_socket_base.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <cerrno>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -79,15 +81,14 @@ public:
 
     bool start(std::function<int(const ClientEvent::Var&)>&& client_event_handler);
 
-    template <typename Message>
-    Failure sendMessage(const ClientId client_id, const Message& message) const
+    int sendMessage(const ClientId client_id, const cetl::span<const std::uint8_t> payload) const
     {
         const auto id_and_fd = client_id_to_fd_.find(client_id);
         if (id_and_fd == client_id_to_fd_.end())
         {
             return EINVAL;
         }
-        return writeMessage(id_and_fd->second, message);
+        return UnixSocketBase::sendMessage(id_and_fd->second, payload);
     }
 
 private:

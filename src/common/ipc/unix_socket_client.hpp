@@ -8,6 +8,8 @@
 
 #include "unix_socket_base.hpp"
 
+#include <cetl/pf20/cetlpf.hpp>
+
 #include <string>
 
 namespace ocvsmd
@@ -31,10 +33,9 @@ public:
 
     bool connectToServer();
 
-    template <typename Message>
-    Failure sendMessage(const Message& message) const
+    int sendMessage(const cetl::span<const std::uint8_t> payload) const
     {
-        return writeMessage(client_fd_, message);
+        return UnixSocketBase::sendMessage(client_fd_, payload);
     }
 
 private:
