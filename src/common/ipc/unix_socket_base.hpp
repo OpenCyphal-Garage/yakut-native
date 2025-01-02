@@ -64,6 +64,7 @@ protected:
                     return bytes_read = ::read(input_fd, &msg_header, sizeof(msg_header));
                 }))
             {
+                // NOLINTNEXTLINE *-vararg
                 ::syslog(LOG_ERR, "Failed to read message header (fd=%d): %s", input_fd, std::strerror(err));
                 return err;
             }
@@ -92,6 +93,7 @@ protected:
                     return read = ::read(input_fd, buf_span.data(), buf_span.size());
                 }))
             {
+                // NOLINTNEXTLINE *-vararg
                 ::syslog(LOG_ERR, "Failed to read message payload (fd=%d): %s", input_fd, std::strerror(err));
                 return err;
             }

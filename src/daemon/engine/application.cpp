@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <random>
@@ -67,6 +68,7 @@ cetl::optional<std::string> Application::init()
                 cetl::make_overloaded(
                     [this](const ClientEvent::Connected& connected) {
                         //
+                        // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
                         (void) ipc_server_.sendMessage(  //
                             connected.client_id,
@@ -77,11 +79,13 @@ cetl::optional<std::string> Application::init()
                     },
                     [this](const ClientEvent::Message& message) {
                         //
+                        // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
                         (void) ipc_server_.sendMessage(message.client_id, message.payload);
                     },
                     [](const ClientEvent::Disconnected& disconnected) {
                         //
+                        // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Client disconnected (%zu).", disconnected.client_id);
                     }),
                 client_event);

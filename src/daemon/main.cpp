@@ -343,7 +343,7 @@ int main(const int argc, const char** const argv)
 
         if (g_running == 0)
         {
-            ::syslog(LOG_NOTICE, "Received termination signal.");
+            ::syslog(LOG_NOTICE, "Received termination signal.");  // NOLINT *-vararg
         }
     }
     ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT *-vararg

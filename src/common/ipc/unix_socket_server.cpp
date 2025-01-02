@@ -44,11 +44,13 @@ public:
     {
         CETL_DEBUG_ASSERT(client_fd != -1, "");
 
+        // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_NOTICE, "New client connection on fd=%d (id=%zu).", fd, id);
     }
 
     ~ClientContextImpl() override
     {
+        // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_NOTICE, "Closing client connection on fd=%d (id=%zu).", fd_, id_);
 
         platform::posixSyscallError([this] {
@@ -108,6 +110,7 @@ int UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client
             return server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
         }))
     {
+        // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_ERR, "Failed to create server socket: %s", std::strerror(err));
         return err;
     }
@@ -129,6 +132,7 @@ int UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client
                           offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
+        // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_ERR, "Failed to bind server socket: %s", std::strerror(err));
         return err;
     }
@@ -138,6 +142,7 @@ int UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client
             return ::listen(server_fd_, MaxConnections);
         }))
     {
+        // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_ERR, "Failed to listen on server socket: %s", std::strerror(err));
         return err;
     }
@@ -162,6 +167,7 @@ void UnixSocketServer::handle_accept()
             return client_fd = ::accept(server_fd_, nullptr, nullptr);
         }))
     {
+        // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_WARNING, "Failed to accept client connection: %s", std::strerror(err));
         return;
     }
@@ -194,10 +200,12 @@ void UnixSocketServer::handle_client_request(const ClientId client_id, const int
     {
         if (err == -1)
         {
+            // NOLINTNEXTLINE *-vararg
             ::syslog(LOG_DEBUG, "End of client stream - closing connection (id=%zu, fd=%d).", client_id, client_fd);
         }
         else
         {
+            // NOLINTNEXTLINE *-vararg
             ::syslog(LOG_WARNING,
                      "Failed to handle client request - closing connection (id=%zu, fd=%d): %s",
                      client_id,

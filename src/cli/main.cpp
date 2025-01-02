@@ -85,7 +85,7 @@ int main(const int, const char** const)
 
         if (g_running == 0)
         {
-            ::syslog(LOG_NOTICE, "Received termination signal.");
+            ::syslog(LOG_NOTICE, "Received termination signal.");  // NOLINT *-vararg
         }
     }
     ::syslog(LOG_NOTICE, "ocvsmd cli terminated.");  // NOLINT *-vararg

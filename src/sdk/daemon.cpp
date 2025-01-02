@@ -42,14 +42,17 @@ public:
                 cetl::make_overloaded(
                     [](const ServerEvent::Connected&) {
                         //
+                        // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server connected.");
                     },
                     [](const ServerEvent::Message& message) {
                         //
+                        // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", message.payload.size());
                     },
                     [](const ServerEvent::Disconnected&) {
                         //
+                        // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server disconnected.");
                     }),
                 server_event);

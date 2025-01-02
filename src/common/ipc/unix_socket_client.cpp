@@ -106,10 +106,12 @@ void UnixSocketClient::handle_socket()
     {
         if (err == -1)
         {
+            // NOLINTNEXTLINE *-vararg
             ::syslog(LOG_DEBUG, "End of server stream - closing connection.");
         }
         else
         {
+            // NOLINTNEXTLINE *-vararg
             ::syslog(LOG_WARNING, "Failed to handle server response - closing connection: %s", std::strerror(err));
         }
 
