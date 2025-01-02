@@ -12,8 +12,9 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
-#include <signal.h>
+#include <signal.h>  // NOLINT
 #include <sys/syslog.h>
 
 namespace
