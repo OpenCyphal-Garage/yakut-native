@@ -36,23 +36,23 @@ public:
     {
         return 0 == ipc_client_.start([](const auto& server_event) {
             //
-                using ServerEvent = common::ipc::UnixSocketClient::ServerEvent;
+            using ServerEvent = common::ipc::UnixSocketClient::ServerEvent;
 
-                cetl::visit(  //
-                    cetl::make_overloaded(
-                        [](const ServerEvent::Connected&) {
-                            //
-                            ::syslog(LOG_DEBUG, "Server connected.");
-                        },
-                        [](const ServerEvent::Message& message) {
-                            //
-                            ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", message.payload.size());
-                        },
-                        [](const ServerEvent::Disconnected&) {
-                            //
-                            ::syslog(LOG_DEBUG, "Server disconnected.");
-                        }),
-                    server_event);
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [](const ServerEvent::Connected&) {
+                        //
+                        ::syslog(LOG_DEBUG, "Server connected.");
+                    },
+                    [](const ServerEvent::Message& message) {
+                        //
+                        ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", message.payload.size());
+                    },
+                    [](const ServerEvent::Disconnected&) {
+                        //
+                        ::syslog(LOG_DEBUG, "Server disconnected.");
+                    }),
+                server_event);
             return 0;
         });
     }
