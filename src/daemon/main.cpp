@@ -8,12 +8,12 @@
 #include <array>
 #include <cassert>
 #include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
-#include <signal.h>
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
