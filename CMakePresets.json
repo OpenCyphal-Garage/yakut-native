@@ -103,5 +103,21 @@
         "ocvsmd"
       ]
     }
+  ],
+  "testPresets": [
+    {
+      "name": "OCVSMD-Debug",
+      "displayName": "Test OCVSMD (Debug)",
+      "description": "Tests OCVSMD",
+      "configurePreset": "OCVSMD-Linux",
+      "configuration": "Debug"
+    },
+    {
+      "name": "OCVSMD-Release",
+      "displayName": "Test OCVSMD (Release)",
+      "description": "Tests OCVSMD",
+      "configurePreset": "OCVSMD-Linux",
+      "configuration": "Release"
+    }
   ]
 }
