@@ -10,8 +10,6 @@ project(ocvsmd
         HOMEPAGE_URL https://github.com/OpenCyphal-Garage/opencyphal-vehicle-system-management-daemon
 )
 
-enable_testing()
-
 set(NO_STATIC_ANALYSIS OFF CACHE BOOL "disable static analysis")
 
 set(CMAKE_CXX_STANDARD 14)
@@ -71,12 +69,12 @@ add_definitions(
         -DNODE_NAME="org.opencyphal.ocvsmd"
 )
 if (DEFINED PLATFORM_OS_TYPE)
-    if(${PLATFORM_OS_TYPE} STREQUAL "bsd")
+    if (${PLATFORM_OS_TYPE} STREQUAL "bsd")
         add_definitions(-DPLATFORM_OS_TYPE_BSD)
-    elseif(${PLATFORM_OS_TYPE} STREQUAL "linux")
+    elseif (${PLATFORM_OS_TYPE} STREQUAL "linux")
         add_definitions(-DPLATFORM_OS_TYPE_LINUX)
-    endif()
-endif()
+    endif ()
+endif ()
 
 add_subdirectory(src)
 add_subdirectory(test)

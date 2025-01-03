@@ -5,13 +5,13 @@
 
 cmake_minimum_required(VERSION 3.27)
 
-add_executable(common_tests
-        ipc/test_client_router.cpp
+add_executable(engine_tests
+        test_xxx.cpp
 )
-target_link_libraries(common_tests
-        ocvsmd_common
+target_link_libraries(engine_tests
+        ocvsmd_engine
         GTest::gmock
         GTest::gtest_main
 )
 
-gtest_discover_tests(common_tests)
+gtest_discover_tests(engine_tests)

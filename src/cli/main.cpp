@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cerrno>
-#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <signal.h>  // NOLINT

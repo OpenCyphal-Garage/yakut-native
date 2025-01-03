@@ -20,6 +20,7 @@ add_cyphal_library(
 )
 
 add_library(ocvsmd_common
+        ipc/client_router.cpp
         ipc/unix_socket_client.cpp
         ipc/unix_socket_server.cpp
 )

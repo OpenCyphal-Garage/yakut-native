@@ -11,9 +11,7 @@
 #include <cetl/visit_helpers.hpp>
 #include <libcyphal/executor.hpp>
 
-#include <cstdint>
 #include <memory>
-#include <unistd.h>
 #include <utility>
 
 namespace ocvsmd

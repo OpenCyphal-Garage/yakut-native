@@ -5,6 +5,8 @@
 
 cmake_minimum_required(VERSION 3.27)
 
+enable_testing()
+
 include(FetchContent)
 FetchContent_Declare(
         googletest
@@ -16,6 +18,9 @@ block()
     FetchContent_MakeAvailable(googletest)
 endblock()
 
+include(GoogleTest)
+
 add_subdirectory(common)
 add_subdirectory(daemon)
 add_subdirectory(cli)
+add_subdirectory(sdk)
