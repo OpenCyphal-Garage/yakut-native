@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "client_pipe_mock.hpp"
 #include "ipc/client_router.hpp"
+
+#include "pipe/client_pipe_mock.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -31,9 +32,9 @@ protected:
 
 TEST_F(TestClientRouter, make)
 {
-    StrictMock<ClientPipeMock> client_pipe_mock;
+    StrictMock<pipe::ClientPipeMock> client_pipe_mock;
     {
-        auto       client_pipe   = std::make_unique<ClientPipeMock::RefWrapper>(client_pipe_mock);
+        auto       client_pipe   = std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock);
         const auto client_router = ClientRouter::make(std::move(client_pipe));
         EXPECT_THAT(client_router, NotNull());
 

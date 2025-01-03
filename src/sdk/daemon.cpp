@@ -5,7 +5,7 @@
 
 #include <ocvsmd/sdk/daemon.hpp>
 
-#include "ipc/unix_socket_client.hpp"
+#include "ipc/pipe/unix_socket_client.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
@@ -34,7 +34,7 @@ public:
     {
         return 0 == ipc_client_.start([](const auto& event) {
             //
-            using Event = common::ipc::UnixSocketClient::Event;
+            using Event = common::ipc::pipe::ClientPipe::Event;
 
             cetl::visit(  //
                 cetl::make_overloaded(
@@ -59,9 +59,9 @@ public:
     }
 
 private:
-    cetl::pmr::memory_resource&   memory_;
-    libcyphal::IExecutor&         executor_;
-    common::ipc::UnixSocketClient ipc_client_{executor_, "/var/run/ocvsmd/local.sock"};
+    cetl::pmr::memory_resource&         memory_;
+    libcyphal::IExecutor&               executor_;
+    common::ipc::pipe::UnixSocketClient ipc_client_{executor_, "/var/run/ocvsmd/local.sock"};
 
 };  // DaemonImpl
 

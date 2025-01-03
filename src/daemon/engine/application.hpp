@@ -9,7 +9,7 @@
 #include "cyphal/udp_transport_bag.hpp"
 #include "ocvsmd/platform/defines.hpp"
 
-#include <ipc/unix_socket_server.hpp>
+#include <ipc/pipe/unix_socket_server.hpp>
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -46,7 +46,7 @@ private:
     cetl::optional<libcyphal::presentation::Presentation> presentation_;
     cetl::optional<libcyphal::application::Node>          node_;
 
-    common::ipc::UnixSocketServer       ipc_server_{executor_, "/var/run/ocvsmd/local.sock"};
+    common::ipc::pipe::UnixSocketServer ipc_server_{executor_, "/var/run/ocvsmd/local.sock"};
     libcyphal::IExecutor::Callback::Any ipc_server_callback_;
 
 };  // Application

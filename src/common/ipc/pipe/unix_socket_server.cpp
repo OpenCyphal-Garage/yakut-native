@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <memory>
 #include <string>
 #include <sys/socket.h>
@@ -29,6 +28,8 @@ namespace ocvsmd
 namespace common
 {
 namespace ipc
+{
+namespace pipe
 {
 namespace
 {
@@ -98,12 +99,12 @@ UnixSocketServer::~UnixSocketServer()
     }
 }
 
-int UnixSocketServer::start(std::function<int(const ClientEvent::Var&)>&& client_event_handler)
+int UnixSocketServer::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(server_fd_ == -1, "");
     CETL_DEBUG_ASSERT(client_event_handler, "");
 
-    client_event_handler_ = std::move(client_event_handler);
+    event_handler_ = std::move(event_handler);
 
     if (const auto err = platform::posixSyscallError([this] {
             //
@@ -188,14 +189,14 @@ void UnixSocketServer::handle_accept()
     client_id_to_fd_[new_client_id] = client_fd;
     client_fd_to_context_.emplace(client_fd, std::move(client_context));
 
-    client_event_handler_(ClientEvent::Connected{new_client_id});
+    event_handler_(Event::Connected{new_client_id});
 }
 
 void UnixSocketServer::handle_client_request(const ClientId client_id, const int client_fd)
 {
     if (const auto err = receiveMessage(client_fd, [this, client_id](const auto payload) {
             //
-            return client_event_handler_(ClientEvent::Message{client_id, payload});
+            return event_handler_(Event::Message{client_id, payload});
         }))
     {
         if (err == -1)
@@ -216,10 +217,11 @@ void UnixSocketServer::handle_client_request(const ClientId client_id, const int
         client_id_to_fd_.erase(client_id);
         client_fd_to_context_.erase(client_fd);
 
-        client_event_handler_(ClientEvent::Disconnected{client_id});
+        event_handler_(Event::Disconnected{client_id});
     }
 }
 
+}  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd

@@ -19,7 +19,8 @@ namespace common
 {
 namespace ipc
 {
-
+namespace pipe
+{
 class ClientPipe
 {
 public:
@@ -60,6 +61,7 @@ protected:
 
 };  // ClientPipe
 
+}  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd

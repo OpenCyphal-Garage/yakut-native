@@ -60,13 +60,13 @@ cetl::optional<std::string> Application::init()
         .setSoftwareVcsRevisionId(VCS_REVISION_ID)
         .setUniqueId(getUniqueId());
 
-    if (const auto err = ipc_server_.start([this](const auto& client_event) {
+    if (const auto err = ipc_server_.start([this](const auto& event) {
             //
-            using ClientEvent = common::ipc::UnixSocketServer::ClientEvent;
+            using Event = common::ipc::pipe::ServerPipe::Event;
 
             cetl::visit(  //
                 cetl::make_overloaded(
-                    [this](const ClientEvent::Connected& connected) {
+                    [this](const Event::Connected& connected) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
@@ -77,18 +77,18 @@ cetl::optional<std::string> Application::init()
                             connected.client_id,
                             {reinterpret_cast<const std::uint8_t*>("Status2"), 7});  // NOLINT
                     },
-                    [this](const ClientEvent::Message& message) {
+                    [this](const Event::Message& message) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
                         (void) ipc_server_.sendMessage(message.client_id, message.payload);
                     },
-                    [](const ClientEvent::Disconnected& disconnected) {
+                    [](const Event::Disconnected& disconnected) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Client disconnected (%zu).", disconnected.client_id);
                     }),
-                client_event);
+                event);
             return 0;
         }))
     {

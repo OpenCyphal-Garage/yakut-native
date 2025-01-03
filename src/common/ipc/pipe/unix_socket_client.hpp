@@ -21,6 +21,8 @@ namespace common
 {
 namespace ipc
 {
+namespace pipe
+{
 
 class UnixSocketClient final : public UnixSocketBase, public ClientPipe
 {
@@ -50,10 +52,11 @@ private:
     int                                      client_fd_;
     platform::IPosixExecutorExtension* const posix_executor_ext_;
     libcyphal::IExecutor::Callback::Any      socket_callback_;
-    std::function<int(const Event::Var&)>    event_handler_;
+    EventHandler                             event_handler_;
 
 };  // UnixSocketClient
 
+}  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd

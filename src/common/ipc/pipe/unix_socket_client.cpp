@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <iostream>
 #include <string>
 #include <sys/socket.h>
@@ -28,6 +27,8 @@ namespace ocvsmd
 namespace common
 {
 namespace ipc
+{
+namespace pipe
 {
 
 UnixSocketClient::UnixSocketClient(libcyphal::IExecutor& executor, std::string socket_path)
@@ -123,6 +124,7 @@ void UnixSocketClient::handle_socket()
     }
 }
 
+}  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd

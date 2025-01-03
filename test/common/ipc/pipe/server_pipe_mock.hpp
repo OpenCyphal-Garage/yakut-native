@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_CLIENT_PIPE_MOCK_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_CLIENT_PIPE_MOCK_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_SERVER_PIPE_MOCK_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_SERVER_PIPE_MOCK_HPP_INCLUDED
 
-#include "ipc/client_pipe.hpp"
+#include "ipc/pipe/server_pipe.hpp"
 #include "unique_ptr_refwrapper.hpp"
 
 #include <gmock/gmock.h>
@@ -19,35 +19,38 @@ namespace common
 {
 namespace ipc
 {
+namespace pipe
+{
 
-class ClientPipeMock : public ClientPipe
+class ServerPipeMock : public ServerPipe
 {
 public:
-    struct RefWrapper final : UniquePtrRefWrapper<ClientPipe, ClientPipeMock>
+    struct RefWrapper final : UniquePtrRefWrapper<ServerPipe, ServerPipeMock>
     {
         using UniquePtrRefWrapper::UniquePtrRefWrapper;
 
-        // MARK: ClientPipe
+        // MARK: ServerPipe
 
         int start(EventHandler event_handler) override
         {
             return reference().start(event_handler);
         }
-        int sendMessage(const Payload payload) override
+        int sendMessage(const ClientId client_id, const Payload payload) override
         {
-            return reference().sendMessage(payload);
+            return reference().sendMessage(client_id, payload);
         }
 
     };  // RefWrapper
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(int, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(int, sendMessage, (const Payload payload), (override));
+    MOCK_METHOD(int, sendMessage, (const ClientId client_id, const Payload payload), (override));
 
-};  // ClientPipeMock
+};  // ServerPipeMock
 
+}  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_CLIENT_PIPE_MOCK_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_SERVER_PIPE_MOCK_HPP_INCLUDED

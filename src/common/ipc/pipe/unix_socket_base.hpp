@@ -26,10 +26,21 @@ namespace common
 {
 namespace ipc
 {
+namespace pipe
+{
 
 class UnixSocketBase
 {
+public:
+    UnixSocketBase(UnixSocketBase&&)                 = delete;
+    UnixSocketBase(const UnixSocketBase&)            = delete;
+    UnixSocketBase& operator=(UnixSocketBase&&)      = delete;
+    UnixSocketBase& operator=(const UnixSocketBase&) = delete;
+
 protected:
+    UnixSocketBase()  = default;
+    ~UnixSocketBase() = default;
+
     static int sendMessage(const int output_fd, const cetl::span<const std::uint8_t> payload)
     {
         // 1. Write the message header.
@@ -127,6 +138,7 @@ private:
 
 };  // UnixSocketBase
 
+}  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd

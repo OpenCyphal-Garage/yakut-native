@@ -21,8 +21,9 @@ add_cyphal_library(
 
 add_library(ocvsmd_common
         ipc/client_router.cpp
-        ipc/unix_socket_client.cpp
-        ipc/unix_socket_server.cpp
+        ipc/pipe/unix_socket_client.cpp
+        ipc/pipe/unix_socket_server.cpp
+        ipc/server_router.cpp
 )
 target_link_libraries(ocvsmd_common
         PUBLIC ${common_transpiled}

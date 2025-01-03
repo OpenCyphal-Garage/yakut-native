@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_CLIENT_ROUTER_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_CLIENT_ROUTER_HPP_INCLUDED
 
-#include "client_pipe.hpp"
+#include "pipe/client_pipe.hpp"
 
 #include <memory>
 
@@ -22,7 +22,7 @@ class ClientRouter
 public:
     using Ptr = std::unique_ptr<ClientRouter>;
 
-    static Ptr make(ClientPipe::Ptr client_pipe);
+    static Ptr make(pipe::ClientPipe::Ptr client_pipe);
 
     ClientRouter(ClientRouter&&)                 = delete;
     ClientRouter(const ClientRouter&)            = delete;
