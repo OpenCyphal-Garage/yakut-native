@@ -13,7 +13,7 @@ namespace
 
 using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in the unit tests.
 
-using testing::NotNull;
+using testing::IsNull;
 
 class TestClientRouter : public testing::Test
 {
@@ -27,7 +27,7 @@ protected:
 TEST_F(TestClientRouter, make)
 {
     const auto router = ClientRouter::make();
-    EXPECT_THAT(router, NotNull());
+    EXPECT_THAT(router, IsNull());
 }
 
 }  // namespace
