@@ -30,7 +30,7 @@ jobs:
       - run: |
           cmake --preset OCVSMD-Linux -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
           cmake --build --preset OCVSMD-Linux-Debug
-          ctest         --preset OCVSMD-Linux-Debug
+          ctest --preset OCVSMD-Debug
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -61,7 +61,7 @@ jobs:
       - run: |
           cmake --preset OCVSMD-Linux -DCMAKE_C_COMPILER=${{ matrix.c-compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
           cmake --build --preset OCVSMD-Linux-Release
-          ctest         --preset OCVSMD-Linux-Release
+          ctest --preset OCVSMD-Release
       - uses: actions/upload-artifact@v4
         if: always()
         with:
