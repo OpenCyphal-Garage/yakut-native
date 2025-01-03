@@ -68,40 +68,28 @@
       "displayName": "Linux OCVSMD (Debug)",
       "description": "Builds OCVSMD for Linux",
       "configurePreset": "OCVSMD-Linux",
-      "configuration": "Debug",
-      "targets": [
-        "ocvsmd"
-      ]
+      "configuration": "Debug"
     },
     {
       "name": "OCVSMD-Linux-Release",
       "displayName": "Linux OCVSMD (Release)",
       "description": "Builds OCVSMD for Linux",
       "configurePreset": "OCVSMD-Linux",
-      "configuration": "Release",
-      "targets": [
-        "ocvsmd"
-      ]
+      "configuration": "Release"
     },
     {
       "name": "OCVSMD-BSD-Debug",
       "displayName": "BSD OCVSMD (Debug)",
       "description": "Builds OCVSMD for BSD",
       "configurePreset": "OCVSMD-BSD",
-      "configuration": "Debug",
-      "targets": [
-        "ocvsmd"
-      ]
+      "configuration": "Debug"
     },
     {
       "name": "OCVSMD-BSD-Release",
       "displayName": "BSD OCVSMD (Release)",
       "description": "Builds OCVSMD for BSD",
       "configurePreset": "OCVSMD-BSD",
-      "configuration": "Release",
-      "targets": [
-        "ocvsmd"
-      ]
+      "configuration": "Release"
     }
   ],
   "testPresets": [
