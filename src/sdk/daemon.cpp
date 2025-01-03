@@ -32,28 +32,28 @@ public:
 
     bool connect()
     {
-        return 0 == ipc_client_.start([](const auto& server_event) {
+        return 0 == ipc_client_.start([](const auto& event) {
             //
-            using ServerEvent = common::ipc::UnixSocketClient::ServerEvent;
+            using Event = common::ipc::UnixSocketClient::Event;
 
             cetl::visit(  //
                 cetl::make_overloaded(
-                    [](const ServerEvent::Connected&) {
+                    [](const Event::Connected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server connected.");
                     },
-                    [](const ServerEvent::Message& message) {
+                    [](const Event::Message& message) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", message.payload.size());
                     },
-                    [](const ServerEvent::Disconnected&) {
+                    [](const Event::Disconnected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server disconnected.");
                     }),
-                server_event);
+                event);
             return 0;
         });
     }

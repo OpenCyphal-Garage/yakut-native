@@ -49,12 +49,12 @@ UnixSocketClient::~UnixSocketClient()
     }
 }
 
-int UnixSocketClient::start(std::function<int(const ServerEvent::Var&)>&& server_event_handler)
+int UnixSocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(client_fd_ == -1, "");
-    CETL_DEBUG_ASSERT(server_event_handler, "");
+    CETL_DEBUG_ASSERT(event_handler_, "");
 
-    server_event_handler_ = std::move(server_event_handler);
+    event_handler_ = std::move(event_handler);
 
     if (const auto err = platform::posixSyscallError([this] {
             //
@@ -93,7 +93,7 @@ int UnixSocketClient::start(std::function<int(const ServerEvent::Var&)>&& server
         },
         platform::IPosixExecutorExtension::Trigger::Readable{client_fd_});
 
-    server_event_handler_(ServerEvent::Connected{});
+    event_handler_(Event::Connected{});
     return 0;
 }
 
@@ -101,7 +101,7 @@ void UnixSocketClient::handle_socket()
 {
     if (const auto err = receiveMessage(client_fd_, [this](const auto payload) {
             //
-            return server_event_handler_(ServerEvent::Message{payload});
+            return event_handler_(Event::Message{payload});
         }))
     {
         if (err == -1)
@@ -119,7 +119,7 @@ void UnixSocketClient::handle_socket()
         ::close(client_fd_);
         client_fd_ = -1;
 
-        server_event_handler_(ServerEvent::Disconnected{});
+        event_handler_(Event::Disconnected{});
     }
 }
 

@@ -18,6 +18,8 @@ endblock()
 
 include(GoogleTest)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
 add_subdirectory(common)
 add_subdirectory(daemon)
 add_subdirectory(cli)
