@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_UNIX_SOCKET_BASE_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_UNIX_SOCKET_BASE_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED
 
-#include "dsdl_helpers.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 
 #include <cetl/pf20/cetlpf.hpp>
@@ -32,10 +31,10 @@ namespace pipe
 class UnixSocketBase
 {
 public:
-    UnixSocketBase(UnixSocketBase&&)                 = delete;
-    UnixSocketBase(const UnixSocketBase&)            = delete;
-    UnixSocketBase& operator=(UnixSocketBase&&)      = delete;
-    UnixSocketBase& operator=(const UnixSocketBase&) = delete;
+    UnixSocketBase(const UnixSocketBase&)                = delete;
+    UnixSocketBase(UnixSocketBase&&) noexcept            = delete;
+    UnixSocketBase& operator=(const UnixSocketBase&)     = delete;
+    UnixSocketBase& operator=(UnixSocketBase&&) noexcept = delete;
 
 protected:
     UnixSocketBase()  = default;
@@ -143,4 +142,4 @@ private:
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_UNIX_SOCKET_BASE_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_CLIENT_PIPE_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_CLIENT_PIPE_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_PIPE_CLIENT_PIPE_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_PIPE_CLIENT_PIPE_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -21,6 +21,7 @@ namespace ipc
 {
 namespace pipe
 {
+
 class ClientPipe
 {
 public:
@@ -46,10 +47,10 @@ public:
 
     using EventHandler = std::function<int(const Event::Var&)>;
 
-    ClientPipe(ClientPipe&&)                 = delete;
-    ClientPipe(const ClientPipe&)            = delete;
-    ClientPipe& operator=(ClientPipe&&)      = delete;
-    ClientPipe& operator=(const ClientPipe&) = delete;
+    ClientPipe(const ClientPipe&)                = delete;
+    ClientPipe(ClientPipe&&) noexcept            = delete;
+    ClientPipe& operator=(const ClientPipe&)     = delete;
+    ClientPipe& operator=(ClientPipe&&) noexcept = delete;
 
     virtual ~ClientPipe() = default;
 
@@ -66,4 +67,4 @@ protected:
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_CLIENT_PIPE_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_PIPE_CLIENT_PIPE_HPP_INCLUDED

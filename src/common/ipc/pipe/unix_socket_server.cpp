@@ -60,10 +60,10 @@ public:
         });
     }
 
-    ClientContextImpl(ClientContextImpl&&)                 = delete;
-    ClientContextImpl(const ClientContextImpl&)            = delete;
-    ClientContextImpl& operator=(ClientContextImpl&&)      = delete;
-    ClientContextImpl& operator=(const ClientContextImpl&) = delete;
+    ClientContextImpl(const ClientContextImpl&)                = delete;
+    ClientContextImpl(ClientContextImpl&&) noexcept            = delete;
+    ClientContextImpl& operator=(const ClientContextImpl&)     = delete;
+    ClientContextImpl& operator=(ClientContextImpl&&) noexcept = delete;
 
     void setCallback(libcyphal::IExecutor::Callback::Any&& fd_callback)
     {

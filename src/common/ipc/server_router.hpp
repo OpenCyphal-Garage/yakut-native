@@ -24,10 +24,10 @@ public:
 
     static Ptr make(pipe::ServerPipe::Ptr server_pipe);
 
-    ServerRouter(ServerRouter&&)                 = delete;
-    ServerRouter(const ServerRouter&)            = delete;
-    ServerRouter& operator=(ServerRouter&&)      = delete;
-    ServerRouter& operator=(const ServerRouter&) = delete;
+    ServerRouter(const ServerRouter&)                = delete;
+    ServerRouter(ServerRouter&&) noexcept            = delete;
+    ServerRouter& operator=(const ServerRouter&)     = delete;
+    ServerRouter& operator=(ServerRouter&&) noexcept = delete;
 
     virtual ~ServerRouter() = default;
 

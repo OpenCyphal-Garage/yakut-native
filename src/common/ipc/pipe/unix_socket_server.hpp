@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "server_pipe.hpp"
 #include "unix_socket_base.hpp"
 
-#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 
 #include <cerrno>
@@ -36,10 +35,10 @@ public:
 
     ClientContext() = default;
 
-    ClientContext(ClientContext&&)                 = delete;
-    ClientContext(const ClientContext&)            = delete;
-    ClientContext& operator=(ClientContext&&)      = delete;
-    ClientContext& operator=(const ClientContext&) = delete;
+    ClientContext(const ClientContext&)                = delete;
+    ClientContext(ClientContext&&) noexcept            = delete;
+    ClientContext& operator=(const ClientContext&)     = delete;
+    ClientContext& operator=(ClientContext&&) noexcept = delete;
 
     virtual ~ClientContext() = default;
 
@@ -92,4 +91,4 @@ private:
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_UNIX_SOCKET_SERVER_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED

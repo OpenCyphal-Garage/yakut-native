@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_UNIX_SOCKET_CLIENT_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_UNIX_SOCKET_CLIENT_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
 
 #include "client_pipe.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "unix_socket_base.hpp"
 
-#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 
 #include <string>
@@ -29,10 +28,10 @@ class UnixSocketClient final : public UnixSocketBase, public ClientPipe
 public:
     UnixSocketClient(libcyphal::IExecutor& executor, std::string socket_path);
 
-    UnixSocketClient(UnixSocketClient&&)                 = delete;
-    UnixSocketClient(const UnixSocketClient&)            = delete;
-    UnixSocketClient& operator=(UnixSocketClient&&)      = delete;
-    UnixSocketClient& operator=(const UnixSocketClient&) = delete;
+    UnixSocketClient(const UnixSocketClient&)                = delete;
+    UnixSocketClient(UnixSocketClient&&) noexcept            = delete;
+    UnixSocketClient& operator=(const UnixSocketClient&)     = delete;
+    UnixSocketClient& operator=(UnixSocketClient&&) noexcept = delete;
 
     ~UnixSocketClient() override;
 
@@ -61,4 +60,4 @@ private:
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_UNIX_SOCKET_CLIENT_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
