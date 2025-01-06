@@ -8,6 +8,7 @@
 
 #include "client_pipe.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "pipe_types.hpp"
 #include "unix_socket_base.hpp"
 
 #include <libcyphal/executor.hpp>
@@ -39,9 +40,9 @@ public:
 
     int start(EventHandler event_handler) override;
 
-    int sendMessage(const Payload payload) override
+    int sendMessage(const Payloads payloads) override
     {
-        return UnixSocketBase::sendMessage(client_fd_, payload);
+        return UnixSocketBase::sendMessage(client_fd_, payloads);
     }
 
 private:

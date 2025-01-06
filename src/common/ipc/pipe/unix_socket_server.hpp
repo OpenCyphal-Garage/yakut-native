@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
 #include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "pipe_types.hpp"
 #include "server_pipe.hpp"
 #include "unix_socket_base.hpp"
 
@@ -60,14 +61,14 @@ public:
 
     int start(EventHandler event_handler) override;
 
-    int sendMessage(const ClientId client_id, const Payload payload) override
+    int sendMessage(const ClientId client_id, const Payloads payloads) override
     {
         const auto id_and_fd = client_id_to_fd_.find(client_id);
         if (id_and_fd == client_id_to_fd_.end())
         {
             return EINVAL;
         }
-        return UnixSocketBase::sendMessage(id_and_fd->second, payload);
+        return UnixSocketBase::sendMessage(id_and_fd->second, payloads);
     }
 
 private:

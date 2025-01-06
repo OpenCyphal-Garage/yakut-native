@@ -66,31 +66,31 @@ cetl::optional<std::string> Application::init()
             //
             using Event = common::ipc::pipe::ServerPipe::Event;
 
-            cetl::visit(  //
-                cetl::make_overloaded(
-                    [this](const Event::Connected& connected) {
-                        //
-                        // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
-                        (void) ipc_server_.sendMessage(  //
-                            connected.client_id,
-                            {reinterpret_cast<const std::uint8_t*>("Status1"), 7});  // NOLINT
-                        (void) ipc_server_.sendMessage(                              //
-                            connected.client_id,
-                            {reinterpret_cast<const std::uint8_t*>("Status2"), 7});  // NOLINT
-                    },
-                    [this](const Event::Message& message) {
-                        //
-                        // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
-                        (void) ipc_server_.sendMessage(message.client_id, message.payload);
-                    },
-                    [](const Event::Disconnected& disconnected) {
-                        //
-                        // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Client disconnected (%zu).", disconnected.client_id);
-                    }),
-                event);
+            // cetl::visit(  //
+            //     cetl::make_overloaded(
+            //         [this](const Event::Connected& connected) {
+            //             //
+            //             // NOLINTNEXTLINE *-vararg
+            //             ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
+            //             (void) ipc_server_.sendMessage(  //
+            //                 connected.client_id,
+            //                 {{reinterpret_cast<const std::uint8_t*>("Status1"), 7}, 1});  // NOLINT
+            //             (void) ipc_server_.sendMessage(                              //
+            //                 connected.client_id,
+            //                 {reinterpret_cast<const std::uint8_t*>("Status2"), 7});  // NOLINT
+            //         },
+            //         [this](const Event::Message& message) {
+            //             //
+            //             // NOLINTNEXTLINE *-vararg
+            //             ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
+            //             (void) ipc_server_.sendMessage(message.client_id, message.payload);
+            //         },
+            //         [](const Event::Disconnected& disconnected) {
+            //             //
+            //             // NOLINTNEXTLINE *-vararg
+            //             ::syslog(LOG_DEBUG, "Client disconnected (%zu).", disconnected.client_id);
+            //         }),
+            //     event);
             return 0;
         }))
     {

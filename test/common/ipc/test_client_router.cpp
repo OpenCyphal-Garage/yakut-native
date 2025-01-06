@@ -35,6 +35,7 @@ using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in th
 using testing::_;
 using testing::IsTrue;
 using testing::Return;
+using testing::SizeIs;
 using testing::IsEmpty;
 using testing::IsFalse;
 using testing::NotNull;
@@ -169,12 +170,12 @@ TEST_F(TestClientRouter, makeChannel_send)
 
     Msg msg{&mr_};
 
-    EXPECT_CALL(client_pipe_mock, sendMessage(ElementsAre(0))).WillOnce(Return(0));
+    EXPECT_CALL(client_pipe_mock, sendMessage(SizeIs(1))).WillOnce(Return(0));
     channel.send(msg);
 
     msg.some_stuff.push_back(-1);
     msg.some_stuff.push_back('X');
-    EXPECT_CALL(client_pipe_mock, sendMessage(ElementsAre(2, 0xFF, 'X'))).WillOnce(Return(0));
+    EXPECT_CALL(client_pipe_mock, sendMessage(ElementsAre(ElementsAre(2, 0xFF, 'X')))).WillOnce(Return(0));
     channel.send(msg);
 }
 

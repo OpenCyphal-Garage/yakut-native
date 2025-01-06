@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED
 
 #include "ocvsmd/platform/posix_utils.hpp"
+#include "pipe_types.hpp"
 
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -15,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <numeric>
 #include <sys/syslog.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -40,24 +42,40 @@ protected:
     UnixSocketBase()  = default;
     ~UnixSocketBase() = default;
 
-    static int sendMessage(const int output_fd, const cetl::span<const std::uint8_t> payload)
+    static int sendMessage(const int output_fd, const Payloads payloads)
     {
-        // 1. Write the message header.
-        if (const int err = platform::posixSyscallError([output_fd, payload] {
+        // 1. Write the message header (signature and total size of the following fragments).
+        //
+        const std::size_t total_size = std::accumulate(  //
+            payloads.begin(),
+            payloads.end(),
+            0ULL,
+            [](const std::size_t acc, const Payload payload) {
                 //
-                const MsgHeader msg_header{.signature = MsgSignature,
-                                           .size      = static_cast<std::uint32_t>(payload.size())};
+                return acc + payload.size();
+            });
+        if (const int err = platform::posixSyscallError([output_fd, total_size] {
+                //
+                const MsgHeader msg_header{MsgSignature, static_cast<std::uint32_t>(total_size)};
                 return ::write(output_fd, &msg_header, sizeof(msg_header));
             }))
         {
             return err;
         }
 
-        // 2. Write the message payload.
-        return platform::posixSyscallError([output_fd, payload] {
-            //
-            return ::write(output_fd, payload.data(), payload.size());
-        });
+        // 2. Write the message payload fragments.
+        //
+        for (const auto payload : payloads)
+        {
+            if (const int err = platform::posixSyscallError([output_fd, payload] {
+                    //
+                    return ::write(output_fd, payload.data(), payload.size());
+                }))
+            {
+                return err;
+            }
+        }
+        return 0;
     }
 
     template <typename Action>

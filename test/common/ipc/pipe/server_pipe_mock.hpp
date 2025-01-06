@@ -7,11 +7,11 @@
 #define OCVSMD_COMMON_IPC_SERVER_PIPE_MOCK_HPP_INCLUDED
 
 #include "ipc/pipe/server_pipe.hpp"
+
+#include "ipc/pipe/pipe_types.hpp"
 #include "unique_ptr_refwrapper.hpp"
 
 #include <gmock/gmock.h>
-
-#include <functional>
 
 namespace ocvsmd
 {
@@ -35,16 +35,16 @@ public:
         {
             return reference().start(event_handler);
         }
-        int sendMessage(const ClientId client_id, const Payload payload) override
+        int sendMessage(const ClientId client_id, const Payloads payloads) override
         {
-            return reference().sendMessage(client_id, payload);
+            return reference().sendMessage(client_id, payloads);
         }
 
     };  // RefWrapper
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(int, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(int, sendMessage, (const ClientId client_id, const Payload payload), (override));
+    MOCK_METHOD(int, sendMessage, (const ClientId client_id, const Payloads payloads), (override));
 
 };  // ServerPipeMock
 

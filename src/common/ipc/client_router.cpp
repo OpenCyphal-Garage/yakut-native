@@ -8,6 +8,7 @@
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 #include "pipe/client_pipe.hpp"
+#include "pipe/pipe_types.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
@@ -18,6 +19,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
 
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <memory>
@@ -104,9 +106,17 @@ private:
             setEventHandler(nullptr);
         }
 
-        void send(const Payload payload) override
+        void send(const pipe::Payload payload) override
         {
-            router_.client_pipe_->sendMessage(payload);
+            Route_1_0 route{&router_.memory_};
+            auto&     channel_msg = route.set_channel_msg();
+            channel_msg.tag       = tag_;
+
+            tryPerformOnSerialized(route, [this, payload](const auto prefix) {
+                //
+                std::array<pipe::Payload, 2> fragments{prefix, payload};
+                return router_.client_pipe_->sendMessage(fragments);
+            });
         }
 
         void event(const Event::Var& event) override
@@ -146,7 +156,8 @@ private:
 
         return tryPerformOnSerialized<Route_1_0>(route, [this](const auto payload) {
             //
-            return client_pipe_->sendMessage(payload);
+            std::array<pipe::Payload, 1> payloads{payload};
+            return client_pipe_->sendMessage(payloads);
         });
     }
 
@@ -194,7 +205,7 @@ private:
         }
     }
 
-    void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_channel_msg, pipe::ClientPipe::Payload payload)
+    void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_channel_msg, pipe::Payload payload)
     {
         const auto it = tag_to_gateway_.find(route_channel_msg.tag);
         if (it != tag_to_gateway_.end())

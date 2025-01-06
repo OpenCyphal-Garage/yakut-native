@@ -6,6 +6,8 @@
 #ifndef OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 
+#include "pipe/pipe_types.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -27,8 +29,6 @@ class Gateway
 public:
     using Ptr = std::shared_ptr<Gateway>;
 
-    using Payload = cetl::span<const std::uint8_t>;
-
     struct Event
     {
         struct Connected
@@ -37,7 +37,7 @@ public:
         {};
         struct Message
         {
-            Payload payload;
+            pipe::Payload payload;
 
         };  // Message
 
@@ -52,7 +52,7 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    virtual void send(const Payload payload)                 = 0;
+    virtual void send(const pipe::Payload payload)           = 0;
     virtual void event(const Event::Var& event)              = 0;
     virtual void setEventHandler(EventHandler event_handler) = 0;
 

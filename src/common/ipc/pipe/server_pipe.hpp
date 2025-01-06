@@ -6,6 +6,8 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_SERVER_PIPE_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_SERVER_PIPE_HPP_INCLUDED
 
+#include "pipe_types.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -29,7 +31,6 @@ public:
     using Ptr = std::unique_ptr<ServerPipe>;
 
     using ClientId = std::size_t;
-    using Payload  = cetl::span<const std::uint8_t>;
 
     struct Event
     {
@@ -61,8 +62,8 @@ public:
 
     virtual ~ServerPipe() = default;
 
-    virtual int start(EventHandler event_handler)                            = 0;
-    virtual int sendMessage(const ClientId client_id, const Payload payload) = 0;
+    virtual int start(EventHandler event_handler)                              = 0;
+    virtual int sendMessage(const ClientId client_id, const Payloads payloads) = 0;
 
 protected:
     ServerPipe() = default;
