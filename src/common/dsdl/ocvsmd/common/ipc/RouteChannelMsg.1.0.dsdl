@@ -1,0 +1,5 @@
+uint64 tag
+uint64 type_id
+
+# reserve twice as much as we need.
+@extent _offset_.max * 2

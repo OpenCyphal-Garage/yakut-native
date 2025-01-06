@@ -33,6 +33,7 @@ public:
 
         int start(EventHandler event_handler) override
         {
+            reference().event_handler_ = event_handler;
             return reference().start(event_handler);
         }
         int sendMessage(const Payload payload) override
@@ -45,6 +46,12 @@ public:
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(int, start, (EventHandler event_handler), (override));
     MOCK_METHOD(int, sendMessage, (const Payload payload), (override));
+
+    // MARK: Data members:
+
+    // NOLINTBEGIN
+    EventHandler event_handler_;
+    // NOLINTEND
 
 };  // ClientPipeMock
 

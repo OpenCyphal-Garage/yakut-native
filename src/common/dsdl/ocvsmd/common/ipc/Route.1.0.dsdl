@@ -1,0 +1,7 @@
+@union
+
+uavcan.primitive.Empty.1.0 empty
+RouteConnect.1.0 connect
+RouteChannelMsg.1.0 channel_msg
+
+@sealed

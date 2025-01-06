@@ -11,6 +11,7 @@
 #include "pipe/client_pipe.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <memory>
 
@@ -26,7 +27,7 @@ class ClientRouter
 public:
     using Ptr = std::unique_ptr<ClientRouter>;
 
-    static Ptr make(pipe::ClientPipe::Ptr client_pipe);
+    static Ptr make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe);
 
     ClientRouter(const ClientRouter&)                = delete;
     ClientRouter(ClientRouter&&) noexcept            = delete;
@@ -35,10 +36,13 @@ public:
 
     virtual ~ClientRouter() = default;
 
+    virtual void                        start()  = 0;
+    virtual cetl::pmr::memory_resource& memory() = 0;
+
     template <typename Input, typename Output>
     CETL_NODISCARD Channel<Input, Output> makeChannel(AnyChannel::EventHandler<Input> event_handler)
     {
-        return Channel<Input, Output>{makeGateway(), event_handler};
+        return Channel<Input, Output>{memory(), makeGateway(), event_handler};
     }
 
 protected:

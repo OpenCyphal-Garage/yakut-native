@@ -5,6 +5,8 @@
 
 #include "application.hpp"
 
+#include "ipc/pipe/server_pipe.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
 #include <libcyphal/application/node.hpp>

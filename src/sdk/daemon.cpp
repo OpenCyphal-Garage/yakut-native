@@ -5,6 +5,7 @@
 
 #include <ocvsmd/sdk/daemon.hpp>
 
+#include "ipc/pipe/client_pipe.hpp"
 #include "ipc/pipe/unix_socket_client.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>

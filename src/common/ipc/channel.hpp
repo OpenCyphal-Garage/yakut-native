@@ -9,6 +9,8 @@
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 
+#include <nunavut/support/serialization.hpp>
+
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <cstddef>
@@ -42,30 +44,26 @@ protected:
 
 };  // AnyChannel
 
-template <typename Input, typename Output>
+template <typename Input_, typename Output_>
 class Channel final : public AnyChannel
 {
 public:
+    using Input        = Input_;
+    using Output       = Output_;
+    using EventVar     = EventVar<Input>;
+    using EventHandler = EventHandler<Input>;
+
     Channel(Channel&& other) noexcept
-        : gateway_{std::move(other.gateway_)}
+        : memory_{other.memory_}
+        , gateway_{std::move(other.gateway_)}
         , event_handler_{std::move(other.event_handler_)}
     {
         setupEventHandler();
     }
 
-    Channel& operator=(Channel&& other) noexcept
-    {
-        if (this != &other)
-        {
-            gateway_       = std::move(other.gateway_);
-            event_handler_ = std::move(other.event_handler_);
-            setupEventHandler();
-        }
-        return *this;
-    }
-
-    Channel(const Channel&)            = delete;
-    Channel& operator=(const Channel&) = delete;
+    Channel(const Channel&)                      = delete;
+    Channel& operator=(const Channel&)           = delete;
+    Channel& operator=(Channel&& other) noexcept = delete;
 
     ~Channel()
     {
@@ -73,24 +71,29 @@ public:
         event_handler_ = nullptr;
     }
 
-    void send(const Output& output)
+    using SendFailure = nunavut::support::Error;
+    using SendResult  = cetl::optional<SendFailure>;
+
+    SendResult send(const Output& output)
     {
-        constexpr std::size_t BufferSize = Output::;
+        constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
 
-        return tryPerformOnSerialized<Output, Result, BufferSize, IsOnStack>(  //
+        return tryPerformOnSerialized<Output, SendResult, BufferSize, IsOnStack>(  //
             output,
             [this](const auto payload) {
                 //
                 gateway_->send(payload);
+                return cetl::nullopt;
             });
     }
 
 private:
     friend class ClientRouter;
 
-    Channel(detail::Gateway::Ptr gateway, EventHandler<Input> event_handler)
-        : gateway_{std::move(gateway)}
+    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, EventHandler event_handler)
+        : memory_{memory}
+        , gateway_{std::move(gateway)}
         , event_handler_{std::move(event_handler)}
     {
         CETL_DEBUG_ASSERT(gateway_, "");
@@ -101,16 +104,41 @@ private:
 
     void setupEventHandler()
     {
-        gateway_->setEventHandler([this](const auto& event) {
+        gateway_->setEventHandler([this](const detail::Gateway::Event::Var& gateway_event_var) {
             //
-            event_handler_(event);
+            cetl::visit(
+                [this](const auto& gateway_event) {
+                    //
+                    handleGatewayEvent(gateway_event);
+                },
+                gateway_event_var);
         });
+    }
+
+    void handleGatewayEvent(const detail::Gateway::Event::Message& gateway_message)
+    {
+        Input input{&memory_};
+        if (tryDeserializePayload(gateway_message.payload, input))
+        {
+            event_handler_(input);
+        }
+    }
+
+    void handleGatewayEvent(const detail::Gateway::Event::Connected)
+    {
+        event_handler_(Connected{});
+    }
+
+    void handleGatewayEvent(const detail::Gateway::Event::Disconnected)
+    {
+        event_handler_(Disconnected{});
     }
 
     static constexpr std::size_t MsgSmallPayloadSize = 256;
 
-    detail::Gateway::Ptr gateway_;
-    EventHandler<Input>  event_handler_;
+    cetl::pmr::memory_resource& memory_;
+    detail::Gateway::Ptr        gateway_;
+    EventHandler                event_handler_;
 
 };  // Channel
 
