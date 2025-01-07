@@ -5,18 +5,21 @@
 
 #include "application.hpp"
 
-#include "ipc/pipe/server_pipe.hpp"
+#include "ipc/channel.hpp"
+#include "ipc/pipe/unix_socket_server.hpp"
+#include "ipc/server_router.hpp"
+
+#include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/visit_helpers.hpp>
 #include <libcyphal/application/node.hpp>
 #include <libcyphal/types.hpp>
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <random>
 #include <string>
 #include <sys/syslog.h>
@@ -62,40 +65,22 @@ cetl::optional<std::string> Application::init()
         .setSoftwareVcsRevisionId(VCS_REVISION_ID)
         .setUniqueId(getUniqueId());
 
-    if (const auto err = ipc_server_.start([this](const auto& event) {
-            //
-            using Event = common::ipc::pipe::ServerPipe::Event;
+    using ServerPipe = common::ipc::pipe::UnixSocketServer;
 
-            // cetl::visit(  //
-            //     cetl::make_overloaded(
-            //         [this](const Event::Connected& connected) {
-            //             //
-            //             // NOLINTNEXTLINE *-vararg
-            //             ::syslog(LOG_DEBUG, "Client connected (%zu).", connected.client_id);
-            //             (void) ipc_server_.sendMessage(  //
-            //                 connected.client_id,
-            //                 {{reinterpret_cast<const std::uint8_t*>("Status1"), 7}, 1});  // NOLINT
-            //             (void) ipc_server_.sendMessage(                              //
-            //                 connected.client_id,
-            //                 {reinterpret_cast<const std::uint8_t*>("Status2"), 7});  // NOLINT
-            //         },
-            //         [this](const Event::Message& message) {
-            //             //
-            //             // NOLINTNEXTLINE *-vararg
-            //             ::syslog(LOG_DEBUG, "Client msg (%zu).", message.client_id);
-            //             (void) ipc_server_.sendMessage(message.client_id, message.payload);
-            //         },
-            //         [](const Event::Disconnected& disconnected) {
-            //             //
-            //             // NOLINTNEXTLINE *-vararg
-            //             ::syslog(LOG_DEBUG, "Client disconnected (%zu).", disconnected.client_id);
-            //         }),
-            //     event);
-            return 0;
-        }))
-    {
-        return std::string("Failed to start IPC server: ") + std::strerror(err);
-    }
+    auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
+    ipc_router_   = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
+
+    using ExecCmd        = common::node_command::ExecCmd_1_0;
+    using ExecCmdChannel = common::ipc::Channel<ExecCmd, ExecCmd>;
+    using Ch = ExecCmdChannel;
+    ipc_router_->registerChannel<Ch::Input, Ch::Output>("daemon", [this](auto&& ch, const auto& request) {
+        //
+        // NOLINTNEXTLINE *-vararg
+        ::syslog(LOG_DEBUG, "Client msg (%zu).", request.some_stuff.size());
+        ch.send(request);
+    });
+
+    ipc_router_->start();
 
     return cetl::nullopt;
 }

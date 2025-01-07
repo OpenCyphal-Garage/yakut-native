@@ -53,7 +53,7 @@ UnixSocketClient::~UnixSocketClient()
 int UnixSocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(client_fd_ == -1, "");
-    CETL_DEBUG_ASSERT(event_handler_, "");
+    CETL_DEBUG_ASSERT(event_handler, "");
 
     event_handler_ = std::move(event_handler);
 

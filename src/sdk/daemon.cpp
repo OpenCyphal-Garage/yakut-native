@@ -5,8 +5,12 @@
 
 #include <ocvsmd/sdk/daemon.hpp>
 
+#include "ipc/channel.hpp"
+#include "ipc/client_router.hpp"
 #include "ipc/pipe/client_pipe.hpp"
 #include "ipc/pipe/unix_socket_client.hpp"
+
+#include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
@@ -27,42 +31,54 @@ class DaemonImpl final : public Daemon
 public:
     DaemonImpl(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor)
         : memory_{memory}
-        , executor_{executor}
     {
+        using ClientPipe = common::ipc::pipe::UnixSocketClient;
+
+        auto client_pipe = std::make_unique<ClientPipe>(executor, "/var/run/ocvsmd/local.sock");
+        ipc_router_   = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
     }
 
-    bool connect()
+    void start()
     {
-        return 0 == ipc_client_.start([](const auto& event) {
-            //
-            using Event = common::ipc::pipe::ClientPipe::Event;
+        ipc_router_->start();
 
+        using Ch = ExecCmdChannel;
+        auto ch  = ipc_router_->makeChannel<Ch::Input, Ch::Output>("daemon");
+        ch.setEventHandler([this](const auto& event_var) {
+            //
             cetl::visit(  //
                 cetl::make_overloaded(
-                    [](const Event::Connected&) {
+                    [this](const Ch::Connected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Server connected.");
+                        ::syslog(LOG_DEBUG, "Ch connected.");
+                        ExecCmd cmd{&memory_};
+                        cmd.some_stuff.push_back('A');
+                        cmd.some_stuff.push_back('Z');
+                        ipc_exec_cmd_channel_->send(cmd);
                     },
-                    [](const Event::Message& message) {
+                    [](const Ch::Input& input) {
                         //
                         // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", message.payload.size());
+                        ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", input.some_stuff.size());
                     },
-                    [](const Event::Disconnected&) {
+                    [](const Ch::Disconnected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server disconnected.");
                     }),
-                event);
-            return 0;
+                event_var);
         });
+        ipc_exec_cmd_channel_.emplace(std::move(ch));
     }
 
 private:
-    cetl::pmr::memory_resource&         memory_;
-    libcyphal::IExecutor&               executor_;
-    common::ipc::pipe::UnixSocketClient ipc_client_{executor_, "/var/run/ocvsmd/local.sock"};
+    using ExecCmd        = common::node_command::ExecCmd_1_0;
+    using ExecCmdChannel = common::ipc::Channel<ExecCmd, ExecCmd>;
+
+    cetl::pmr::memory_resource&    memory_;
+    common::ipc::ClientRouter::Ptr ipc_router_;
+    cetl::optional<ExecCmdChannel> ipc_exec_cmd_channel_;
 
 };  // DaemonImpl
 
@@ -71,10 +87,7 @@ private:
 std::unique_ptr<Daemon> Daemon::make(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor)
 {
     auto daemon = std::make_unique<DaemonImpl>(memory, executor);
-    if (!daemon->connect())
-    {
-        return nullptr;
-    }
+    daemon->start();
     return std::move(daemon);
 }
 
