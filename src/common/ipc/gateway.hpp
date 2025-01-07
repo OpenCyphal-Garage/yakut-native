@@ -32,13 +32,13 @@ public:
     using Ptr     = std::shared_ptr<Gateway>;
     using WeakPtr = std::weak_ptr<Gateway>;
 
-    struct Event
+    struct Event final
     {
-        struct Connected
+        struct Connected final
         {};
-        struct Disconnected
+        struct Disconnected final
         {};
-        struct Message
+        struct Message final
         {
             pipe::Payload payload;
 

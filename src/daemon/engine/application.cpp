@@ -9,8 +9,6 @@
 #include "ipc/pipe/unix_socket_server.hpp"
 #include "ipc/server_router.hpp"
 
-#include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
-
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
 #include <libcyphal/types.hpp>
@@ -68,16 +66,22 @@ cetl::optional<std::string> Application::init()
     using ServerPipe = common::ipc::pipe::UnixSocketServer;
 
     auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
-    ipc_router_   = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
+    ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
-    using ExecCmd        = common::node_command::ExecCmd_1_0;
-    using ExecCmdChannel = common::ipc::Channel<ExecCmd, ExecCmd>;
     using Ch = ExecCmdChannel;
     ipc_router_->registerChannel<Ch::Input, Ch::Output>("daemon", [this](auto&& ch, const auto& request) {
         //
         // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_DEBUG, "Client msg (%zu).", request.some_stuff.size());
+        ::syslog(LOG_DEBUG, "Client initial msg (%zu).", request.some_stuff.size());
         ch.send(request);
+        ch.setEventHandler([this](const auto&) {
+            //
+            ::syslog(LOG_DEBUG, "Client nested msg");
+            ExecCmd r1{&memory_};
+            ipc_exec_cmd_ch_->send(r1);
+            ipc_exec_cmd_ch_.reset();
+        });
+        ipc_exec_cmd_ch_.emplace(std::move(ch));
     });
 
     ipc_router_->start();

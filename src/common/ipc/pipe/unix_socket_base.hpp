@@ -143,7 +143,7 @@ protected:
     }
 
 private:
-    struct MsgHeader
+    struct MsgHeader final
     {
         std::uint32_t signature;
         std::uint32_t size;

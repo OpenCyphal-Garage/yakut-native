@@ -151,14 +151,14 @@ int UnixSocketServer::start(EventHandler event_handler)
     accept_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
         [this](const auto&) {
             //
-            handle_accept();
+            handleAccept();
         },
         platform::IPosixExecutorExtension::Trigger::Readable{server_fd_});
 
     return 0;
 }
 
-void UnixSocketServer::handle_accept()
+void UnixSocketServer::handleAccept()
 {
     CETL_DEBUG_ASSERT(server_fd_ != -1, "");
 
@@ -182,7 +182,7 @@ void UnixSocketServer::handle_accept()
     client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
         [this, new_client_id, client_fd](const auto&) {
             //
-            handle_client_request(new_client_id, client_fd);
+            handleClientRequest(new_client_id, client_fd);
         },
         platform::IPosixExecutorExtension::Trigger::Readable{client_fd}));
 
@@ -192,7 +192,7 @@ void UnixSocketServer::handle_accept()
     event_handler_(Event::Connected{new_client_id});
 }
 
-void UnixSocketServer::handle_client_request(const ClientId client_id, const int client_fd)
+void UnixSocketServer::handleClientRequest(const ClientId client_id, const int client_fd)
 {
     if (const auto err = receiveMessage(client_fd, [this, client_id](const auto payload) {
             //

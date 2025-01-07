@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <sys/syslog.h>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -127,6 +128,7 @@ private:
             : router_{router}
             , endpoint_{endpoint}
         {
+            ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.getTag());
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -137,6 +139,7 @@ private:
         ~GatewayImpl()
         {
             router_.unregisterGateway(endpoint_);
+            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu).", endpoint_.getTag());
         }
 
         void send(const detail::ServiceId service_id, const pipe::Payload payload) override

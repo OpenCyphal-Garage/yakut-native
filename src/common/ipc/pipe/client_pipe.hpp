@@ -28,13 +28,13 @@ class ClientPipe
 public:
     using Ptr = std::unique_ptr<ClientPipe>;
 
-    struct Event
+    struct Event final
     {
-        struct Connected
+        struct Connected final
         {};
-        struct Disconnected
+        struct Disconnected final
         {};
-        struct Message
+        struct Message final
         {
             Payload payload;
 

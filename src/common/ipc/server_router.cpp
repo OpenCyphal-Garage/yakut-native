@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <sys/syslog.h>
 #include <unordered_map>
 #include <utility>
 
@@ -135,6 +136,7 @@ private:
             : router_{router}
             , endpoint_{endpoint}
         {
+            ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.getClientId(), endpoint.getTag());
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -145,6 +147,7 @@ private:
         ~GatewayImpl()
         {
             router_.unregisterGateway(endpoint_);
+            ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.getClientId(), endpoint_.getTag());
         }
 
         void send(const detail::ServiceId service_id, const pipe::Payload payload) override
@@ -274,8 +277,6 @@ private:
         if (si_to_cf != service_id_to_channel_factory_.end())
         {
             auto gateway = GatewayImpl::create(*this, endpoint);
-
-            endpoint_to_gateway_[endpoint] = gateway;
             si_to_cf->second(gateway, msg_payload);
         }
 

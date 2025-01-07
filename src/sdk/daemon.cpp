@@ -35,16 +35,16 @@ public:
         using ClientPipe = common::ipc::pipe::UnixSocketClient;
 
         auto client_pipe = std::make_unique<ClientPipe>(executor, "/var/run/ocvsmd/local.sock");
-        ipc_router_   = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
+        ipc_router_      = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
     }
 
     void start()
     {
         ipc_router_->start();
 
-        using Ch = ExecCmdChannel;
-        auto ch  = ipc_router_->makeChannel<Ch::Input, Ch::Output>("daemon");
-        ch.setEventHandler([this](const auto& event_var) {
+        using Ch     = ExecCmdChannel;
+        auto channel = ipc_router_->makeChannel<Ch::Input, Ch::Output>("daemon");
+        channel.setEventHandler([this](const auto& event_var) {
             //
             cetl::visit(  //
                 cetl::make_overloaded(
@@ -55,12 +55,13 @@ public:
                         ExecCmd cmd{&memory_};
                         cmd.some_stuff.push_back('A');
                         cmd.some_stuff.push_back('Z');
-                        ipc_exec_cmd_channel_->send(cmd);
+                        ipc_exec_cmd_ch_->send(cmd);
                     },
-                    [](const Ch::Input& input) {
+                    [this](const Ch::Input& input) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", input.some_stuff.size());
+                        ipc_exec_cmd_ch_->send(input);
                     },
                     [](const Ch::Disconnected&) {
                         //
@@ -69,7 +70,7 @@ public:
                     }),
                 event_var);
         });
-        ipc_exec_cmd_channel_.emplace(std::move(ch));
+        ipc_exec_cmd_ch_.emplace(std::move(channel));
     }
 
 private:
@@ -78,7 +79,7 @@ private:
 
     cetl::pmr::memory_resource&    memory_;
     common::ipc::ClientRouter::Ptr ipc_router_;
-    cetl::optional<ExecCmdChannel> ipc_exec_cmd_channel_;
+    cetl::optional<ExecCmdChannel> ipc_exec_cmd_ch_;
 
 };  // DaemonImpl
 

@@ -32,17 +32,17 @@ public:
 
     using ClientId = std::size_t;
 
-    struct Event
+    struct Event final
     {
-        struct Connected
+        struct Connected final
         {
             ClientId client_id;
         };
-        struct Disconnected
+        struct Disconnected final
         {
             ClientId client_id;
         };
-        struct Message
+        struct Message final
         {
             ClientId client_id;
             Payload  payload;

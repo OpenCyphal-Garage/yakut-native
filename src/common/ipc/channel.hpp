@@ -28,17 +28,11 @@ namespace ipc
 class AnyChannel
 {
 public:
-    struct Connected
+    struct Connected final
     {};
 
-    struct Disconnected
+    struct Disconnected final
     {};
-
-    template <typename Message>
-    using EventVar = cetl::variant<Message, Connected, Disconnected>;
-
-    template <typename Message>
-    using EventHandler = std::function<void(const EventVar<Message>&)>;
 
     /// Builds a service ID from either the service name (if not empty), or message type name.
     ///
@@ -64,8 +58,8 @@ class Channel final : public AnyChannel
 public:
     using Input        = Input_;
     using Output       = Output_;
-    using EventVar     = EventVar<Input>;
-    using EventHandler = EventHandler<Input>;
+    using EventVar     = cetl::variant<Input, Connected, Disconnected>;
+    using EventHandler = std::function<void(const EventVar&)>;
 
     Channel(Channel&& other) noexcept
         : memory_{other.memory_}

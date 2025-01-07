@@ -72,9 +72,8 @@ public:
     }
 
 private:
-    void handle_accept();
-    void handle_client_connection(const int client_fd);
-    void handle_client_request(const ClientId client_id, const int client_fd);
+    void handleAccept();
+    void handleClientRequest(const ClientId client_id, const int client_fd);
 
     const std::string                                   socket_path_;
     int                                                 server_fd_;
