@@ -11,8 +11,8 @@
 #include "pipe/client_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
-#include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
+#include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -83,6 +83,7 @@ protected:
         Route_1_0 route{&mr_};
         auto&     channel_msg = route.set_channel_msg();
         channel_msg.tag       = tag;
+        channel_msg.type_id   = AnyChannel::getTypeId<Message>();
 
         tryPerformOnSerialized(route, [&](const auto prefix) {
             //
@@ -110,8 +111,9 @@ TEST_F(TestClientRouter, make)
 {
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
 
-    auto       client_pipe   = std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock);
-    const auto client_router = ClientRouter::make(mr_, std::move(client_pipe));
+    const auto client_router = ClientRouter::make(  //
+        mr_,
+        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
     EXPECT_THAT(client_pipe_mock.event_handler_, IsFalse());
 
@@ -122,8 +124,9 @@ TEST_F(TestClientRouter, start)
 {
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
 
-    auto       client_pipe   = std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock);
-    const auto client_router = ClientRouter::make(mr_, std::move(client_pipe));
+    const auto client_router = ClientRouter::make(  //
+        mr_,
+        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
     EXPECT_THAT(client_pipe_mock.event_handler_, IsFalse());
 
@@ -136,13 +139,14 @@ TEST_F(TestClientRouter, start)
 
 TEST_F(TestClientRouter, makeChannel)
 {
-    using Msg = ocvsmd::common::ipc::Route_1_0;
+    using Msg = ocvsmd::common::node_command::ExecCmd_1_0;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
 
-    auto       client_pipe   = std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock);
-    const auto client_router = ClientRouter::make(mr_, std::move(client_pipe));
+    const auto client_router = ClientRouter::make(  //
+        mr_,
+        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
@@ -159,8 +163,9 @@ TEST_F(TestClientRouter, makeChannel_send)
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
 
-    auto       client_pipe   = std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock);
-    const auto client_router = ClientRouter::make(mr_, std::move(client_pipe));
+    const auto client_router = ClientRouter::make(  //
+        mr_,
+        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
@@ -188,8 +193,9 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
 
-    auto       client_pipe   = std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock);
-    const auto client_router = ClientRouter::make(mr_, std::move(client_pipe));
+    const auto client_router = ClientRouter::make(  //
+        mr_,
+        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);

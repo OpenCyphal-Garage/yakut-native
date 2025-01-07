@@ -6,8 +6,13 @@
 #ifndef OCVSMD_COMMON_IPC_SERVER_ROUTER_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_SERVER_ROUTER_HPP_INCLUDED
 
+#include "channel.hpp"
+#include "gateway.hpp"
 #include "pipe/server_pipe.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <functional>
 #include <memory>
 
 namespace ocvsmd
@@ -22,7 +27,7 @@ class ServerRouter
 public:
     using Ptr = std::unique_ptr<ServerRouter>;
 
-    static Ptr make(pipe::ServerPipe::Ptr server_pipe);
+    static Ptr make(cetl::pmr::memory_resource& memory, pipe::ServerPipe::Ptr server_pipe);
 
     ServerRouter(const ServerRouter&)                = delete;
     ServerRouter(ServerRouter&&) noexcept            = delete;
@@ -31,8 +36,31 @@ public:
 
     virtual ~ServerRouter() = default;
 
+    virtual void                        start()  = 0;
+    virtual cetl::pmr::memory_resource& memory() = 0;
+
+    template <typename Input, typename Output>
+    using NewChannelHandler = std::function<void(Channel<Input, Output>&& new_channel)>;
+
+    template <typename Input, typename Output>
+    void registerChannel(NewChannelHandler<Input, Output> new_channel_handler)
+    {
+        registerChannelFactory(  //
+            AnyChannel::getTypeId<Input>(),
+            [this, new_ch_handler = std::move(new_channel_handler)](detail::Gateway::Ptr gateway) {
+                //
+                new_ch_handler(Channel<Input, Output>{memory(), gateway, nullptr});
+            });
+    }
+
 protected:
+    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway)>;
+
     ServerRouter() = default;
+
+    virtual void registerChannelFactory(  //
+        const detail::MsgTypeId  input_type_id,
+        TypeErasedChannelFactory channel_factory) = 0;
 
 };  // ServerRouter
 

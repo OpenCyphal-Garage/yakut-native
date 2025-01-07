@@ -29,7 +29,8 @@ using MsgTypeId = std::uint64_t;
 class Gateway
 {
 public:
-    using Ptr = std::shared_ptr<Gateway>;
+    using Ptr     = std::shared_ptr<Gateway>;
+    using WeakPtr = std::weak_ptr<Gateway>;
 
     struct Event
     {

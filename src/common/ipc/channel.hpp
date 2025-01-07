@@ -77,8 +77,14 @@ public:
 
     ~Channel()
     {
-        gateway_->setEventHandler(nullptr);
-        event_handler_ = nullptr;
+        if (gateway_)
+        {
+            gateway_->setEventHandler(nullptr);
+        }
+        if (event_handler_)
+        {
+            event_handler_ = nullptr;
+        }
     }
 
     using SendFailure = nunavut::support::Error;
@@ -98,8 +104,14 @@ public:
             });
     }
 
+    void setEventHandler(EventHandler event_handler)
+    {
+        event_handler_ = std::move(event_handler);
+    }
+
 private:
     friend class ClientRouter;
+    friend class ServerRouter;
 
     Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, EventHandler event_handler)
         : memory_{memory}
@@ -128,21 +140,30 @@ private:
 
     void handleGatewayEvent(const detail::Gateway::Event::Message& gateway_message)
     {
-        Input input{&memory_};
-        if (tryDeserializePayload(gateway_message.payload, input))
+        if (event_handler_)
         {
-            event_handler_(input);
+            Input input{&memory_};
+            if (tryDeserializePayload(gateway_message.payload, input))
+            {
+                event_handler_(input);
+            }
         }
     }
 
     void handleGatewayEvent(const detail::Gateway::Event::Connected)
     {
-        event_handler_(Connected{});
+        if (event_handler_)
+        {
+            event_handler_(Connected{});
+        }
     }
 
     void handleGatewayEvent(const detail::Gateway::Event::Disconnected)
     {
-        event_handler_(Disconnected{});
+        if (event_handler_)
+        {
+            event_handler_(Disconnected{});
+        }
     }
 
     static constexpr std::size_t MsgSmallPayloadSize = 256;

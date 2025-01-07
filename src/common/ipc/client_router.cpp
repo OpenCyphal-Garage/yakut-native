@@ -25,6 +25,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace ocvsmd
 {
@@ -148,8 +149,33 @@ private:
 
     };  // GatewayImpl
 
-    int handlePipeEvent(const pipe::ClientPipe::Event::Connected)
+    template <typename Action>
+    void forEachGateway(Action action) const
     {
+        // Calling an action might indirectly modify the map, so we first
+        // collect strong pointers to gateways into a local collection.
+        //
+        std::vector<detail::Gateway::Ptr> gateways;
+        gateways.reserve(tag_to_gateway_.size());
+        for (const auto& pair : tag_to_gateway_)
+        {
+            const auto gateway = pair.second.lock();
+            if (gateway)
+            {
+                gateways.push_back(gateway);
+            }
+        }
+
+        for (const auto& gateway : gateways)
+        {
+            action(gateway);
+        }
+    }
+
+    int handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
+    {
+        // TODO: log client pipe connection
+
         Route_1_0 route{&memory_};
         auto&     route_conn     = route.set_connect();
         route_conn.version.major = VERSION_MAJOR;
@@ -189,36 +215,46 @@ private:
         return 0;
     }
 
-    int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
+    int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected) const
     {
-        for (auto& pair : tag_to_gateway_)
-        {
-            pair.second->event(detail::Gateway::Event::Disconnected{});
-        }
+        // TODO: log client pipe disconnection
+
+        forEachGateway([](const auto& gateway) {
+            //
+            gateway->event(detail::Gateway::Event::Disconnected{});
+        });
         return 0;
     }
 
-    void handleRouteConnect(const RouteConnect_1_0&)
+    void handleRouteConnect(const RouteConnect_1_0&) const
     {
-        for (auto& pair : tag_to_gateway_)
-        {
-            pair.second->event(detail::Gateway::Event::Connected{});
-        }
+        // TODO: log server route connection
+
+        forEachGateway([](const auto& gateway) {
+            //
+            gateway->event(detail::Gateway::Event::Connected{});
+        });
     }
 
     void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_channel_msg, pipe::Payload payload)
     {
-        const auto it = tag_to_gateway_.find(route_channel_msg.tag);
-        if (it != tag_to_gateway_.end())
+        const auto tag_it = tag_to_gateway_.find(route_channel_msg.tag);
+        if (tag_it != tag_to_gateway_.end())
         {
-            it->second->event(detail::Gateway::Event::Message{payload});
+            const auto gateway = tag_it->second.lock();
+            if (gateway)
+            {
+                gateway->event(detail::Gateway::Event::Message{payload});
+            }
         }
+
+        // TODO: log unsolicited message
     }
 
-    cetl::pmr::memory_resource&                   memory_;
-    pipe::ClientPipe::Ptr                         client_pipe_;
-    Tag                                           next_tag_;
-    std::unordered_map<Tag, detail::Gateway::Ptr> tag_to_gateway_;
+    cetl::pmr::memory_resource&                       memory_;
+    pipe::ClientPipe::Ptr                             client_pipe_;
+    Tag                                               next_tag_;
+    std::unordered_map<Tag, detail::Gateway::WeakPtr> tag_to_gateway_;
 
 };  // ClientRouterImpl
 
