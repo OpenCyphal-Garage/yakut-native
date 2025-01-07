@@ -42,7 +42,9 @@ public:
     template <typename Input, typename Output>
     CETL_NODISCARD Channel<Input, Output> makeChannel(AnyChannel::EventHandler<Input> event_handler)
     {
-        return Channel<Input, Output>{memory(), makeGateway(), event_handler};
+        auto channel = Channel<Input, Output>{memory(), makeGateway()};
+        channel.setEventHandler(event_handler);
+        return channel;
     }
 
 protected:

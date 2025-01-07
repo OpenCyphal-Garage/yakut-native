@@ -21,6 +21,7 @@
 
 #include <array>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
@@ -42,7 +43,7 @@ public:
     ClientRouterImpl(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe)
         : memory_{memory}
         , client_pipe_{std::move(client_pipe)}
-        , next_tag_{0}
+        , next_unique_tag_{0}
     {
         CETL_DEBUG_ASSERT(client_pipe_, "");
     }
@@ -69,14 +70,45 @@ public:
 
     CETL_NODISCARD detail::Gateway::Ptr makeGateway() override
     {
-        const Tag new_tag        = ++next_tag_;
-        auto      gateway        = GatewayImpl::create(new_tag, *this);
-        tag_to_gateway_[new_tag] = gateway;
-        return gateway;
+        const Endpoint endpoint{++next_unique_tag_};
+        return GatewayImpl::create(*this, endpoint);
     }
 
 private:
-    using Tag = std::uint64_t;
+    struct Endpoint final
+    {
+        using Tag = std::uint64_t;
+
+        explicit Endpoint(const Tag tag) noexcept
+            : tag_{tag}
+        {
+        }
+
+        Tag getTag() const noexcept
+        {
+            return tag_;
+        }
+
+        // Hasher
+
+        bool operator==(const Endpoint& other) const noexcept
+        {
+            return tag_ == other.tag_;
+        }
+
+        struct Hasher final
+        {
+            std::size_t operator()(const Endpoint& endpoint) const noexcept
+            {
+                return std::hash<Tag>{}(endpoint.tag_);
+            }
+
+        };  // Hasher
+
+    private:
+        const Tag tag_;
+
+    };  // Endpoint
 
     class GatewayImpl final : public std::enable_shared_from_this<GatewayImpl>, public detail::Gateway
     {
@@ -86,14 +118,14 @@ private:
         };
 
     public:
-        static std::shared_ptr<GatewayImpl> create(const Tag tag, ClientRouterImpl& router)
+        static std::shared_ptr<GatewayImpl> create(ClientRouterImpl& router, const Endpoint& endpoint)
         {
-            return std::make_shared<GatewayImpl>(Private(), tag, router);
+            return std::make_shared<GatewayImpl>(Private(), router, endpoint);
         }
 
-        GatewayImpl(Private, const Tag tag, ClientRouterImpl& router)
-            : tag_{tag}
-            , router_{router}
+        GatewayImpl(Private, ClientRouterImpl& router, const Endpoint& endpoint)
+            : router_{router}
+            , endpoint_{endpoint}
         {
         }
 
@@ -104,14 +136,14 @@ private:
 
         ~GatewayImpl()
         {
-            setEventHandler(nullptr);
+            router_.unregisterGateway(endpoint_);
         }
 
         void send(const detail::MsgTypeId type_id, const pipe::Payload payload) override
         {
             Route_1_0 route{&router_.memory_};
             auto&     channel_msg = route.set_channel_msg();
-            channel_msg.tag       = tag_;
+            channel_msg.tag       = endpoint_.getTag();
             channel_msg.type_id   = type_id;
 
             tryPerformOnSerialized(route, [this, payload](const auto prefix) {
@@ -131,23 +163,28 @@ private:
 
         void setEventHandler(EventHandler event_handler) override
         {
-            if (event_handler)
-            {
-                event_handler_                = std::move(event_handler);
-                router_.tag_to_gateway_[tag_] = shared_from_this();
-            }
-            else
-            {
-                router_.tag_to_gateway_.erase(tag_);
-            }
+            router_.registerGateway(endpoint_, shared_from_this());
+            event_handler_ = std::move(event_handler);
         }
 
     private:
-        const Tag         tag_;
         ClientRouterImpl& router_;
+        const Endpoint    endpoint_;
         EventHandler      event_handler_;
 
     };  // GatewayImpl
+
+    using EndpointToWeakGateway = std::unordered_map<Endpoint, detail::Gateway::WeakPtr, Endpoint::Hasher>;
+
+    void registerGateway(const Endpoint& endpoint, detail::Gateway::WeakPtr gateway)
+    {
+        endpoint_to_gateway_[endpoint] = std::move(gateway);
+    }
+
+    void unregisterGateway(const Endpoint& endpoint)
+    {
+        endpoint_to_gateway_.erase(endpoint);
+    }
 
     template <typename Action>
     void forEachGateway(Action action) const
@@ -156,10 +193,10 @@ private:
         // collect strong pointers to gateways into a local collection.
         //
         std::vector<detail::Gateway::Ptr> gateways;
-        gateways.reserve(tag_to_gateway_.size());
-        for (const auto& pair : tag_to_gateway_)
+        gateways.reserve(endpoint_to_gateway_.size());
+        for (const auto& ep_to_gw : endpoint_to_gateway_)
         {
-            const auto gateway = pair.second.lock();
+            const auto gateway = ep_to_gw.second.lock();
             if (gateway)
             {
                 gateways.push_back(gateway);
@@ -197,7 +234,8 @@ private:
             return EINVAL;
         }
 
-        const auto remaining_payload = msg.payload.subspan(result_size.value());
+        // Cut routing stuff from the payload - remaining is the actual message payload.
+        const auto msg_payload = msg.payload.subspan(result_size.value());
 
         cetl::visit(cetl::make_overloaded(
                         //
@@ -206,9 +244,9 @@ private:
                             //
                             handleRouteConnect(route_conn);
                         },
-                        [this, remaining_payload](const RouteChannelMsg_1_0& route_channel) {
+                        [this, msg_payload](const RouteChannelMsg_1_0& route_channel) {
                             //
-                            handleRouteChannelMsg(route_channel, remaining_payload);
+                            handleRouteChannelMsg(route_channel, msg_payload);
                         }),
                     route_msg.union_value);
 
@@ -238,10 +276,12 @@ private:
 
     void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_channel_msg, pipe::Payload payload)
     {
-        const auto tag_it = tag_to_gateway_.find(route_channel_msg.tag);
-        if (tag_it != tag_to_gateway_.end())
+        const Endpoint endpoint{route_channel_msg.tag};
+
+        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
+        if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            const auto gateway = tag_it->second.lock();
+            const auto gateway = ep_to_gw->second.lock();
             if (gateway)
             {
                 gateway->event(detail::Gateway::Event::Message{payload});
@@ -251,10 +291,10 @@ private:
         // TODO: log unsolicited message
     }
 
-    cetl::pmr::memory_resource&                       memory_;
-    pipe::ClientPipe::Ptr                             client_pipe_;
-    Tag                                               next_tag_;
-    std::unordered_map<Tag, detail::Gateway::WeakPtr> tag_to_gateway_;
+    cetl::pmr::memory_resource& memory_;
+    pipe::ClientPipe::Ptr       client_pipe_;
+    Endpoint::Tag               next_unique_tag_;
+    EndpointToWeakGateway       endpoint_to_gateway_;
 
 };  // ClientRouterImpl
 

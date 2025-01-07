@@ -22,7 +22,8 @@
         "CMAKE_CROSS_CONFIGS": "all",
         "CMAKE_DEFAULT_BUILD_TYPE": "Release",
         "CMAKE_DEFAULT_CONFIGS": "Release",
-        "CMAKE_PREFIX_PATH": "${sourceDir}/submodules/nunavut"
+        "CMAKE_PREFIX_PATH": "${sourceDir}/submodules/nunavut",
+        "CMAKE_CXX_FLAGS": "-DCETL_ENABLE_DEBUG_ASSERT=1"
       }
     },
     {

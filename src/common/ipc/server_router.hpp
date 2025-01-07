@@ -53,7 +53,7 @@ public:
                 Input input{&memory()};
                 if (tryDeserializePayload(payload, input))
                 {
-                    new_ch_handler(Channel<Input, Output>{memory(), gateway, nullptr}, input);
+                    new_ch_handler(Channel<Input, Output>{memory(), gateway}, input);
                 }
             });
     }

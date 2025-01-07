@@ -71,21 +71,11 @@ public:
         setupEventHandler();
     }
 
+    ~Channel() = default;
+
     Channel(const Channel&)                      = delete;
     Channel& operator=(const Channel&)           = delete;
     Channel& operator=(Channel&& other) noexcept = delete;
-
-    ~Channel()
-    {
-        if (gateway_)
-        {
-            gateway_->setEventHandler(nullptr);
-        }
-        if (event_handler_)
-        {
-            event_handler_ = nullptr;
-        }
-    }
 
     using SendFailure = nunavut::support::Error;
     using SendResult  = cetl::optional<SendFailure>;
@@ -107,22 +97,19 @@ public:
     void setEventHandler(EventHandler event_handler)
     {
         event_handler_ = std::move(event_handler);
+        setupEventHandler();
     }
 
 private:
     friend class ClientRouter;
     friend class ServerRouter;
 
-    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, EventHandler event_handler)
+    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway)
         : memory_{memory}
         , gateway_{std::move(gateway)}
-        , event_handler_{std::move(event_handler)}
         , output_type_id_{getTypeId<Output>()}
     {
         CETL_DEBUG_ASSERT(gateway_, "");
-        CETL_DEBUG_ASSERT(event_handler_, "");
-
-        setupEventHandler();
     }
 
     void setupEventHandler()

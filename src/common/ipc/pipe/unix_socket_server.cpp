@@ -43,7 +43,7 @@ public:
         : id_{id}
         , fd_{fd}
     {
-        CETL_DEBUG_ASSERT(client_fd != -1, "");
+        CETL_DEBUG_ASSERT(fd_ != -1, "");
 
         // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_NOTICE, "New client connection on fd=%d (id=%zu).", fd, id);
@@ -102,7 +102,7 @@ UnixSocketServer::~UnixSocketServer()
 int UnixSocketServer::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(server_fd_ == -1, "");
-    CETL_DEBUG_ASSERT(client_event_handler, "");
+    CETL_DEBUG_ASSERT(event_handler, "");
 
     event_handler_ = std::move(event_handler);
 
@@ -174,7 +174,7 @@ void UnixSocketServer::handle_accept()
     }
 
     CETL_DEBUG_ASSERT(client_fd != -1, "");
-    CETL_DEBUG_ASSERT(client_contexts_.find(client_fd) == client_contexts_.end(), "");
+    CETL_DEBUG_ASSERT(client_fd_to_context_.find(client_fd) == client_fd_to_context_.end(), "");
 
     const ClientId new_client_id  = ++unique_client_id_counter_;
     auto           client_context = std::make_unique<ClientContextImpl>(new_client_id, client_fd);
