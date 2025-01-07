@@ -227,7 +227,7 @@ private:
             auto gateway = GatewayImpl::create(route_channel_msg.tag, *this, client_id);
 
             tag_to_gateway_[route_channel_msg.tag] = gateway;
-            ch_factory_it->second(gateway);
+            ch_factory_it->second(gateway, payload);
         }
 
         // TODO: log unsolicited message

@@ -131,7 +131,7 @@ TEST_F(TestServerRouter, registerChannel)
     server_router->start();
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    server_router->registerChannel<Msg, Msg>([](auto&&) {});
+    server_router->registerChannel<Msg, Msg>([](auto&&, const auto&) {});
 }
 
 TEST_F(TestServerRouter, channel_send)
@@ -155,17 +155,26 @@ TEST_F(TestServerRouter, channel_send)
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
 
     cetl::optional<Channel> maybe_channel;
-    server_router->registerChannel<Msg, Msg>([&](auto&& ch) {
+    server_router->registerChannel<Msg, Msg>([&](auto&& ch, const auto& input) {
         //
         ch.setEventHandler(ch1_event_mock.AsStdFunction());
         maybe_channel.emplace(std::forward<Channel>(ch));
+        ch1_event_mock.Call(input);
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
-    // Emulate that server posted `RouteChannelMsg` on 1/42 tag/client.
+    // Emulate that client posted initial `RouteChannelMsg` on 1/42 tag/client pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
     withRouteChannelMsg(1, Channel::Input{&mr_}, [&](const auto payload) {
+        //
+        server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{42, payload});
+    });
+
+    // Emulate that client posted one more `RouteChannelMsg` on the same 1/42 tag/client pair.
+    //
+    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    withRouteChannelMsg(2, Channel::Input{&mr_}, [&](const auto payload) {
         //
         server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{42, payload});
     });

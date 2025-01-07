@@ -8,6 +8,7 @@
 
 #include "channel.hpp"
 #include "gateway.hpp"
+#include "pipe/pipe_types.hpp"
 #include "pipe/server_pipe.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -40,21 +41,25 @@ public:
     virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Input, typename Output>
-    using NewChannelHandler = std::function<void(Channel<Input, Output>&& new_channel)>;
+    using NewChannelHandler = std::function<void(Channel<Input, Output>&& new_channel, const Input& input)>;
 
     template <typename Input, typename Output>
     void registerChannel(NewChannelHandler<Input, Output> new_channel_handler)
     {
         registerChannelFactory(  //
             AnyChannel::getTypeId<Input>(),
-            [this, new_ch_handler = std::move(new_channel_handler)](detail::Gateway::Ptr gateway) {
-                //
-                new_ch_handler(Channel<Input, Output>{memory(), gateway, nullptr});
+            [this, new_ch_handler = std::move(new_channel_handler)](detail::Gateway::Ptr gateway,
+                                                                    const pipe::Payload  payload) {
+                Input input{&memory()};
+                if (tryDeserializePayload(payload, input))
+                {
+                    new_ch_handler(Channel<Input, Output>{memory(), gateway, nullptr}, input);
+                }
             });
     }
 
 protected:
-    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway)>;
+    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway, const pipe::Payload payload)>;
 
     ServerRouter() = default;
 
