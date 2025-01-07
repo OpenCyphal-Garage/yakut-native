@@ -12,6 +12,7 @@
 #include <nunavut/support/serialization.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/common/crc.hpp>
 
 #include <cstddef>
 #include <functional>
@@ -33,11 +34,19 @@ public:
     struct Disconnected
     {};
 
-    template <typename Input>
-    using EventVar = cetl::variant<Input, Connected, Disconnected>;
+    template <typename Message>
+    using EventVar = cetl::variant<Message, Connected, Disconnected>;
 
-    template <typename Input>
-    using EventHandler = std::function<void(const EventVar<Input>&)>;
+    template <typename Message>
+    using EventHandler = std::function<void(const EventVar<Message>&)>;
+
+    template <typename Message>
+    static detail::MsgTypeId getTypeId() noexcept
+    {
+        const cetl::string_view          type_name{Message::_traits_::FullNameAndVersion()};
+        const libcyphal::common::CRC64WE crc64{type_name.cbegin(), type_name.cend()};
+        return crc64.get();
+    }
 
 protected:
     AnyChannel() = default;
@@ -57,6 +66,7 @@ public:
         : memory_{other.memory_}
         , gateway_{std::move(other.gateway_)}
         , event_handler_{std::move(other.event_handler_)}
+        , output_type_id_{other.output_type_id_}
     {
         setupEventHandler();
     }
@@ -83,7 +93,7 @@ public:
             output,
             [this](const auto payload) {
                 //
-                gateway_->send(payload);
+                gateway_->send(output_type_id_, payload);
                 return cetl::nullopt;
             });
     }
@@ -95,6 +105,7 @@ private:
         : memory_{memory}
         , gateway_{std::move(gateway)}
         , event_handler_{std::move(event_handler)}
+        , output_type_id_{getTypeId<Output>()}
     {
         CETL_DEBUG_ASSERT(gateway_, "");
         CETL_DEBUG_ASSERT(event_handler_, "");
@@ -139,6 +150,7 @@ private:
     cetl::pmr::memory_resource& memory_;
     detail::Gateway::Ptr        gateway_;
     EventHandler                event_handler_;
+    detail::MsgTypeId           output_type_id_;
 
 };  // Channel
 
