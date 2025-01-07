@@ -40,11 +40,9 @@ public:
     virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Input, typename Output>
-    CETL_NODISCARD Channel<Input, Output> makeChannel(AnyChannel::EventHandler<Input> event_handler)
+    CETL_NODISCARD Channel<Input, Output> makeChannel()
     {
-        auto channel = Channel<Input, Output>{memory(), makeGateway()};
-        channel.setEventHandler(event_handler);
-        return channel;
+        return Channel<Input, Output>{memory(), makeGateway()};
     }
 
 protected:

@@ -43,7 +43,7 @@ public:
     ClientRouterImpl(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe)
         : memory_{memory}
         , client_pipe_{std::move(client_pipe)}
-        , next_unique_tag_{0}
+        , last_unique_tag_{0}
     {
         CETL_DEBUG_ASSERT(client_pipe_, "");
     }
@@ -70,7 +70,7 @@ public:
 
     CETL_NODISCARD detail::Gateway::Ptr makeGateway() override
     {
-        const Endpoint endpoint{++next_unique_tag_};
+        const Endpoint endpoint{++last_unique_tag_};
         return GatewayImpl::create(*this, endpoint);
     }
 
@@ -293,7 +293,7 @@ private:
 
     cetl::pmr::memory_resource& memory_;
     pipe::ClientPipe::Ptr       client_pipe_;
-    Endpoint::Tag               next_unique_tag_;
+    Endpoint::Tag               last_unique_tag_;
     EndpointToWeakGateway       endpoint_to_gateway_;
 
 };  // ClientRouterImpl

@@ -68,7 +68,7 @@ public:
         , event_handler_{std::move(other.event_handler_)}
         , output_type_id_{other.output_type_id_}
     {
-        setupEventHandler();
+        setupEventHandling();
     }
 
     ~Channel() = default;
@@ -94,10 +94,11 @@ public:
             });
     }
 
-    void setEventHandler(EventHandler event_handler)
+    Channel& setEventHandler(EventHandler event_handler)
     {
         event_handler_ = std::move(event_handler);
-        setupEventHandler();
+        setupEventHandling();
+        return *this;
     }
 
 private:
@@ -112,7 +113,7 @@ private:
         CETL_DEBUG_ASSERT(gateway_, "");
     }
 
-    void setupEventHandler()
+    void setupEventHandling()
     {
         gateway_->setEventHandler([this](const detail::Gateway::Event::Var& gateway_event_var) {
             //

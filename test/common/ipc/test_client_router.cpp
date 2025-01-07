@@ -152,7 +152,7 @@ TEST_F(TestClientRouter, makeChannel)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     client_router->start();
 
-    const auto channel = client_router->makeChannel<Msg, Msg>([](const auto&) {});
+    const auto channel = client_router->makeChannel<Msg, Msg>();
     (void) channel;
 }
 
@@ -171,7 +171,7 @@ TEST_F(TestClientRouter, makeChannel_send)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     client_router->start();
 
-    auto channel = client_router->makeChannel<Msg, Msg>([](const auto&) {});
+    auto channel = client_router->makeChannel<Msg, Msg>();
 
     Msg msg{&mr_};
 
@@ -204,10 +204,11 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch2_event_mock;
 
-    const auto channel1 = client_router->makeChannel<Msg, Msg>(ch1_event_mock.AsStdFunction());
-    (void) channel1;
-    const auto channel2 = client_router->makeChannel<Msg, Msg>(ch2_event_mock.AsStdFunction());
-    (void) channel2;
+    auto channel1 = client_router->makeChannel<Msg, Msg>();
+    channel1.setEventHandler(ch1_event_mock.AsStdFunction());
+
+    auto channel2 = client_router->makeChannel<Msg, Msg>();
+    channel2.setEventHandler(ch2_event_mock.AsStdFunction());
 
     // Emulate that we've got pipe connected - `RouteConnect` should be sent to the server.
     //
