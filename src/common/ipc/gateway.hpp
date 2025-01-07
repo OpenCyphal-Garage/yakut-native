@@ -24,7 +24,7 @@ namespace ipc
 namespace detail
 {
 
-using MsgTypeId = std::uint64_t;
+using ServiceId = std::uint64_t;
 
 class Gateway
 {
@@ -55,9 +55,9 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    virtual void send(const MsgTypeId type_id, const pipe::Payload payload) = 0;
-    virtual void event(const Event::Var& event)                             = 0;
-    virtual void setEventHandler(EventHandler event_handler)                = 0;
+    virtual void send(const ServiceId service_id, const pipe::Payload payload) = 0;
+    virtual void event(const Event::Var& event)                                = 0;
+    virtual void setEventHandler(EventHandler event_handler)                   = 0;
 
 protected:
     Gateway()  = default;

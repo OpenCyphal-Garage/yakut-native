@@ -139,12 +139,12 @@ private:
             router_.unregisterGateway(endpoint_);
         }
 
-        void send(const detail::MsgTypeId type_id, const pipe::Payload payload) override
+        void send(const detail::ServiceId service_id, const pipe::Payload payload) override
         {
             Route_1_0 route{&router_.memory_};
-            auto&     channel_msg = route.set_channel_msg();
-            channel_msg.tag       = endpoint_.getTag();
-            channel_msg.type_id   = type_id;
+            auto&     channel_msg  = route.set_channel_msg();
+            channel_msg.tag        = endpoint_.getTag();
+            channel_msg.service_id = service_id;
 
             tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //

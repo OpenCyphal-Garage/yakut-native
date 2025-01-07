@@ -66,11 +66,10 @@ public:
         });
     }
 
-    void registerChannelFactory(  //
-        const detail::MsgTypeId  input_type_id,
-        TypeErasedChannelFactory channel_factory) override
+    void registerChannelFactory(const detail::ServiceId  service_id,  //
+                                TypeErasedChannelFactory channel_factory) override
     {
-        type_id_to_channel_factory_[input_type_id] = std::move(channel_factory);
+        service_id_to_channel_factory_[service_id] = std::move(channel_factory);
     }
 
 private:
@@ -148,12 +147,12 @@ private:
             router_.unregisterGateway(endpoint_);
         }
 
-        void send(const detail::MsgTypeId type_id, const pipe::Payload payload) override
+        void send(const detail::ServiceId service_id, const pipe::Payload payload) override
         {
             Route_1_0 route{&router_.memory_};
-            auto&     channel_msg = route.set_channel_msg();
-            channel_msg.tag       = endpoint_.getTag();
-            channel_msg.type_id   = type_id;
+            auto&     channel_msg  = route.set_channel_msg();
+            channel_msg.tag        = endpoint_.getTag();
+            channel_msg.service_id = service_id;
 
             tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //
@@ -183,8 +182,8 @@ private:
 
     };  // GatewayImpl
 
-    using TypeIdToChannelFactory = std::unordered_map<detail::MsgTypeId, TypeErasedChannelFactory>;
-    using EndpointToWeakGateway  = std::unordered_map<Endpoint, detail::Gateway::WeakPtr, Endpoint::Hasher>;
+    using ServiceIdToChannelFactory = std::unordered_map<detail::ServiceId, TypeErasedChannelFactory>;
+    using EndpointToWeakGateway     = std::unordered_map<Endpoint, detail::Gateway::WeakPtr, Endpoint::Hasher>;
 
     void registerGateway(const Endpoint& endpoint, detail::Gateway::WeakPtr gateway)
     {
@@ -271,13 +270,13 @@ private:
             return;
         }
 
-        const auto ti_to_cf = type_id_to_channel_factory_.find(route_channel_msg.type_id);
-        if (ti_to_cf != type_id_to_channel_factory_.end())
+        const auto si_to_cf = service_id_to_channel_factory_.find(route_channel_msg.service_id);
+        if (si_to_cf != service_id_to_channel_factory_.end())
         {
             auto gateway = GatewayImpl::create(*this, endpoint);
 
             endpoint_to_gateway_[endpoint] = gateway;
-            ti_to_cf->second(gateway, msg_payload);
+            si_to_cf->second(gateway, msg_payload);
         }
 
         // TODO: log unsolicited message
@@ -286,7 +285,7 @@ private:
     cetl::pmr::memory_resource& memory_;
     pipe::ServerPipe::Ptr       server_pipe_;
     EndpointToWeakGateway       endpoint_to_gateway_;
-    TypeIdToChannelFactory      type_id_to_channel_factory_;
+    ServiceIdToChannelFactory   service_id_to_channel_factory_;
 
 };  // ClientRouterImpl
 

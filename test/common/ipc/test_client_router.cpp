@@ -76,14 +76,17 @@ protected:
     }
 
     template <typename Message, typename Action>
-    void withRouteChannelMsg(const std::uint64_t tag, const Message& message, Action action)
+    void withRouteChannelMsg(const cetl::string_view service_name,
+                             const std::uint64_t     tag,
+                             const Message&          message,
+                             Action                  action)
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
         Route_1_0 route{&mr_};
-        auto&     channel_msg = route.set_channel_msg();
-        channel_msg.tag       = tag;
-        channel_msg.type_id   = AnyChannel::getTypeId<Message>();
+        auto&     channel_msg  = route.set_channel_msg();
+        channel_msg.tag        = tag;
+        channel_msg.service_id = AnyChannel::getServiceId<Message>(service_name);
 
         tryPerformOnSerialized(route, [&](const auto prefix) {
             //
@@ -227,7 +230,7 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     // Emulate that server posted `RouteChannelMsg` on tag #1.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg(1, Channel::Input{&mr_}, [&](const auto payload) {
+    withRouteChannelMsg("", 1, Channel::Input{&mr_}, [&](const auto payload) {
         //
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
     });
@@ -235,7 +238,7 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     // Emulate that server posted `RouteChannelMsg` on tag #2.
     //
     EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg(2, Channel::Input{&mr_}, [&](const auto payload) {
+    withRouteChannelMsg("", 2, Channel::Input{&mr_}, [&](const auto payload) {
         //
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
     });

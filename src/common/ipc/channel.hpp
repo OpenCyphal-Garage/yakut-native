@@ -40,11 +40,16 @@ public:
     template <typename Message>
     using EventHandler = std::function<void(const EventVar<Message>&)>;
 
+    /// Builds a service ID from either the service name (if not empty), or message type name.
+    ///
     template <typename Message>
-    static detail::MsgTypeId getTypeId() noexcept
+    static detail::ServiceId getServiceId(const cetl::string_view service_name) noexcept
     {
-        const cetl::string_view          type_name{Message::_traits_::FullNameAndVersion()};
-        const libcyphal::common::CRC64WE crc64{type_name.cbegin(), type_name.cend()};
+        const cetl::string_view srv_or_msg_name = !service_name.empty()  //
+                                                      ? service_name
+                                                      : Message::_traits_::FullNameAndVersion();
+
+        const libcyphal::common::CRC64WE crc64{srv_or_msg_name.cbegin(), srv_or_msg_name.cend()};
         return crc64.get();
     }
 
@@ -65,8 +70,8 @@ public:
     Channel(Channel&& other) noexcept
         : memory_{other.memory_}
         , gateway_{std::move(other.gateway_)}
+        , service_id_{other.service_id_}
         , event_handler_{std::move(other.event_handler_)}
-        , output_type_id_{other.output_type_id_}
     {
         setupEventHandling();
     }
@@ -89,7 +94,7 @@ public:
             output,
             [this](const auto payload) {
                 //
-                gateway_->send(output_type_id_, payload);
+                gateway_->send(service_id_, payload);
                 return cetl::nullopt;
             });
     }
@@ -105,10 +110,10 @@ private:
     friend class ClientRouter;
     friend class ServerRouter;
 
-    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway)
+    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, const detail::ServiceId service_id)
         : memory_{memory}
         , gateway_{std::move(gateway)}
-        , output_type_id_{getTypeId<Output>()}
+        , service_id_{service_id}
     {
         CETL_DEBUG_ASSERT(gateway_, "");
     }
@@ -158,8 +163,8 @@ private:
 
     cetl::pmr::memory_resource& memory_;
     detail::Gateway::Ptr        gateway_;
+    detail::ServiceId           service_id_;
     EventHandler                event_handler_;
-    detail::MsgTypeId           output_type_id_;
 
 };  // Channel
 

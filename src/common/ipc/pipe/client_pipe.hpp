@@ -11,7 +11,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
-#include <cstdint>
 #include <functional>
 #include <memory>
 

@@ -44,16 +44,20 @@ public:
     using NewChannelHandler = std::function<void(Channel<Input, Output>&& new_channel, const Input& input)>;
 
     template <typename Input, typename Output>
-    void registerChannel(NewChannelHandler<Input, Output> new_channel_handler)
+    void registerChannel(const cetl::string_view service_name, NewChannelHandler<Input, Output> handler)
     {
+        CETL_DEBUG_ASSERT(handler, "");
+
+        const auto service_id = AnyChannel::getServiceId<Input>(service_name);
+
         registerChannelFactory(  //
-            AnyChannel::getTypeId<Input>(),
-            [this, new_ch_handler = std::move(new_channel_handler)](detail::Gateway::Ptr gateway,
+            service_id,
+            [this, service_id, new_ch_handler = std::move(handler)](detail::Gateway::Ptr gateway,
                                                                     const pipe::Payload  payload) {
                 Input input{&memory()};
                 if (tryDeserializePayload(payload, input))
                 {
-                    new_ch_handler(Channel<Input, Output>{memory(), gateway}, input);
+                    new_ch_handler(Channel<Input, Output>{memory(), gateway, service_id}, input);
                 }
             });
     }
@@ -63,9 +67,8 @@ protected:
 
     ServerRouter() = default;
 
-    virtual void registerChannelFactory(  //
-        const detail::MsgTypeId  input_type_id,
-        TypeErasedChannelFactory channel_factory) = 0;
+    virtual void registerChannelFactory(const detail::ServiceId  service_id,
+                                        TypeErasedChannelFactory channel_factory) = 0;
 
 };  // ServerRouter
 
