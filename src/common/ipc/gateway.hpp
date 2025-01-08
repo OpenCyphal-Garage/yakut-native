@@ -40,6 +40,7 @@ public:
         {};
         struct Message final
         {
+            std::uint64_t sequence;
             pipe::Payload payload;
 
         };  // Message
@@ -57,7 +58,7 @@ public:
 
     virtual void send(const ServiceId service_id, const pipe::Payload payload) = 0;
     virtual void event(const Event::Var& event)                                = 0;
-    virtual void setEventHandler(EventHandler event_handler)                   = 0;
+    virtual void subscribe(EventHandler event_handler)                         = 0;
 
 protected:
     Gateway()  = default;

@@ -74,7 +74,7 @@ cetl::optional<std::string> Application::init()
         // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_DEBUG, "Client initial msg (%zu).", request.some_stuff.size());
         ch.send(request);
-        ch.setEventHandler([this](const auto&) {
+        ch.subscribe([this](const auto&) {
             //
             ::syslog(LOG_DEBUG, "Client nested msg");
             ExecCmd r1{&memory_};

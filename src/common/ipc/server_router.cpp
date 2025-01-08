@@ -135,6 +135,7 @@ private:
         GatewayImpl(Private, ServerRouterImpl& router, const Endpoint& endpoint)
             : router_{router}
             , endpoint_{endpoint}
+            , sequence_{0}
         {
             ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.getClientId(), endpoint.getTag());
         }
@@ -153,9 +154,11 @@ private:
         void send(const detail::ServiceId service_id, const pipe::Payload payload) override
         {
             Route_1_0 route{&router_.memory_};
-            auto&     channel_msg  = route.set_channel_msg();
-            channel_msg.tag        = endpoint_.getTag();
+
+            auto& channel_msg      = route.set_channel_msg();
             channel_msg.service_id = service_id;
+            channel_msg.tag        = endpoint_.getTag();
+            channel_msg.sequence   = sequence_++;
 
             tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //
@@ -172,15 +175,24 @@ private:
             }
         }
 
-        void setEventHandler(EventHandler event_handler) override
+        void subscribe(EventHandler event_handler) override
         {
-            router_.registerGateway(endpoint_, shared_from_this());
-            event_handler_ = std::move(event_handler);
+            if (event_handler)
+            {
+                event_handler_ = std::move(event_handler);
+                router_.registerGateway(endpoint_, shared_from_this());
+            }
+            else
+            {
+                event_handler_ = nullptr;
+                router_.unregisterGateway(endpoint_);
+            }
         }
 
     private:
         ServerRouterImpl& router_;
         const Endpoint    endpoint_;
+        std::uint64_t     sequence_;
         EventHandler      event_handler_;
 
     };  // GatewayImpl
@@ -223,9 +235,9 @@ private:
                             //
                             handleRouteConnect(msg.client_id, route_conn);
                         },
-                        [this, &msg, msg_payload](const RouteChannelMsg_1_0& route_channel) {
+                        [this, &msg, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
                             //
-                            handleRouteChannelMsg(msg.client_id, route_channel, msg_payload);
+                            handleRouteChannelMsg(msg.client_id, route_ch_msg, msg_payload);
                         }),
                     route_msg.union_value);
 
@@ -245,7 +257,8 @@ private:
         // TODO: log client route connection
 
         Route_1_0 route{&memory_};
-        auto&     route_conn     = route.set_connect();
+
+        auto& route_conn         = route.set_connect();
         route_conn.version.major = VERSION_MAJOR;
         route_conn.version.minor = VERSION_MINOR;
 
@@ -257,10 +270,10 @@ private:
     }
 
     void handleRouteChannelMsg(const pipe::ServerPipe::ClientId client_id,
-                               const RouteChannelMsg_1_0&       route_channel_msg,
+                               const RouteChannelMsg_1_0&       route_ch_msg,
                                pipe::Payload                    msg_payload)
     {
-        const Endpoint endpoint{route_channel_msg.tag, client_id};
+        const Endpoint endpoint{route_ch_msg.tag, client_id};
 
         const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
         if (ep_to_gw != endpoint_to_gateway_.end())
@@ -268,16 +281,20 @@ private:
             auto gateway = ep_to_gw->second.lock();
             if (gateway)
             {
-                gateway->event(detail::Gateway::Event::Message{msg_payload});
+                gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_payload});
+                return;
             }
-            return;
         }
 
-        const auto si_to_cf = service_id_to_channel_factory_.find(route_channel_msg.service_id);
-        if (si_to_cf != service_id_to_channel_factory_.end())
+        // Only the very first message in the sequence is considered to trigger channel factory.
+        if (route_ch_msg.sequence == 0)
         {
-            auto gateway = GatewayImpl::create(*this, endpoint);
-            si_to_cf->second(gateway, msg_payload);
+            const auto si_to_cf = service_id_to_channel_factory_.find(route_ch_msg.service_id);
+            if (si_to_cf != service_id_to_channel_factory_.end())
+            {
+                auto gateway = GatewayImpl::create(*this, endpoint);
+                si_to_cf->second(gateway, msg_payload);
+            }
         }
 
         // TODO: log unsolicited message

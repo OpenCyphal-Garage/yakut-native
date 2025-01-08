@@ -58,14 +58,16 @@ protected:
     void withRouteChannelMsg(const cetl::string_view service_name,
                              const std::uint64_t     tag,
                              const Message&          message,
+                             const std::uint64_t     sequence,
                              Action                  action)
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
         Route_1_0 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
-        channel_msg.tag        = tag;
         channel_msg.service_id = AnyChannel::getServiceId<Message>(service_name);
+        channel_msg.tag        = tag;
+        channel_msg.sequence   = sequence;
 
         tryPerformOnSerialized(route, [&](const auto prefix) {
             //
@@ -160,7 +162,7 @@ TEST_F(TestServerRouter, channel_send)
     cetl::optional<Channel> maybe_channel;
     server_router->registerChannel<Msg, Msg>("", [&](auto&& ch, const auto& input) {
         //
-        ch.setEventHandler(ch1_event_mock.AsStdFunction());
+        ch.subscribe(ch1_event_mock.AsStdFunction());
         maybe_channel.emplace(std::forward<Channel>(ch));
         ch1_event_mock.Call(input);
     });
@@ -169,7 +171,7 @@ TEST_F(TestServerRouter, channel_send)
     // Emulate that client posted initial `RouteChannelMsg` on 1/42 tag/client pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg("", 1, Channel::Input{&mr_}, [&](const auto payload) {
+    withRouteChannelMsg("", 1, Channel::Input{&mr_}, 0, [&](const auto payload) {
         //
         server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{42, payload});
     });
@@ -177,7 +179,7 @@ TEST_F(TestServerRouter, channel_send)
     // Emulate that client posted one more `RouteChannelMsg` on the same 1/42 tag/client pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg("", 2, Channel::Input{&mr_}, [&](const auto payload) {
+    withRouteChannelMsg("", 1, Channel::Input{&mr_}, 1, [&](const auto payload) {
         //
         server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{42, payload});
     });

@@ -1,5 +1,6 @@
-uint64 tag
 uint64 service_id
+uint64 tag
+uint64 sequence
 
 # reserve twice as much as we need.
 @extent _offset_.max * 2

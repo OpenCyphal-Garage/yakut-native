@@ -44,7 +44,7 @@ public:
 
         using Ch     = ExecCmdChannel;
         auto channel = ipc_router_->makeChannel<Ch::Input, Ch::Output>("daemon");
-        channel.setEventHandler([this](const auto& event_var) {
+        channel.subscribe([this](const auto& event_var) {
             //
             cetl::visit(  //
                 cetl::make_overloaded(

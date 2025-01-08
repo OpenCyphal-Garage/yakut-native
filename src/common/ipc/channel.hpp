@@ -56,8 +56,9 @@ template <typename Input_, typename Output_>
 class Channel final : public AnyChannel
 {
 public:
-    using Input        = Input_;
-    using Output       = Output_;
+    using Input  = Input_;
+    using Output = Output_;
+
     using EventVar     = cetl::variant<Input, Connected, Disconnected>;
     using EventHandler = std::function<void(const EventVar&)>;
 
@@ -65,9 +66,7 @@ public:
         : memory_{other.memory_}
         , gateway_{std::move(other.gateway_)}
         , service_id_{other.service_id_}
-        , event_handler_{std::move(other.event_handler_)}
     {
-        setupEventHandling();
     }
 
     ~Channel() = default;
@@ -93,16 +92,53 @@ public:
             });
     }
 
-    Channel& setEventHandler(EventHandler event_handler)
+    void subscribe(EventHandler event_handler)
     {
-        event_handler_ = std::move(event_handler);
-        setupEventHandling();
-        return *this;
+        if (event_handler)
+        {
+            gateway_->subscribe(
+                [adapter = Adapter{memory_, std::move(event_handler)}](const GatewayEvent::Var& ge_var) {
+                    //
+                    cetl::visit(adapter, ge_var);
+                });
+        }
+        else
+        {
+            gateway_->subscribe(nullptr);
+        }
     }
 
 private:
     friend class ClientRouter;
     friend class ServerRouter;
+
+    using GatewayEvent = detail::Gateway::Event;
+
+    struct Adapter final
+    {
+        cetl::pmr::memory_resource& memory;            // NOLINT
+        EventHandler                ch_event_handler;  // NOLINT
+
+        void operator()(const GatewayEvent::Connected&) const
+        {
+            ch_event_handler(Connected{});
+        }
+
+        void operator()(const GatewayEvent::Message& gateway_msg) const
+        {
+            Input input{&memory};
+            if (tryDeserializePayload(gateway_msg.payload, input))
+            {
+                ch_event_handler(input);
+            }
+        }
+
+        void operator()(const GatewayEvent::Disconnected&) const
+        {
+            ch_event_handler(Disconnected{});
+        }
+
+    };  // Adapter
 
     Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, const detail::ServiceId service_id)
         : memory_{memory}
@@ -112,53 +148,11 @@ private:
         CETL_DEBUG_ASSERT(gateway_, "");
     }
 
-    void setupEventHandling()
-    {
-        gateway_->setEventHandler([this](const detail::Gateway::Event::Var& gateway_event_var) {
-            //
-            cetl::visit(
-                [this](const auto& gateway_event) {
-                    //
-                    handleGatewayEvent(gateway_event);
-                },
-                gateway_event_var);
-        });
-    }
-
-    void handleGatewayEvent(const detail::Gateway::Event::Message& gateway_message)
-    {
-        if (event_handler_)
-        {
-            Input input{&memory_};
-            if (tryDeserializePayload(gateway_message.payload, input))
-            {
-                event_handler_(input);
-            }
-        }
-    }
-
-    void handleGatewayEvent(const detail::Gateway::Event::Connected)
-    {
-        if (event_handler_)
-        {
-            event_handler_(Connected{});
-        }
-    }
-
-    void handleGatewayEvent(const detail::Gateway::Event::Disconnected)
-    {
-        if (event_handler_)
-        {
-            event_handler_(Disconnected{});
-        }
-    }
-
     static constexpr std::size_t MsgSmallPayloadSize = 256;
 
     cetl::pmr::memory_resource& memory_;
     detail::Gateway::Ptr        gateway_;
     detail::ServiceId           service_id_;
-    EventHandler                event_handler_;
 
 };  // Channel
 
