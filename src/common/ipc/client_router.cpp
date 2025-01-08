@@ -222,8 +222,9 @@ private:
         if (is_disposed && isConnected(endpoint))
         {
             Route_1_0 route{&memory_};
-            auto&     channel_end = route.set_channel_end();
-            // channel_end.version.minor = VERSION_MINOR;
+            auto&     channel_end  = route.set_channel_end();
+            channel_end.tag        = endpoint.getTag();
+            channel_end.error_code = 0;
 
             const int result = tryPerformOnSerialized(route, [this](const auto payload) {
                 //

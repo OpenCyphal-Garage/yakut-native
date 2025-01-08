@@ -75,7 +75,8 @@ cetl::optional<std::string> Application::init()
         ::syslog(LOG_DEBUG, "Client initial msg (%zu).", request.some_stuff.size());
         const int result = ch.send(request);
         (void) result;
-        ch.subscribe([this](const auto&) {
+        ipc_exec_cmd_ch_ = std::move(ch);
+        ipc_exec_cmd_ch_->subscribe([this](const auto&) {
             //
             ::syslog(LOG_DEBUG, "Client nested msg");
             ExecCmd   r1{&memory_};
@@ -83,7 +84,6 @@ cetl::optional<std::string> Application::init()
             (void) res1;
             ipc_exec_cmd_ch_.reset();
         });
-        ipc_exec_cmd_ch_ = std::move(ch);
     });
 
     if (0 != ipc_router_->start())
