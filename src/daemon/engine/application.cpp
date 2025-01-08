@@ -73,18 +73,23 @@ cetl::optional<std::string> Application::init()
         //
         // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_DEBUG, "Client initial msg (%zu).", request.some_stuff.size());
-        ch.send(request);
+        const int result = ch.send(request);
+        (void) result;
         ch.subscribe([this](const auto&) {
             //
             ::syslog(LOG_DEBUG, "Client nested msg");
-            ExecCmd r1{&memory_};
-            ipc_exec_cmd_ch_->send(r1);
+            ExecCmd   r1{&memory_};
+            const int res1 = ipc_exec_cmd_ch_->send(r1);
+            (void) res1;
             ipc_exec_cmd_ch_.reset();
         });
         ipc_exec_cmd_ch_ = std::move(ch);
     });
 
-    ipc_router_->start();
+    if (0 != ipc_router_->start())
+    {
+        return "Failed to start IPC router.";
+    }
 
     return cetl::nullopt;
 }

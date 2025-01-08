@@ -8,6 +8,7 @@
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "ipc/channel.hpp"
 #include "ipc/pipe/client_pipe.hpp"
+#include "ipc/pipe/pipe_types.hpp"
 #include "pipe/client_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
@@ -21,6 +22,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cerrno>
 #include <cstdint>
 #include <iterator>
 #include <memory>
@@ -68,39 +70,54 @@ protected:
         Route_1_0 route{&mr_};
         route.set_connect(connect);
 
-        tryPerformOnSerialized(route, [&](const auto payload) {
+        const int result = tryPerformOnSerialized(route, [&](const auto payload) {
             //
             action(payload);
             return 0;
         });
+        EXPECT_THAT(result, 0);
     }
 
-    template <typename Message, typename Action>
-    void withRouteChannelMsg(const cetl::string_view service_name,
-                             const std::uint64_t     tag,
-                             const Message&          message,
-                             const std::uint64_t     sequence,
-                             Action                  action)
+    void emulateRouteConnect(pipe::ClientPipeMock& client_pipe_mock)
+    {
+        // client RouteConnect -> server
+        EXPECT_CALL(client_pipe_mock, send(_)).WillOnce(Return(0));
+        client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
+
+        // Server -> client RouteConnect
+        withRouteConnect(RouteConnect_1_0{{1, 2, &mr_}, &mr_}, [&](const auto payload) {
+            //
+            client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
+        });
+    }
+
+    template <typename Msg>
+    void emulateRouteChannelMsg(pipe::ClientPipeMock&   client_pipe_mock,
+                                const std::uint64_t     tag,
+                                const Msg&              msg,
+                                const std::uint64_t     seq,
+                                const cetl::string_view service_name = "")
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
         Route_1_0 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
-        channel_msg.service_id = AnyChannel::getServiceId<Message>(service_name);
+        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
         channel_msg.tag        = tag;
-        channel_msg.sequence   = sequence;
+        channel_msg.sequence   = seq;
 
-        tryPerformOnSerialized(route, [&](const auto prefix) {
+        const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
             //
-            return tryPerformOnSerialized(message, [&](const auto suffix) {
+            return tryPerformOnSerialized(msg, [&](const auto suffix) {
                 //
                 std::vector<std::uint8_t> buffer;
                 std::copy(prefix.begin(), prefix.end(), std::back_inserter(buffer));
                 std::copy(suffix.begin(), suffix.end(), std::back_inserter(buffer));
-                action(cetl::span<const std::uint8_t>{buffer.data(), buffer.size()});
-                return 0;
+                const pipe::Payload payload{buffer.data(), buffer.size()};
+                return client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
             });
         });
+        EXPECT_THAT(result, 0);
     }
 
     // MARK: Data members:
@@ -136,7 +153,7 @@ TEST_F(TestClientRouter, start)
     EXPECT_THAT(client_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    client_router->start();
+    EXPECT_THAT(client_router->start(), 0);
     EXPECT_THAT(client_pipe_mock.event_handler_, IsTrue());
 
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
@@ -156,7 +173,7 @@ TEST_F(TestClientRouter, makeChannel)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    client_router->start();
+    EXPECT_THAT(client_router->start(), 0);
 
     const auto channel = client_router->makeChannel<Channel>();
     (void) channel;
@@ -176,19 +193,17 @@ TEST_F(TestClientRouter, makeChannel_send)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    client_router->start();
+    EXPECT_THAT(client_router->start(), 0);
 
     auto channel = client_router->makeChannel<Channel>();
 
-    Msg msg{&mr_};
+    const Msg msg{&mr_};
+    EXPECT_THAT(channel.send(msg), ENOTCONN);
 
-    EXPECT_CALL(client_pipe_mock, sendMessage(SizeIs(2))).WillOnce(Return(0));
-    channel.send(msg);
+    emulateRouteConnect(client_pipe_mock);
 
-    msg.some_stuff.push_back(-1);
-    msg.some_stuff.push_back('X');
-    EXPECT_CALL(client_pipe_mock, sendMessage(SizeIs(2))).WillOnce(Return(0));
-    channel.send(msg);
+    EXPECT_CALL(client_pipe_mock, send(SizeIs(2))).WillOnce(Return(0));
+    EXPECT_THAT(channel.send(msg), 0);
 }
 
 TEST_F(TestClientRouter, makeChannel_receive_events)
@@ -205,7 +220,7 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    client_router->start();
+    EXPECT_THAT(client_router->start(), 0);
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch2_event_mock;
@@ -214,37 +229,23 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     channel1.subscribe(ch1_event_mock.AsStdFunction());
 
     auto channel2 = client_router->makeChannel<Channel>();
-    channel2.subscribe(ch2_event_mock.AsStdFunction());
 
-    // Emulate that we've got pipe connected - `RouteConnect` should be sent to the server.
-    //
-    EXPECT_CALL(client_pipe_mock, sendMessage(_)).WillOnce(Return(0));  // RouteConnect -> server
-    client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
-
-    // Emulate that server responded with its `RouteConnect` - all channels should be notified.
-    //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    emulateRouteConnect(client_pipe_mock);
+
     EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
-    withRouteConnect(RouteConnect_1_0{{1, 2, &mr_}, &mr_}, [&](const auto payload) {
-        //
-        client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
-    });
+    channel2.subscribe(ch2_event_mock.AsStdFunction());
 
     // Emulate that server posted `RouteChannelMsg` on tag #1.
     //
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg("", 1, Channel::Input{&mr_}, 0, [&](const auto payload) {
-        //
-        client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
-    });
+    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(2);
+    emulateRouteChannelMsg(client_pipe_mock, 1, Channel::Input{&mr_}, 0);
+    emulateRouteChannelMsg(client_pipe_mock, 1, Channel::Input{&mr_}, 1);
 
     // Emulate that server posted `RouteChannelMsg` on tag #2.
     //
     EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg("", 2, Channel::Input{&mr_}, 0, [&](const auto payload) {
-        //
-        client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
-    });
+    emulateRouteChannelMsg(client_pipe_mock, 2, Channel::Input{&mr_}, 0);
 
     // Emulate that the pipe is disconnected - all channels should be notified.
     //

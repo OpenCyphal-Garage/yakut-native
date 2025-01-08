@@ -8,6 +8,7 @@
 
 #include "pipe/pipe_types.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -56,9 +57,9 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    virtual void send(const ServiceId service_id, const pipe::Payload payload) = 0;
-    virtual void event(const Event::Var& event)                                = 0;
-    virtual void subscribe(EventHandler event_handler)                         = 0;
+    CETL_NODISCARD virtual int send(const ServiceId service_id, const pipe::Payload payload) = 0;
+    virtual void               event(const Event::Var& event)                                = 0;
+    virtual void               subscribe(EventHandler event_handler)                         = 0;
 
 protected:
     Gateway()  = default;

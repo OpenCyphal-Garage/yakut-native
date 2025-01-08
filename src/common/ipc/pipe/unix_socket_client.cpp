@@ -50,7 +50,7 @@ UnixSocketClient::~UnixSocketClient()
     }
 }
 
-int UnixSocketClient::start(EventHandler event_handler)
+CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(client_fd_ == -1, "");
     CETL_DEBUG_ASSERT(event_handler, "");

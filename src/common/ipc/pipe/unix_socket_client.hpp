@@ -11,6 +11,7 @@
 #include "pipe_types.hpp"
 #include "unix_socket_base.hpp"
 
+#include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
 
 #include <string>
@@ -38,11 +39,11 @@ public:
 
     // ClientPipe
 
-    int start(EventHandler event_handler) override;
+    CETL_NODISCARD int start(EventHandler event_handler) override;
 
-    int sendMessage(const Payloads payloads) override
+    CETL_NODISCARD int send(const Payloads payloads) override
     {
-        return UnixSocketBase::sendMessage(client_fd_, payloads);
+        return UnixSocketBase::send(client_fd_, payloads);
     }
 
 private:

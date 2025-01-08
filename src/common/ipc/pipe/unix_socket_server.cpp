@@ -39,7 +39,7 @@ constexpr int MaxConnections = 5;
 class ClientContextImpl final : public detail::ClientContext
 {
 public:
-    explicit ClientContextImpl(const UnixSocketServer::ClientId id, const int fd)
+    ClientContextImpl(const UnixSocketServer::ClientId id, const int fd)
         : id_{id}
         , fd_{fd}
     {
@@ -99,7 +99,7 @@ UnixSocketServer::~UnixSocketServer()
     }
 }
 
-int UnixSocketServer::start(EventHandler event_handler)
+CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(server_fd_ == -1, "");
     CETL_DEBUG_ASSERT(event_handler, "");

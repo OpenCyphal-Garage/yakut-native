@@ -11,6 +11,7 @@
 #include "server_pipe.hpp"
 #include "unix_socket_base.hpp"
 
+#include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
 
 #include <cerrno>
@@ -59,16 +60,16 @@ public:
 
     ~UnixSocketServer() override;
 
-    int start(EventHandler event_handler) override;
+    CETL_NODISCARD int start(EventHandler event_handler) override;
 
-    int sendMessage(const ClientId client_id, const Payloads payloads) override
+    CETL_NODISCARD int send(const ClientId client_id, const Payloads payloads) override
     {
         const auto id_and_fd = client_id_to_fd_.find(client_id);
         if (id_and_fd == client_id_to_fd_.end())
         {
             return EINVAL;
         }
-        return UnixSocketBase::sendMessage(id_and_fd->second, payloads);
+        return UnixSocketBase::send(id_and_fd->second, payloads);
     }
 
 private:

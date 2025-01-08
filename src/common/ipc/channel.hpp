@@ -11,6 +11,7 @@
 
 #include <nunavut/support/serialization.hpp>
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/common/crc.hpp>
 
@@ -37,7 +38,7 @@ public:
     /// Builds a service ID from either the service name (if not empty), or message type name.
     ///
     template <typename Message>
-    static detail::ServiceId getServiceId(const cetl::string_view service_name) noexcept
+    CETL_NODISCARD static detail::ServiceId getServiceId(const cetl::string_view service_name) noexcept
     {
         const cetl::string_view srv_or_msg_name = !service_name.empty()  //
                                                       ? service_name
@@ -69,20 +70,16 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    using SendFailure = nunavut::support::Error;
-    using SendResult  = cetl::optional<SendFailure>;
-
-    SendResult send(const Output& output)
+    CETL_NODISCARD int send(const Output& output)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
 
-        return tryPerformOnSerialized<Output, SendResult, BufferSize, IsOnStack>(  //
+        return tryPerformOnSerialized<Output, BufferSize, IsOnStack>(  //
             output,
             [this](const auto payload) {
                 //
-                gateway_->send(service_id_, payload);
-                return cetl::nullopt;
+                return gateway_->send(service_id_, payload);
             });
     }
 
@@ -90,11 +87,11 @@ public:
     {
         if (event_handler)
         {
-            gateway_->subscribe(
-                [adapter = Adapter{memory_, std::move(event_handler)}](const GatewayEvent::Var& ge_var) {
-                    //
-                    cetl::visit(adapter, ge_var);
-                });
+            auto adapter = Adapter{memory_, std::move(event_handler)};
+            gateway_->subscribe([adapter = std::move(adapter)](const GatewayEvent::Var& ge_var) {
+                //
+                cetl::visit(adapter, ge_var);
+            });
         }
         else
         {

@@ -6,6 +6,7 @@
 #include "ipc/server_router.hpp"
 
 #include "ipc/channel.hpp"
+#include "ipc/pipe/pipe_types.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "pipe/server_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
@@ -54,32 +55,34 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    template <typename Message, typename Action>
-    void withRouteChannelMsg(const cetl::string_view service_name,
-                             const std::uint64_t     tag,
-                             const Message&          message,
-                             const std::uint64_t     sequence,
-                             Action                  action)
+    template <typename Msg>
+    void emulateRouteChannelMsg(pipe::ServerPipeMock&            server_pipe_mock,
+                                const pipe::ServerPipe::ClientId client_id,
+                                const std::uint64_t              tag,
+                                const Msg&                       msg,
+                                const std::uint64_t              seq,
+                                const cetl::string_view          service_name = "")
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
         Route_1_0 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
-        channel_msg.service_id = AnyChannel::getServiceId<Message>(service_name);
+        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
         channel_msg.tag        = tag;
-        channel_msg.sequence   = sequence;
+        channel_msg.sequence   = seq;
 
-        tryPerformOnSerialized(route, [&](const auto prefix) {
+        const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
             //
-            return tryPerformOnSerialized(message, [&](const auto suffix) {
+            return tryPerformOnSerialized(msg, [&](const auto suffix) {
                 //
                 std::vector<std::uint8_t> buffer;
                 std::copy(prefix.begin(), prefix.end(), std::back_inserter(buffer));
                 std::copy(suffix.begin(), suffix.end(), std::back_inserter(buffer));
-                action(cetl::span<const std::uint8_t>{buffer.data(), buffer.size()});
-                return 0;
+                const pipe::Payload payload{buffer.data(), buffer.size()};
+                return server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{client_id, payload});
             });
         });
+        EXPECT_THAT(result, 0);
     }
 
     // MARK: Data members:
@@ -115,7 +118,7 @@ TEST_F(TestServerRouter, start)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    server_router->start();
+    EXPECT_THAT(server_router->start(), 0);
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 }
 
@@ -134,7 +137,7 @@ TEST_F(TestServerRouter, registerChannel)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    server_router->start();
+    EXPECT_THAT(server_router->start(), 0);
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     server_router->registerChannel<Channel>("", [](auto&&, const auto&) {});
@@ -155,7 +158,7 @@ TEST_F(TestServerRouter, channel_send)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    server_router->start();
+    EXPECT_THAT(server_router->start(), 0);
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
@@ -164,26 +167,21 @@ TEST_F(TestServerRouter, channel_send)
     server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
         ch.subscribe(ch1_event_mock.AsStdFunction());
-        maybe_channel.emplace(std::move(ch));
+        maybe_channel = std::move(ch);
         ch1_event_mock.Call(input);
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
-    // Emulate that client posted initial `RouteChannelMsg` on 1/42 tag/client pair.
+    // Emulate that client posted initial `RouteChannelMsg` on 42/1 client/tag pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg("", 1, Channel::Input{&mr_}, 0, [&](const auto payload) {
-        //
-        server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{42, payload});
-    });
+    emulateRouteChannelMsg(server_pipe_mock, 42, 1, Channel::Input{&mr_}, 0);
+    EXPECT_THAT(maybe_channel.has_value(), IsTrue());
 
-    // Emulate that client posted one more `RouteChannelMsg` on the same 1/42 tag/client pair.
+    // Emulate that client posted one more `RouteChannelMsg` on the same 42/1 client/tag pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    withRouteChannelMsg("", 1, Channel::Input{&mr_}, 1, [&](const auto payload) {
-        //
-        server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{42, payload});
-    });
+    emulateRouteChannelMsg(server_pipe_mock, 42, 1, Channel::Input{&mr_}, 1);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

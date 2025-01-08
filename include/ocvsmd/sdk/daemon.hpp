@@ -6,6 +6,7 @@
 #ifndef OCVSMD_SDK_DAEMON_HPP_INCLUDED
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 
@@ -21,7 +22,9 @@ namespace sdk
 class Daemon
 {
 public:
-    static std::unique_ptr<Daemon> make(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor);
+    CETL_NODISCARD static std::unique_ptr<Daemon> make(  //
+        cetl::pmr::memory_resource& memory,
+        libcyphal::IExecutor&       executor);
 
     Daemon(Daemon&&)                 = delete;
     Daemon(const Daemon&)            = delete;

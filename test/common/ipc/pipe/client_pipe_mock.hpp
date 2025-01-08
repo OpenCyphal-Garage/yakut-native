@@ -36,16 +36,16 @@ public:
             reference().event_handler_ = event_handler;
             return reference().start(event_handler);
         }
-        int sendMessage(const Payloads payloads) override
+        int send(const Payloads payloads) override
         {
-            return reference().sendMessage(payloads);
+            return reference().send(payloads);
         }
 
     };  // RefWrapper
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(int, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(int, sendMessage, (const Payloads payloads), (override));
+    MOCK_METHOD(int, send, (const Payloads payloads), (override));
 
     // MARK: Data members:
 

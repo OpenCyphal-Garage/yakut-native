@@ -1,0 +1,5 @@
+uint64 tag
+int32 error_code
+
+# reserve twice as much as we need.
+@extent _offset_.max * 2

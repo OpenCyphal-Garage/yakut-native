@@ -10,6 +10,7 @@
 #include "pipe/client_pipe.hpp"
 #include "pipe/pipe_types.hpp"
 
+#include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
@@ -19,7 +20,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
 
-#include <array>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -45,20 +45,21 @@ public:
         : memory_{memory}
         , client_pipe_{std::move(client_pipe)}
         , last_unique_tag_{0}
+        , is_connected_{false}
     {
         CETL_DEBUG_ASSERT(client_pipe_, "");
     }
 
     // ClientRouter
 
-    cetl::pmr::memory_resource& memory() override
+    CETL_NODISCARD cetl::pmr::memory_resource& memory() override
     {
         return memory_;
     }
 
-    void start() override
+    CETL_NODISCARD int start() override
     {
-        client_pipe_->start([this](const auto& pipe_event_var) {
+        return client_pipe_->start([this](const auto& pipe_event_var) {
             //
             return cetl::visit(
                 [this](const auto& pipe_event) {
@@ -85,21 +86,21 @@ private:
         {
         }
 
-        Tag getTag() const noexcept
+        CETL_NODISCARD Tag getTag() const noexcept
         {
             return tag_;
         }
 
         // Hasher
 
-        bool operator==(const Endpoint& other) const noexcept
+        CETL_NODISCARD bool operator==(const Endpoint& other) const noexcept
         {
             return tag_ == other.tag_;
         }
 
         struct Hasher final
         {
-            std::size_t operator()(const Endpoint& endpoint) const noexcept
+            CETL_NODISCARD std::size_t operator()(const Endpoint& endpoint) const noexcept
             {
                 return std::hash<Tag>{}(endpoint.tag_);
             }
@@ -119,7 +120,7 @@ private:
         };
 
     public:
-        static std::shared_ptr<GatewayImpl> create(ClientRouterImpl& router, const Endpoint& endpoint)
+        CETL_NODISCARD static std::shared_ptr<GatewayImpl> create(ClientRouterImpl& router, const Endpoint& endpoint)
         {
             return std::make_shared<GatewayImpl>(Private(), router, endpoint);
         }
@@ -139,12 +140,19 @@ private:
 
         ~GatewayImpl()
         {
-            router_.unregisterGateway(endpoint_);
+            router_.unregisterGateway(endpoint_, true);
             ::syslog(LOG_DEBUG, "~Gateway(tag=%zu).", endpoint_.getTag());
         }
 
-        void send(const detail::ServiceId service_id, const pipe::Payload payload) override
+        // detail::Gateway
+
+        CETL_NODISCARD int send(const detail::ServiceId service_id, const pipe::Payload payload) override
         {
+            if (!router_.is_connected_)
+            {
+                return ENOTCONN;
+            }
+
             Route_1_0 route{&router_.memory_};
 
             auto& channel_msg      = route.set_channel_msg();
@@ -152,10 +160,9 @@ private:
             channel_msg.tag        = endpoint_.getTag();
             channel_msg.sequence   = sequence_++;
 
-            tryPerformOnSerialized(route, [this, payload](const auto prefix) {
+            return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //
-                std::array<pipe::Payload, 2> fragments{prefix, payload};
-                return router_.client_pipe_->sendMessage(fragments);
+                return router_.client_pipe_->send({{prefix, payload}});
             });
         }
 
@@ -172,7 +179,7 @@ private:
             if (event_handler)
             {
                 event_handler_ = std::move(event_handler);
-                router_.registerGateway(endpoint_, shared_from_this());
+                router_.registerGateway(endpoint_, *this);
             }
             else
             {
@@ -191,14 +198,39 @@ private:
 
     using EndpointToWeakGateway = std::unordered_map<Endpoint, detail::Gateway::WeakPtr, Endpoint::Hasher>;
 
-    void registerGateway(const Endpoint& endpoint, detail::Gateway::WeakPtr gateway)
+    CETL_NODISCARD bool isConnected(const Endpoint&) const noexcept
     {
-        endpoint_to_gateway_[endpoint] = std::move(gateway);
+        return is_connected_;
     }
 
-    void unregisterGateway(const Endpoint& endpoint)
+    void registerGateway(const Endpoint& endpoint, GatewayImpl& gateway)
+    {
+        endpoint_to_gateway_[endpoint] = gateway.shared_from_this();
+        if (is_connected_)
+        {
+            gateway.event(detail::Gateway::Event::Connected{});
+        }
+    }
+
+    void unregisterGateway(const Endpoint& endpoint, const bool is_disposed = false)
     {
         endpoint_to_gateway_.erase(endpoint);
+
+        // Notify "remote" router about the gateway disposal.
+        // The router will deliver "disconnected" event to the counterpart gateway (if it exists).
+        //
+        if (is_disposed && isConnected(endpoint))
+        {
+            Route_1_0 route{&memory_};
+            auto&     channel_end = route.set_channel_end();
+            // channel_end.version.minor = VERSION_MINOR;
+
+            const int result = tryPerformOnSerialized(route, [this](const auto payload) {
+                //
+                return client_pipe_->send({{payload}});
+            });
+            (void) result;
+        }
     }
 
     template <typename Action>
@@ -224,7 +256,7 @@ private:
         }
     }
 
-    int handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
+    CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
     {
         // TODO: log client pipe connection
 
@@ -233,14 +265,13 @@ private:
         route_conn.version.major = VERSION_MAJOR;
         route_conn.version.minor = VERSION_MINOR;
 
-        return tryPerformOnSerialized<Route_1_0>(route, [this](const auto payload) {
+        return tryPerformOnSerialized(route, [this](const auto payload) {
             //
-            std::array<pipe::Payload, 1> payloads{payload};
-            return client_pipe_->sendMessage(payloads);
+            return client_pipe_->send({{payload}});
         });
     }
 
-    int handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
+    CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
     {
         Route_1_0  route_msg{&memory_};
         const auto result_size = tryDeserializePayload(msg.payload, route_msg);
@@ -262,31 +293,49 @@ private:
                         [this, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
                             //
                             handleRouteChannelMsg(route_ch_msg, msg_payload);
+                        },
+                        [this, msg_payload](const RouteChannelEnd_1_0& route_ch_end) {
+                            //
+                            handleRouteChannelEnd(route_ch_end);
                         }),
                     route_msg.union_value);
 
         return 0;
     }
 
-    int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected) const
+    CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
     {
         // TODO: log client pipe disconnection
 
-        forEachGateway([](const auto& gateway) {
+        if (is_connected_)
+        {
+            is_connected_ = false;
+
+            // The whole router is disconnected, so we need to notify all local gateways.
             //
-            gateway->event(detail::Gateway::Event::Disconnected{});
-        });
+            forEachGateway([](const auto& gateway) {
+                //
+                gateway->event(detail::Gateway::Event::Disconnected{});
+            });
+        }
         return 0;
     }
 
-    void handleRouteConnect(const RouteConnect_1_0&) const
+    void handleRouteConnect(const RouteConnect_1_0&)
     {
         // TODO: log server route connection
 
-        forEachGateway([](const auto& gateway) {
+        if (!is_connected_)
+        {
+            is_connected_ = true;
+
+            // We've got connection response from the server, so we need to notify all local gateways.
             //
-            gateway->event(detail::Gateway::Event::Connected{});
-        });
+            forEachGateway([](const auto& gateway) {
+                //
+                gateway->event(detail::Gateway::Event::Connected{});
+            });
+        }
     }
 
     void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_ch_msg, pipe::Payload payload)
@@ -307,16 +356,20 @@ private:
         // TODO: log unsolicited message
     }
 
+    void handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end) {}
+
     cetl::pmr::memory_resource& memory_;
     pipe::ClientPipe::Ptr       client_pipe_;
     Endpoint::Tag               last_unique_tag_;
     EndpointToWeakGateway       endpoint_to_gateway_;
+    bool                        is_connected_;
 
 };  // ClientRouterImpl
 
 }  // namespace
 
-ClientRouter::Ptr ClientRouter::make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe)
+CETL_NODISCARD ClientRouter::Ptr ClientRouter::make(cetl::pmr::memory_resource& memory,
+                                                    pipe::ClientPipe::Ptr       client_pipe)
 {
     return std::make_unique<ClientRouterImpl>(memory, std::move(client_pipe));
 }

@@ -12,6 +12,7 @@
 
 #include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
 #include <libcyphal/executor.hpp>
@@ -38,9 +39,15 @@ public:
         ipc_router_      = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
     }
 
-    void start()
+    CETL_NODISCARD int start()
     {
-        ipc_router_->start();
+        const int result = ipc_router_->start();
+        if (result != 0)
+        {
+            // NOLINTNEXTLINE *-vararg
+            ::syslog(LOG_ERR, "Failed to start IPC router: %d", result);
+            return result;
+        }
 
         auto channel = ipc_router_->makeChannel<ExecCmdChannel>("daemon");
         channel.subscribe([this](const auto& event_var) {
@@ -54,13 +61,15 @@ public:
                         ExecCmd cmd{&memory_};
                         cmd.some_stuff.push_back('A');
                         cmd.some_stuff.push_back('Z');
-                        ipc_exec_cmd_ch_->send(cmd);
+                        const int result = ipc_exec_cmd_ch_->send(cmd);
+                        (void) result;
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", input.some_stuff.size());
-                        ipc_exec_cmd_ch_->send(input);
+                        const int result = ipc_exec_cmd_ch_->send(input);
+                        (void) result;
                     },
                     [](const ExecCmdChannel::Disconnected&) {
                         //
@@ -70,6 +79,8 @@ public:
                 event_var);
         });
         ipc_exec_cmd_ch_ = std::move(channel);
+
+        return 0;
     }
 
 private:
@@ -84,11 +95,16 @@ private:
 
 }  // namespace
 
-std::unique_ptr<Daemon> Daemon::make(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor)
+CETL_NODISCARD std::unique_ptr<Daemon> Daemon::make(  //
+    cetl::pmr::memory_resource& memory,
+    libcyphal::IExecutor&       executor)
 {
     auto daemon = std::make_unique<DaemonImpl>(memory, executor);
-    daemon->start();
-    return std::move(daemon);
+    if (daemon->start())
+    {
+        return nullptr;
+    }
+    return daemon;
 }
 
 }  // namespace sdk

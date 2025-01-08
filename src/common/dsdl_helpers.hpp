@@ -6,6 +6,7 @@
 #ifndef OCVSMD_COMMON_DSDL_HELPERS_HPP_INCLUDED
 #define OCVSMD_COMMON_DSDL_HELPERS_HPP_INCLUDED
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <array>
@@ -21,13 +22,13 @@ namespace common
 {
 
 template <typename Message>
-static auto tryDeserializePayload(const cetl::span<const std::uint8_t> payload, Message& out_message)
+CETL_NODISCARD static auto tryDeserializePayload(const cetl::span<const std::uint8_t> payload, Message& out_message)
 {
     return deserialize(out_message, {payload.data(), payload.size()});
 }
 
 template <typename Message, typename Action>
-static int tryPerformOnSerialized(const Message& message, Action&& action)
+CETL_NODISCARD static int tryPerformOnSerialized(const Message& message, Action&& action)
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -45,8 +46,9 @@ static int tryPerformOnSerialized(const Message& message, Action&& action)
     return std::forward<Action>(action)(bytes);
 }
 
-template <typename Message, typename Result, std::size_t BufferSize, bool IsOnStack, typename Action>
-static auto tryPerformOnSerialized(const Message& message, Action&& action) -> std::enable_if_t<IsOnStack, Result>
+template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
+CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
+                                                  Action&&       action) -> std::enable_if_t<IsOnStack, int>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -57,15 +59,16 @@ static auto tryPerformOnSerialized(const Message& message, Action&& action) -> s
     const auto result_size = serialize(message, {buffer.data(), buffer.size()});
     if (!result_size)
     {
-        return Result{result_size.error()};
+        return EINVAL;
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
     return std::forward<Action>(action)(bytes);
 }
 
-template <typename Message, typename Result, std::size_t BufferSize, bool IsOnStack, typename Action>
-static auto tryPerformOnSerialized(const Message& message, Action&& action) -> std::enable_if_t<!IsOnStack, Result>
+template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
+CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
+                                                  Action&&       action) -> std::enable_if_t<!IsOnStack, int>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -75,7 +78,7 @@ static auto tryPerformOnSerialized(const Message& message, Action&& action) -> s
     const auto result_size = serialize(message, {buffer->data(), buffer->size()});
     if (!result_size)
     {
-        return Result{result_size.error()};
+        return EINVAL;
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer->data(), result_size.value()};

@@ -36,16 +36,17 @@ public:
             reference().event_handler_ = event_handler;
             return reference().start(event_handler);
         }
-        int sendMessage(const ClientId client_id, const Payloads payloads) override
+
+        int send(const ClientId client_id, const Payloads payloads) override
         {
-            return reference().sendMessage(client_id, payloads);
+            return reference().send(client_id, payloads);
         }
 
     };  // RefWrapper
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(int, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(int, sendMessage, (const ClientId client_id, const Payloads payloads), (override));
+    MOCK_METHOD(int, send, (const ClientId client_id, const Payloads payloads), (override));
 
     // MARK: Data members:
 

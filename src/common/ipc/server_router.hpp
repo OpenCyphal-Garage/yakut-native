@@ -28,7 +28,7 @@ class ServerRouter
 public:
     using Ptr = std::unique_ptr<ServerRouter>;
 
-    static Ptr make(cetl::pmr::memory_resource& memory, pipe::ServerPipe::Ptr server_pipe);
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, pipe::ServerPipe::Ptr server_pipe);
 
     ServerRouter(const ServerRouter&)                = delete;
     ServerRouter(ServerRouter&&) noexcept            = delete;
@@ -37,8 +37,8 @@ public:
 
     virtual ~ServerRouter() = default;
 
-    virtual void                        start()  = 0;
-    virtual cetl::pmr::memory_resource& memory() = 0;
+    CETL_NODISCARD virtual int                         start()  = 0;
+    CETL_NODISCARD virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Ch>
     using NewChannelHandler = std::function<void(Ch&& new_channel, const typename Ch::Input& input)>;

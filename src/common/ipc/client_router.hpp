@@ -27,7 +27,7 @@ class ClientRouter
 public:
     using Ptr = std::unique_ptr<ClientRouter>;
 
-    static Ptr make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe);
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe);
 
     ClientRouter(const ClientRouter&)                = delete;
     ClientRouter(ClientRouter&&) noexcept            = delete;
@@ -36,8 +36,8 @@ public:
 
     virtual ~ClientRouter() = default;
 
-    virtual void                        start()  = 0;
-    virtual cetl::pmr::memory_resource& memory() = 0;
+    CETL_NODISCARD virtual int                         start()  = 0;
+    CETL_NODISCARD virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Ch>
     CETL_NODISCARD Ch makeChannel(cetl::string_view service_name = "")

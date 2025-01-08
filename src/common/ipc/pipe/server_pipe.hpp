@@ -8,11 +8,10 @@
 
 #include "pipe_types.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <memory>
 
@@ -62,8 +61,8 @@ public:
 
     virtual ~ServerPipe() = default;
 
-    virtual int start(EventHandler event_handler)                              = 0;
-    virtual int sendMessage(const ClientId client_id, const Payloads payloads) = 0;
+    CETL_NODISCARD virtual int start(EventHandler event_handler)                       = 0;
+    CETL_NODISCARD virtual int send(const ClientId client_id, const Payloads payloads) = 0;
 
 protected:
     ServerPipe() = default;

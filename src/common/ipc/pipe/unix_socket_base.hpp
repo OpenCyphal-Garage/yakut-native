@@ -9,6 +9,7 @@
 #include "ocvsmd/platform/posix_utils.hpp"
 #include "pipe_types.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <array>
@@ -42,7 +43,7 @@ protected:
     UnixSocketBase()  = default;
     ~UnixSocketBase() = default;
 
-    static int sendMessage(const int output_fd, const Payloads payloads)
+    CETL_NODISCARD static int send(const int output_fd, const Payloads payloads)
     {
         // 1. Write the message header (signature and total size of the following fragments).
         //
@@ -79,7 +80,7 @@ protected:
     }
 
     template <typename Action>
-    static int receiveMessage(const int input_fd, Action&& action)
+    CETL_NODISCARD static int receiveMessage(const int input_fd, Action&& action)
     {
         // 1. Receive and validate the message header.
         //
