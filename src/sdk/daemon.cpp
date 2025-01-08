@@ -70,7 +70,7 @@ public:
                     }),
                 event_var);
         });
-        ipc_exec_cmd_ch_.emplace(std::move(channel));
+        ipc_exec_cmd_ch_ = std::move(channel);
     }
 
 private:

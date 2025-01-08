@@ -62,18 +62,12 @@ public:
     using EventVar     = cetl::variant<Input, Connected, Disconnected>;
     using EventHandler = std::function<void(const EventVar&)>;
 
-    Channel(Channel&& other) noexcept
-        : memory_{other.memory_}
-        , gateway_{std::move(other.gateway_)}
-        , service_id_{other.service_id_}
-    {
-    }
+    ~Channel()                                   = default;
+    Channel(Channel&& other) noexcept            = default;
+    Channel& operator=(Channel&& other) noexcept = default;
 
-    ~Channel() = default;
-
-    Channel(const Channel&)                      = delete;
-    Channel& operator=(const Channel&)           = delete;
-    Channel& operator=(Channel&& other) noexcept = delete;
+    Channel(const Channel&)            = delete;
+    Channel& operator=(const Channel&) = delete;
 
     using SendFailure = nunavut::support::Error;
     using SendResult  = cetl::optional<SendFailure>;
@@ -150,9 +144,9 @@ private:
 
     static constexpr std::size_t MsgSmallPayloadSize = 256;
 
-    cetl::pmr::memory_resource& memory_;
-    detail::Gateway::Ptr        gateway_;
-    detail::ServiceId           service_id_;
+    std::reference_wrapper<cetl::pmr::memory_resource> memory_;
+    detail::Gateway::Ptr                               gateway_;
+    detail::ServiceId                                  service_id_;
 
 };  // Channel
 

@@ -69,7 +69,7 @@ cetl::optional<std::string> Application::init()
     ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
     using Ch = ExecCmdChannel;
-    ipc_router_->registerChannel<Ch::Input, Ch::Output>("daemon", [this](auto&& ch, const auto& request) {
+    ipc_router_->registerChannel<Ch::Input, Ch::Output>("daemon", [this](Ch&& ch, const auto& request) {
         //
         // NOLINTNEXTLINE *-vararg
         ::syslog(LOG_DEBUG, "Client initial msg (%zu).", request.some_stuff.size());
@@ -81,7 +81,7 @@ cetl::optional<std::string> Application::init()
             ipc_exec_cmd_ch_->send(r1);
             ipc_exec_cmd_ch_.reset();
         });
-        ipc_exec_cmd_ch_.emplace(std::move(ch));
+        ipc_exec_cmd_ch_ = std::move(ch);
     });
 
     ipc_router_->start();
