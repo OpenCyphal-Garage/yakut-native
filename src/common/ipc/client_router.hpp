@@ -39,11 +39,11 @@ public:
     virtual void                        start()  = 0;
     virtual cetl::pmr::memory_resource& memory() = 0;
 
-    template <typename Input, typename Output>
-    CETL_NODISCARD Channel<Input, Output> makeChannel(cetl::string_view service_name = "")
+    template <typename Ch>
+    CETL_NODISCARD Ch makeChannel(cetl::string_view service_name = "")
     {
-        const auto service_id = AnyChannel::getServiceId<Output>(service_name);
-        return Channel<Input, Output>{memory(), makeGateway(), service_id};
+        const auto service_id = AnyChannel::getServiceId<typename Ch::Output>(service_name);
+        return Ch{memory(), makeGateway(), service_id};
     }
 
 protected:

@@ -42,13 +42,12 @@ public:
     {
         ipc_router_->start();
 
-        using Ch     = ExecCmdChannel;
-        auto channel = ipc_router_->makeChannel<Ch::Input, Ch::Output>("daemon");
+        auto channel = ipc_router_->makeChannel<ExecCmdChannel>("daemon");
         channel.subscribe([this](const auto& event_var) {
             //
             cetl::visit(  //
                 cetl::make_overloaded(
-                    [this](const Ch::Connected&) {
+                    [this](const ExecCmdChannel::Connected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Ch connected.");
@@ -57,13 +56,13 @@ public:
                         cmd.some_stuff.push_back('Z');
                         ipc_exec_cmd_ch_->send(cmd);
                     },
-                    [this](const Ch::Input& input) {
+                    [this](const ExecCmdChannel::Input& input) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", input.some_stuff.size());
                         ipc_exec_cmd_ch_->send(input);
                     },
-                    [](const Ch::Disconnected&) {
+                    [](const ExecCmdChannel::Disconnected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
                         ::syslog(LOG_DEBUG, "Server disconnected.");

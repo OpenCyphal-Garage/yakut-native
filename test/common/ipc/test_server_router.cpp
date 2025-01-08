@@ -121,7 +121,8 @@ TEST_F(TestServerRouter, start)
 
 TEST_F(TestServerRouter, registerChannel)
 {
-    using Msg = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ServerPipeMock> server_pipe_mock;
     EXPECT_CALL(server_pipe_mock, deinit()).Times(1);
@@ -136,7 +137,7 @@ TEST_F(TestServerRouter, registerChannel)
     server_router->start();
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    server_router->registerChannel<Msg, Msg>("", [](auto&&, const auto&) {});
+    server_router->registerChannel<Channel>("", [](auto&&, const auto&) {});
 }
 
 TEST_F(TestServerRouter, channel_send)
@@ -160,10 +161,10 @@ TEST_F(TestServerRouter, channel_send)
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
 
     cetl::optional<Channel> maybe_channel;
-    server_router->registerChannel<Msg, Msg>("", [&](auto&& ch, const auto& input) {
+    server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
         ch.subscribe(ch1_event_mock.AsStdFunction());
-        maybe_channel.emplace(std::forward<Channel>(ch));
+        maybe_channel.emplace(std::move(ch));
         ch1_event_mock.Call(input);
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());

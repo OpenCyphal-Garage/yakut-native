@@ -40,24 +40,24 @@ public:
     virtual void                        start()  = 0;
     virtual cetl::pmr::memory_resource& memory() = 0;
 
-    template <typename Input, typename Output>
-    using NewChannelHandler = std::function<void(Channel<Input, Output>&& new_channel, const Input& input)>;
+    template <typename Ch>
+    using NewChannelHandler = std::function<void(Ch&& new_channel, const typename Ch::Input& input)>;
 
-    template <typename Input, typename Output>
-    void registerChannel(const cetl::string_view service_name, NewChannelHandler<Input, Output> handler)
+    template <typename Ch>
+    void registerChannel(const cetl::string_view service_name, NewChannelHandler<Ch> handler)
     {
         CETL_DEBUG_ASSERT(handler, "");
 
-        const auto service_id = AnyChannel::getServiceId<Input>(service_name);
+        const auto service_id = AnyChannel::getServiceId<typename Ch::Input>(service_name);
 
         registerChannelFactory(  //
             service_id,
             [this, service_id, new_ch_handler = std::move(handler)](detail::Gateway::Ptr gateway,
                                                                     const pipe::Payload  payload) {
-                Input input{&memory()};
+                typename Ch::Input input{&memory()};
                 if (tryDeserializePayload(payload, input))
                 {
-                    new_ch_handler(Channel<Input, Output>{memory(), gateway, service_id}, input);
+                    new_ch_handler(Ch{memory(), gateway, service_id}, input);
                 }
             });
     }

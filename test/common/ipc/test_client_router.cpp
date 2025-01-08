@@ -144,7 +144,8 @@ TEST_F(TestClientRouter, start)
 
 TEST_F(TestClientRouter, makeChannel)
 {
-    using Msg = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
@@ -157,13 +158,14 @@ TEST_F(TestClientRouter, makeChannel)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     client_router->start();
 
-    const auto channel = client_router->makeChannel<Msg, Msg>();
+    const auto channel = client_router->makeChannel<Channel>();
     (void) channel;
 }
 
 TEST_F(TestClientRouter, makeChannel_send)
 {
-    using Msg = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
@@ -176,7 +178,7 @@ TEST_F(TestClientRouter, makeChannel_send)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     client_router->start();
 
-    auto channel = client_router->makeChannel<Msg, Msg>();
+    auto channel = client_router->makeChannel<Channel>();
 
     Msg msg{&mr_};
 
@@ -191,8 +193,7 @@ TEST_F(TestClientRouter, makeChannel_send)
 
 TEST_F(TestClientRouter, makeChannel_receive_events)
 {
-    using Msg = ocvsmd::common::node_command::ExecCmd_1_0;
-    ;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -209,10 +210,10 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch2_event_mock;
 
-    auto channel1 = client_router->makeChannel<Msg, Msg>();
+    auto channel1 = client_router->makeChannel<Channel>();
     channel1.subscribe(ch1_event_mock.AsStdFunction());
 
-    auto channel2 = client_router->makeChannel<Msg, Msg>();
+    auto channel2 = client_router->makeChannel<Channel>();
     channel2.subscribe(ch2_event_mock.AsStdFunction());
 
     // Emulate that we've got pipe connected - `RouteConnect` should be sent to the server.
