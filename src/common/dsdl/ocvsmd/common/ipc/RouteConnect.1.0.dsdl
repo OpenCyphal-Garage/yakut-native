@@ -1,4 +1,0 @@
-uavcan.node.Version.1.0 version
-
-# reserve twice as much as we need.
-@extent _offset_.max * 2

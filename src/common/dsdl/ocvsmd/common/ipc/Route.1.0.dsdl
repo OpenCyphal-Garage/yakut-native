@@ -1,7 +1,7 @@
 @union
 
 uavcan.primitive.Empty.1.0 empty
-RouteConnect.1.0 connect
+RouteConnect.0.1 connect
 RouteChannelMsg.1.0 channel_msg
 RouteChannelEnd.1.0 channel_end
 

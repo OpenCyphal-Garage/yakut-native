@@ -57,9 +57,29 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    static void emulatePipeConnect(const pipe::ServerPipe::ClientId client_id, pipe::ServerPipeMock& server_pipe_mock)
+    void emulateRouteConnect(const pipe::ServerPipe::ClientId client_id,
+                             pipe::ServerPipeMock&            server_pipe_mock,
+                             const std::uint8_t               ver_major  = VERSION_MAJOR,  // NOLINT
+                             const std::uint8_t               ver_minor  = VERSION_MINOR,
+                             const ErrorCode                  error_code = ErrorCode::Success)
     {
+        using ocvsmd::common::tryPerformOnSerialized;
+
         server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Connected{client_id});
+
+        Route_1_0 route{&mr_};
+        auto&     rt_conn     = route.set_connect();
+        rt_conn.version.major = ver_major;
+        rt_conn.version.minor = ver_minor;
+        rt_conn.error_code    = static_cast<std::int32_t>(error_code);
+        //
+        EXPECT_CALL(server_pipe_mock, send(client_id, PayloadOfRouteConnect(mr_)))  //
+            .WillOnce(Return(0));
+        const int result = tryPerformOnSerialized(route, [&](const auto payload) {
+            //
+            return server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{client_id, payload});
+        });
+        EXPECT_THAT(result, 0);
     }
 
     template <typename Msg>
@@ -183,7 +203,7 @@ TEST_F(TestServerRouter, channel_send)
     //
     constexpr std::uint64_t cl_id = 42;
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
-    emulatePipeConnect(cl_id, server_pipe_mock);
+    emulateRouteConnect(cl_id, server_pipe_mock);
 
     // Emulate that client posted initial `RouteChannelMsg` on 42/7 client/tag pair.
     //

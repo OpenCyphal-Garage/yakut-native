@@ -1,0 +1,4 @@
+uavcan.node.Version.1.0 version
+int32 error_code
+
+@extent 64

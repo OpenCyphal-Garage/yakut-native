@@ -11,7 +11,7 @@
 #include "pipe/server_pipe.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
-#include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "uavcan/primitive/Empty_1_0.hpp"
 
@@ -137,7 +137,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.getClientId(), endpoint.getTag());
+            ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.getClientId(), endpoint.getTag());  // NOLINT
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -147,7 +147,7 @@ private:
 
         ~GatewayImpl()
         {
-            ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.getClientId(), endpoint_.getTag());
+            ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.getClientId(), endpoint_.getTag());  // NOLINT
 
             router_.onGatewayDisposal(endpoint_);
         }
@@ -258,18 +258,22 @@ private:
             channel_end.tag        = endpoint.getTag();
             channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
 
-            const int result = tryPerformOnSerialized(route, [this, &endpoint](const auto payload) {
+            const int error = tryPerformOnSerialized(route, [this, &endpoint](const auto payload) {
                 //
                 return server_pipe_->send(endpoint.getClientId(), {{payload}});
             });
             // Best efforts strategy - gateway anyway is gone, so nowhere to report.
-            (void) result;
+            (void) error;
         }
     }
 
-    CETL_NODISCARD int handlePipeEvent(const pipe::ServerPipe::Event::Connected conn)
+    CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Connected& pipe_conn)
     {
-        connected_client_ids_.insert(conn.client_id);
+        ::syslog(LOG_DEBUG, "Pipe is connected (cl=%zu).", pipe_conn.client_id);  // NOLINT
+
+        // It's not enough to consider the client router connected by the pipe event.
+        // We gonna wait for `RouteConnect` negotiation (see `handleRouteConnect`).
+        // But for now everything is fine.
         return 0;
     }
 
@@ -288,7 +292,7 @@ private:
         cetl::visit(cetl::make_overloaded(
                         //
                         [this](const uavcan::primitive::Empty_1_0&) {},
-                        [this, &msg](const RouteConnect_1_0& route_conn) {
+                        [this, &msg](const RouteConnect_0_1& route_conn) {
                             //
                             handleRouteConnect(msg.client_id, route_conn);
                         },
@@ -307,27 +311,39 @@ private:
         return 0;
     }
 
-    CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected)
+    CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected& disconn)
     {
+        ::syslog(LOG_DEBUG, "Pipe is disconnected (cl=%zu).", disconn.client_id);  // NOLINT
+
         // TODO: Implement! disconnected for all gateways which belong to the corresponding client id
         return 0;
     }
 
-    void handleRouteConnect(const pipe::ServerPipe::ClientId client_id, const RouteConnect_1_0&) const
+    void handleRouteConnect(const pipe::ServerPipe::ClientId client_id, const RouteConnect_0_1& rt_conn)
     {
-        // TODO: log client route connection
+        ::syslog(LOG_DEBUG,  // NOLINT
+                 "Route connect request (cl=%zu, ver='%d.%d', err=%d).",
+                 client_id,
+                 static_cast<int>(rt_conn.version.major),
+                 static_cast<int>(rt_conn.version.minor),
+                 static_cast<int>(rt_conn.error_code));
 
         Route_1_0 route{&memory_};
-
-        auto& route_conn         = route.set_connect();
+        auto&     route_conn     = route.set_connect();
         route_conn.version.major = VERSION_MAJOR;
         route_conn.version.minor = VERSION_MINOR;
-
-        const int result = tryPerformOnSerialized(route, [this, client_id](const auto payload) {
+        // In the future, we might have version comparison logic here,
+        // and potentially refuse the connection if the versions are incompatible.
+        route_conn.error_code = 0;
+        //
+        const int error = tryPerformOnSerialized(route, [this, client_id](const auto payload) {
             //
             return server_pipe_->send(client_id, {{payload}});
         });
-        (void) result;
+        if (0 != error)
+        {
+            connected_client_ids_.insert(client_id);
+        }
     }
 
     void handleRouteChannelMsg(const pipe::ServerPipe::ClientId client_id,
@@ -362,7 +378,19 @@ private:
         // TODO: log unsolicited message
     }
 
-    void handleRouteChannelEnd(const pipe::ServerPipe::ClientId client_id, const RouteChannelEnd_1_0& route_ch_end) {}
+    void handleRouteChannelEnd(const pipe::ServerPipe::ClientId client_id, const RouteChannelEnd_1_0& route_ch_end)
+    {
+        ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
+
+        const Endpoint endpoint{route_ch_end.tag, client_id};
+        const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
+
+        findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
+            //
+            endpoint_to_gateway_.erase(found_it);
+            gateway.event(detail::Gateway::Event::Completed{error_code});
+        });
+    }
 
     cetl::pmr::memory_resource&            memory_;
     pipe::ServerPipe::Ptr                  server_pipe_;

@@ -14,7 +14,7 @@
 #include "tracking_memory_resource.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
-#include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
@@ -37,12 +37,10 @@ using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in th
 using testing::_;
 using testing::IsTrue;
 using testing::Return;
-using testing::SizeIs;
 using testing::IsEmpty;
 using testing::IsFalse;
 using testing::NotNull;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 using testing::MockFunction;
 
@@ -62,34 +60,29 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    template <typename Action>
-    void withRouteConnect(const RouteConnect_1_0& connect, Action action)
+    void emulateRouteConnect(pipe::ClientPipeMock& client_pipe_mock,
+                             const std::uint8_t    ver_major  = VERSION_MAJOR,  // NOLINT
+                             const std::uint8_t    ver_minor  = VERSION_MINOR,
+                             ErrorCode             error_code = ErrorCode::Success)
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
-        Route_1_0 route{&mr_};
-        route.set_connect(connect);
-
-        const int result = tryPerformOnSerialized(route, [&](const auto payload) {
-            //
-            action(payload);
-            return 0;
-        });
-        EXPECT_THAT(result, 0);
-    }
-
-    void emulateRouteConnect(pipe::ClientPipeMock& client_pipe_mock)
-    {
         // client RouteConnect -> server
         EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteConnect(mr_)))  //
             .WillOnce(Return(0));
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
 
-        // Server -> client RouteConnect
-        withRouteConnect(RouteConnect_1_0{{1, 2, &mr_}, &mr_}, [&](const auto payload) {
+        Route_1_0 route{&mr_};
+        auto&     rt_conn     = route.set_connect();
+        rt_conn.version.major = ver_major;
+        rt_conn.version.minor = ver_minor;
+        rt_conn.error_code    = static_cast<std::int32_t>(error_code);
+        //
+        const int result = tryPerformOnSerialized(route, [&](const auto payload) {
             //
-            client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
+            return client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
         });
+        EXPECT_THAT(result, 0);
     }
 
     template <typename Msg>

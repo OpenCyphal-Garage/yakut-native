@@ -74,7 +74,7 @@ public:
                     [](const ExecCmdChannel::Completed& completed) {
                         //
                         // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "🔴 Ch Completed (err=%d).", completed.error_code);
+                        ::syslog(LOG_DEBUG, "🔴 Ch Completed (err=%d).", static_cast<int>(completed.error_code));
                     }),
                 event_var);
         });
@@ -100,7 +100,7 @@ CETL_NODISCARD std::unique_ptr<Daemon> Daemon::make(  //
     libcyphal::IExecutor&       executor)
 {
     auto daemon = std::make_unique<DaemonImpl>(memory, executor);
-    if (daemon->start())
+    if (0 != daemon->start())
     {
         return nullptr;
     }

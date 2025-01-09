@@ -11,7 +11,7 @@
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
-#include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 
 #include <uavcan/node/Version_1_0.hpp>
@@ -49,9 +49,9 @@ inline void PrintTo(const uavcan::node::Version_1_0& ver, std::ostream* os)
     *os << "Version_1_0{'" << static_cast<int>(ver.major) << "." << static_cast<int>(ver.minor) << "'}";
 }
 
-inline void PrintTo(const RouteConnect_1_0& conn, std::ostream* os)
+inline void PrintTo(const RouteConnect_0_1& conn, std::ostream* os)
 {
-    *os << "RouteConnect_1_0{ver=";
+    *os << "RouteConnect_0_1{ver=";
     PrintTo(conn.version, os);
     *os << "}";
 }
@@ -76,7 +76,7 @@ inline void PrintTo(const Route_1_0& route, std::ostream* os)
 
 // MARK: - Equitable-s for matching:
 
-inline bool operator==(const RouteConnect_1_0& lhs, const RouteConnect_1_0& rhs)
+inline bool operator==(const RouteConnect_0_1& lhs, const RouteConnect_0_1& rhs)
 {
     return lhs.version.major == rhs.version.major && lhs.version.minor == rhs.version.minor;
 }
@@ -165,11 +165,12 @@ testing::PolymorphicMatcher<PayloadMatcher<T>> PayloadWith(
 }
 
 inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
-                                  const std::uint8_t          ver_major = VERSION_MAJOR,
-                                  const std::uint8_t          ver_minor = VERSION_MINOR)
+                                  const std::uint8_t          ver_major  = VERSION_MAJOR,
+                                  const std::uint8_t          ver_minor  = VERSION_MINOR,
+                                  ErrorCode                   error_code = ErrorCode::Success)
 {
-    const RouteConnect_1_0 connect{{ver_major, ver_minor, &mr}, &mr};
-    return PayloadWith<Route_1_0>(testing::VariantWith<RouteConnect_1_0>(connect), mr);
+    const RouteConnect_0_1 route_conn{{ver_major, ver_minor, &mr}, static_cast<std::int32_t>(error_code), &mr};
+    return PayloadWith<Route_1_0>(testing::VariantWith<RouteConnect_0_1>(route_conn), mr);
 }
 
 template <typename Msg>

@@ -12,7 +12,7 @@
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
-#include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "uavcan/primitive/Empty_1_0.hpp"
 
@@ -133,7 +133,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.getTag());
+            ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.getTag());  // NOLINT
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -143,7 +143,7 @@ private:
 
         ~GatewayImpl()
         {
-            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.getTag(), next_sequence_);
+            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.getTag(), next_sequence_);  // NOLINT
 
             // `next_sequence_ == 0` means that this gateway was never used for sending messages,
             // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
@@ -278,24 +278,27 @@ private:
             channel_end.tag        = endpoint.getTag();
             channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
 
-            const int result = tryPerformOnSerialized(route, [this](const auto payload) {
+            const int error = tryPerformOnSerialized(route, [this](const auto payload) {
                 //
                 return client_pipe_->send({{payload}});
             });
             // Best efforts strategy - gateway anyway is gone, so nowhere to report.
-            (void) result;
+            (void) error;
         }
     }
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
     {
-        // TODO: log client pipe connection
+        ::syslog(LOG_DEBUG, "Pipe is connected.");  // NOLINT
 
+        // It's not enough to consider the server route connected by the pipe event.
+        // We gonna initiate `RouteConnect` negotiation (see `handleRouteConnect`).
+        //
         Route_1_0 route{&memory_};
         auto&     route_conn     = route.set_connect();
         route_conn.version.major = VERSION_MAJOR;
         route_conn.version.minor = VERSION_MINOR;
-
+        //
         return tryPerformOnSerialized(route, [this](const auto payload) {
             //
             return client_pipe_->send({{payload}});
@@ -317,7 +320,7 @@ private:
         cetl::visit(cetl::make_overloaded(
                         //
                         [this](const uavcan::primitive::Empty_1_0&) {},
-                        [this](const RouteConnect_1_0& route_conn) {
+                        [this](const RouteConnect_0_1& route_conn) {
                             //
                             handleRouteConnect(route_conn);
                         },
@@ -336,6 +339,8 @@ private:
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
     {
+        ::syslog(LOG_DEBUG, "Pipe is disconnected.");  // NOLINT
+
         if (is_connected_)
         {
             is_connected_ = false;
@@ -356,8 +361,14 @@ private:
         return 0;
     }
 
-    void handleRouteConnect(const RouteConnect_1_0&)
+    void handleRouteConnect(const RouteConnect_0_1& rt_conn)
     {
+        ::syslog(LOG_DEBUG,  // NOLINT
+                 "Route connect response (ver='%d.%d', err=%d).",
+                 static_cast<int>(rt_conn.version.major),
+                 static_cast<int>(rt_conn.version.minor),
+                 static_cast<int>(rt_conn.error_code));
+
         if (!is_connected_)
         {
             is_connected_ = true;
@@ -391,6 +402,8 @@ private:
 
     void handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end)
     {
+        ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
+
         const Endpoint endpoint{route_ch_end.tag};
         const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
 

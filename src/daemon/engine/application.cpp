@@ -78,9 +78,9 @@ cetl::optional<std::string> Application::init()
         ipc_exec_cmd_ch_ = std::move(ch);
         ipc_exec_cmd_ch_->subscribe([this](const auto&) {
             //
-            ::syslog(LOG_DEBUG, "Client nested msg");
-            ExecCmd   r1{&memory_};
-            const int res1 = ipc_exec_cmd_ch_->send(r1);
+            ::syslog(LOG_DEBUG, "Client nested msg");  // NOLINT
+            const ExecCmd r1{&memory_};
+            const int     res1 = ipc_exec_cmd_ch_->send(r1);
             (void) res1;
             ipc_exec_cmd_ch_.reset();
         });
