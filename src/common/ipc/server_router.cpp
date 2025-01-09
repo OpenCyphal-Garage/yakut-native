@@ -147,8 +147,9 @@ private:
 
         ~GatewayImpl()
         {
-            router_.unregisterGateway(endpoint_, true);
             ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.getClientId(), endpoint_.getTag());
+
+            router_.onGatewayDisposal(endpoint_);
         }
 
         // detail::Gateway
@@ -158,6 +159,10 @@ private:
             if (!router_.isConnected(endpoint_))
             {
                 return static_cast<int>(ErrorCode::NotConnected);
+            }
+            if (!router_.isRegisteredGateway(endpoint_))
+            {
+                return static_cast<int>(ErrorCode::Disconnected);
             }
 
             Route_1_0 route{&router_.memory_};
@@ -183,16 +188,8 @@ private:
 
         void subscribe(EventHandler event_handler) override
         {
-            if (event_handler)
-            {
-                event_handler_ = std::move(event_handler);
-                router_.registerGateway(endpoint_, *this);
-            }
-            else
-            {
-                event_handler_ = nullptr;
-                router_.unregisterGateway(endpoint_, false);
-            }
+            event_handler_ = std::move(event_handler);
+            router_.onGatewaySubscription(endpoint_);
         }
 
     private:
@@ -211,24 +208,62 @@ private:
         return connected_client_ids_.find(endpoint.getClientId()) != connected_client_ids_.end();
     }
 
-    void registerGateway(const Endpoint& endpoint, GatewayImpl& gateway)
+    CETL_NODISCARD bool isRegisteredGateway(const Endpoint& endpoint) const noexcept
     {
-        endpoint_to_gateway_[endpoint] = gateway.shared_from_this();
-        if (isConnected(endpoint))
+        return endpoint_to_gateway_.find(endpoint) != endpoint_to_gateway_.end();
+    }
+
+    template <typename Action>
+    void findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
+    {
+        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
+        if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            gateway.event(detail::Gateway::Event::Connected{});
+            const auto gateway = ep_to_gw->second.lock();
+            if (gateway)
+            {
+                std::forward<Action>(action)(*gateway, ep_to_gw);
+            }
         }
     }
 
-    void unregisterGateway(const Endpoint& endpoint, const bool is_disposed = false)
+    void onGatewaySubscription(const Endpoint endpoint)
     {
-        endpoint_to_gateway_.erase(endpoint);
-
-        // Notify "remote" router about the gateway disposal.
-        // The router will deliver "disconnected" event to the counterpart gateway (if it exists).
-        //
-        if (is_disposed && isConnected(endpoint))
+        if (isConnected(endpoint))
         {
+            findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
+                //
+                gateway.event(detail::Gateway::Event::Connected{});
+            });
+        }
+    }
+
+    /// Unregisters the gateway associated with the given endpoint.
+    ///
+    /// Called on the gateway disposal (correspondingly on its channel destruction).
+    /// The "dying" gateway wishes to notify the remote client router about its disposal.
+    /// This local router fulfills the wish if the gateway was registered and the client router is connected.
+    ///
+    void onGatewayDisposal(const Endpoint& endpoint)
+    {
+        const bool was_registered = (endpoint_to_gateway_.erase(endpoint) > 0);
+
+        // Notify remote client router about the gateway disposal (aka channel completion).
+        // The router will propagate "ChEnd" event to the counterpart gateway (if it's registered).
+        //
+        if (was_registered && isConnected(endpoint))
+        {
+            Route_1_0 route{&memory_};
+            auto&     channel_end  = route.set_channel_end();
+            channel_end.tag        = endpoint.getTag();
+            channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
+
+            const int result = tryPerformOnSerialized(route, [this, &endpoint](const auto payload) {
+                //
+                return server_pipe_->send(endpoint.getClientId(), {{payload}});
+            });
+            // Best efforts strategy - gateway anyway is gone, so nowhere to report.
+            (void) result;
         }
     }
 
@@ -318,7 +353,8 @@ private:
             const auto si_to_cf = service_id_to_channel_factory_.find(route_ch_msg.service_id);
             if (si_to_cf != service_id_to_channel_factory_.end())
             {
-                auto gateway = GatewayImpl::create(*this, endpoint);
+                auto gateway                   = GatewayImpl::create(*this, endpoint);
+                endpoint_to_gateway_[endpoint] = gateway;
                 si_to_cf->second(gateway, msg_payload);
             }
         }

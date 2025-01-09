@@ -164,7 +164,7 @@ testing::PolymorphicMatcher<PayloadMatcher<T>> PayloadWith(
     return testing::MakePolymorphicMatcher(PayloadMatcher<T>(matcher, memory));
 }
 
-inline auto PayloadRouteConnectEq(cetl::pmr::memory_resource& mr,
+inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
                                   const std::uint8_t          ver_major = VERSION_MAJOR,
                                   const std::uint8_t          ver_minor = VERSION_MINOR)
 {
@@ -180,6 +180,14 @@ auto PayloadOfRouteChannel(cetl::pmr::memory_resource& mr,
 {
     const RouteChannelMsg_1_0 msg{tag, seq, AnyChannel::getServiceId<Msg>(srv_name), &mr};
     return PayloadWith<Route_1_0>(testing::VariantWith<RouteChannelMsg_1_0>(msg), mr);
+}
+
+inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
+                                     const std::uint64_t         tag,
+                                     const ErrorCode             error_code)
+{
+    const RouteChannelEnd_1_0 ch_end{{tag, static_cast<std::int32_t>(error_code), &mr}, &mr};
+    return PayloadWith<Route_1_0>(testing::VariantWith<RouteChannelEnd_1_0>(ch_end), mr);
 }
 
 }  // namespace ipc

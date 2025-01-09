@@ -13,7 +13,6 @@
 #include "pipe/client_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
-#include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
@@ -82,7 +81,8 @@ protected:
     void emulateRouteConnect(pipe::ClientPipeMock& client_pipe_mock)
     {
         // client RouteConnect -> server
-        EXPECT_CALL(client_pipe_mock, send(PayloadRouteConnectEq(mr_))).WillOnce(Return(0));
+        EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteConnect(mr_)))  //
+            .WillOnce(Return(0));
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
 
         // Server -> client RouteConnect
@@ -205,13 +205,15 @@ TEST_F(TestClientRouter, makeChannel_send)
 
     const std::uint64_t tag = 0;
     std::uint64_t       seq = 0;
-    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, tag, seq++))).WillOnce(Return(0));
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+        .WillOnce(Return(0));
     EXPECT_THAT(channel.send(msg), 0);
 
-    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, tag, seq++))).WillOnce(Return(0));
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+        .WillOnce(Return(0));
     EXPECT_THAT(channel.send(msg), 0);
 
-    EXPECT_CALL(client_pipe_mock, send(PayloadWith<Route_1_0>(VariantWith<RouteChannelEnd_1_0>(_), mr_)))
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success)))  //
         .WillOnce(Return(0));
 }
 

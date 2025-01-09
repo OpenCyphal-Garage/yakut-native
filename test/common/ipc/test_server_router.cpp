@@ -12,7 +12,6 @@
 #include "pipe/server_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
-#include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
@@ -169,40 +168,45 @@ TEST_F(TestServerRouter, channel_send)
     EXPECT_THAT(server_router->start(), 0);
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
 
     cetl::optional<Channel> maybe_channel;
     server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
-        ch.subscribe(ch1_event_mock.AsStdFunction());
+        ch.subscribe(ch_event_mock.AsStdFunction());
         maybe_channel = std::move(ch);
-        ch1_event_mock.Call(input);
+        ch_event_mock.Call(input);
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
     // Emulate that client #42 is connected.
     //
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
-    emulatePipeConnect(42, server_pipe_mock);
+    constexpr std::uint64_t cl_id = 42;
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    emulatePipeConnect(cl_id, server_pipe_mock);
 
-    // Emulate that client posted initial `RouteChannelMsg` on 42/1 client/tag pair.
+    // Emulate that client posted initial `RouteChannelMsg` on 42/7 client/tag pair.
     //
-    const std::uint64_t tag = 1;
+    const std::uint64_t tag = 7;
     std::uint64_t       seq = 0;
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    emulateRouteChannelMsg(42, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
     ASSERT_THAT(maybe_channel.has_value(), IsTrue());
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success)))  //
+        .WillOnce(Return(0));
 
-    // Emulate that client posted one more `RouteChannelMsg` on the same 42/1 client/tag pair.
+    // Emulate that client posted one more `RouteChannelMsg` on the same 42/7 client/tag pair.
     //
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    emulateRouteChannelMsg(42, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
 
     seq = 0;
-    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, tag, seq++))).WillOnce(Return(0));
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+        .WillOnce(Return(0));
     EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
 
-    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, tag, seq++))).WillOnce(Return(0));
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+        .WillOnce(Return(0));
     EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
 }
 

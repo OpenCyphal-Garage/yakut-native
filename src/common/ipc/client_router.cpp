@@ -262,7 +262,7 @@ private:
     ///
     /// Called on the gateway disposal (correspondingly on its channel destruction).
     /// The "dying" gateway might wish to notify the remote router about its disposal.
-    /// The router fulfills the wish if the gateway was registered and the router is connected.
+    /// This local router fulfills the wish if the gateway was registered and the router is connected.
     ///
     void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end)
     {
