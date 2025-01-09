@@ -9,15 +9,17 @@
 #include "ipc/channel.hpp"
 #include "ipc/pipe/client_pipe.hpp"
 #include "ipc/pipe/pipe_types.hpp"
+#include "ipc_gtest_helpers.hpp"
 #include "pipe/client_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
+#include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -26,7 +28,6 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <utility>
 #include <vector>
 
 namespace
@@ -81,7 +82,7 @@ protected:
     void emulateRouteConnect(pipe::ClientPipeMock& client_pipe_mock)
     {
         // client RouteConnect -> server
-        EXPECT_CALL(client_pipe_mock, send(_)).WillOnce(Return(0));
+        EXPECT_CALL(client_pipe_mock, send(PayloadRouteConnectEq(mr_))).WillOnce(Return(0));
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
 
         // Server -> client RouteConnect
@@ -102,9 +103,9 @@ protected:
 
         Route_1_0 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
-        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
         channel_msg.tag        = tag;
         channel_msg.sequence   = seq;
+        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
 
         const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
             //
@@ -202,8 +203,14 @@ TEST_F(TestClientRouter, makeChannel_send)
 
     emulateRouteConnect(client_pipe_mock);
 
-    EXPECT_CALL(client_pipe_mock, send(SizeIs(2))).WillOnce(Return(0));
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, 1, 0))).WillOnce(Return(0));
     EXPECT_THAT(channel.send(msg), 0);
+
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, 1, 1))).WillOnce(Return(0));
+    EXPECT_THAT(channel.send(msg), 0);
+
+    EXPECT_CALL(client_pipe_mock, send(PayloadWith<Route_1_0>(VariantWith<RouteChannelEnd_1_0>(_), mr_)))
+        .WillOnce(Return(0));
 }
 
 TEST_F(TestClientRouter, makeChannel_receive_events)

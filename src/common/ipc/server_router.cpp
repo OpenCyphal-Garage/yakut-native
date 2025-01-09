@@ -163,9 +163,9 @@ private:
             Route_1_0 route{&router_.memory_};
 
             auto& channel_msg      = route.set_channel_msg();
-            channel_msg.service_id = service_id;
             channel_msg.tag        = endpoint_.getTag();
             channel_msg.sequence   = sequence_++;
+            channel_msg.service_id = service_id;
 
             return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //

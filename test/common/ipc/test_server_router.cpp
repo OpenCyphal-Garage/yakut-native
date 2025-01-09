@@ -8,9 +8,11 @@
 #include "ipc/channel.hpp"
 #include "ipc/pipe/pipe_types.hpp"
 #include "ipc/pipe/server_pipe.hpp"
+#include "ipc_gtest_helpers.hpp"
 #include "pipe/server_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
+#include "ocvsmd/common/ipc/RouteConnect_1_0.hpp"
 #include "ocvsmd/common/ipc/Route_1_0.hpp"
 #include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
 
@@ -32,6 +34,7 @@ using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in th
 
 using testing::_;
 using testing::IsTrue;
+using testing::Return;
 using testing::IsEmpty;
 using testing::IsFalse;
 using testing::NotNull;
@@ -55,9 +58,14 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    static void emulatePipeConnect(const pipe::ServerPipe::ClientId client_id, pipe::ServerPipeMock& server_pipe_mock)
+    {
+        server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Connected{client_id});
+    }
+
     template <typename Msg>
-    void emulateRouteChannelMsg(pipe::ServerPipeMock&            server_pipe_mock,
-                                const pipe::ServerPipe::ClientId client_id,
+    void emulateRouteChannelMsg(const pipe::ServerPipe::ClientId client_id,
+                                pipe::ServerPipeMock&            server_pipe_mock,
                                 const std::uint64_t              tag,
                                 const Msg&                       msg,
                                 const std::uint64_t              seq,
@@ -67,9 +75,9 @@ protected:
 
         Route_1_0 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
-        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
         channel_msg.tag        = tag;
         channel_msg.sequence   = seq;
+        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
 
         const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
             //
@@ -172,16 +180,27 @@ TEST_F(TestServerRouter, channel_send)
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
+    // Emulate that client #42 is connected.
+    //
+    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    emulatePipeConnect(42, server_pipe_mock);
+
     // Emulate that client posted initial `RouteChannelMsg` on 42/1 client/tag pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    emulateRouteChannelMsg(server_pipe_mock, 42, 1, Channel::Input{&mr_}, 0);
-    EXPECT_THAT(maybe_channel.has_value(), IsTrue());
+    emulateRouteChannelMsg(42, server_pipe_mock, 1, Channel::Input{&mr_}, 0);
+    ASSERT_THAT(maybe_channel.has_value(), IsTrue());
 
     // Emulate that client posted one more `RouteChannelMsg` on the same 42/1 client/tag pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    emulateRouteChannelMsg(server_pipe_mock, 42, 1, Channel::Input{&mr_}, 1);
+    emulateRouteChannelMsg(42, server_pipe_mock, 1, Channel::Input{&mr_}, 1);
+
+    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, 1, 0))).WillOnce(Return(0));
+    EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
+
+    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, 1, 1))).WillOnce(Return(0));
+    EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
