@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_SERVER_PIPE_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_SERVER_PIPE_HPP_INCLUDED
 
-#include "pipe_types.hpp"
+#include "ipc/ipc_types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>

@@ -7,8 +7,8 @@
 
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
+#include "ipc_types.hpp"
 #include "pipe/client_pipe.hpp"
-#include "pipe/pipe_types.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
@@ -44,7 +44,7 @@ public:
     ClientRouterImpl(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe)
         : memory_{memory}
         , client_pipe_{std::move(client_pipe)}
-        , last_unique_tag_{0}
+        , next_tag_{0}
         , is_connected_{false}
     {
         CETL_DEBUG_ASSERT(client_pipe_, "");
@@ -72,8 +72,11 @@ public:
 
     CETL_NODISCARD detail::Gateway::Ptr makeGateway() override
     {
-        const Endpoint endpoint{++last_unique_tag_};
-        return GatewayImpl::create(*this, endpoint);
+        const Endpoint endpoint{next_tag_++};
+
+        auto gateway                   = GatewayImpl::create(*this, endpoint);
+        endpoint_to_gateway_[endpoint] = gateway;
+        return gateway;
     }
 
 private:
@@ -128,7 +131,7 @@ private:
         GatewayImpl(Private, ClientRouterImpl& router, const Endpoint& endpoint)
             : router_{router}
             , endpoint_{endpoint}
-            , sequence_{0}
+            , next_sequence_{0}
         {
             ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.getTag());
         }
@@ -140,24 +143,27 @@ private:
 
         ~GatewayImpl()
         {
-            router_.unregisterGateway(endpoint_, true);
-            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu).", endpoint_.getTag());
+            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.getTag(), next_sequence_);
+
+            // `next_sequence_ == 0` means that this gateway was never used for sending messages,
+            // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
+            router_.onGatewayDisposal(endpoint_, next_sequence_ > 0);
         }
 
         // detail::Gateway
 
-        CETL_NODISCARD int send(const detail::ServiceId service_id, const pipe::Payload payload) override
+        CETL_NODISCARD int send(const detail::ServiceId service_id, const Payload payload) override
         {
             if (!router_.is_connected_)
             {
-                return ENOTCONN;
+                return static_cast<int>(ErrorCode::NotConnected);
             }
 
             Route_1_0 route{&router_.memory_};
 
             auto& channel_msg      = route.set_channel_msg();
             channel_msg.tag        = endpoint_.getTag();
-            channel_msg.sequence   = sequence_++;
+            channel_msg.sequence   = next_sequence_++;
             channel_msg.service_id = service_id;
 
             return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
@@ -176,22 +182,14 @@ private:
 
         void subscribe(EventHandler event_handler) override
         {
-            if (event_handler)
-            {
-                event_handler_ = std::move(event_handler);
-                router_.registerGateway(endpoint_, *this);
-            }
-            else
-            {
-                event_handler_ = nullptr;
-                router_.unregisterGateway(endpoint_);
-            }
+            event_handler_ = std::move(event_handler);
+            router_.onGatewaySubscription(endpoint_);
         }
 
     private:
         ClientRouterImpl& router_;
         const Endpoint    endpoint_;
-        std::uint64_t     sequence_;
+        std::uint64_t     next_sequence_;
         EventHandler      event_handler_;
 
     };  // GatewayImpl
@@ -203,57 +201,80 @@ private:
         return is_connected_;
     }
 
-    void registerGateway(const Endpoint& endpoint, GatewayImpl& gateway)
+    template <typename Action>
+    void findRegisteredGateway(const Endpoint endpoint, Action&& action)
     {
-        endpoint_to_gateway_[endpoint] = gateway.shared_from_this();
-        if (is_connected_)
+        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
+        if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            gateway.event(detail::Gateway::Event::Connected{});
+            const auto gateway = ep_to_gw->second.lock();
+            if (gateway)
+            {
+                std::forward<Action>(action)(*gateway, ep_to_gw);
+            }
         }
     }
 
-    void unregisterGateway(const Endpoint& endpoint, const bool is_disposed = false)
+    template <typename Action>
+    void forEachRegisteredGateway(Action action)
     {
-        endpoint_to_gateway_.erase(endpoint);
-
-        // Notify "remote" router about the gateway disposal.
-        // The router will deliver "disconnected" event to the counterpart gateway (if it exists).
+        // Calling an action might indirectly modify the map, so we first
+        // collect strong pointers to gateways into a local collection.
         //
-        if (is_disposed && isConnected(endpoint))
+        std::vector<detail::Gateway::Ptr> gateway_ptrs;
+        gateway_ptrs.reserve(endpoint_to_gateway_.size());
+        for (const auto& ep_to_gw : endpoint_to_gateway_)
+        {
+            const auto gateway_ptr = ep_to_gw.second.lock();
+            if (gateway_ptr)
+            {
+                gateway_ptrs.push_back(gateway_ptr);
+            }
+        }
+
+        for (const auto& gateway_ptr : gateway_ptrs)
+        {
+            action(*gateway_ptr);
+        }
+    }
+
+    void onGatewaySubscription(const Endpoint endpoint)
+    {
+        if (is_connected_)
+        {
+            findRegisteredGateway(endpoint, [](auto& gateway, auto) {
+                //
+                gateway.event(detail::Gateway::Event::Connected{});
+            });
+        }
+    }
+
+    /// Unregisters the gateway associated with the given endpoint.
+    ///
+    /// Called on the gateway disposal (correspondingly on its channel destruction).
+    /// The "dying" gateway might wish to notify the remote router about its disposal.
+    /// The router fulfills the wish if the gateway was registered and the router is connected.
+    ///
+    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end)
+    {
+        const bool was_registered = (endpoint_to_gateway_.erase(endpoint) > 0);
+
+        // Notify "remote" router about the gateway disposal (aka channel completion).
+        // The router will propagate "ChEnd" event to the counterpart gateway (if it's registered).
+        //
+        if (was_registered && send_ch_end && isConnected(endpoint))
         {
             Route_1_0 route{&memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint.getTag();
-            channel_end.error_code = 0;
+            channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
 
             const int result = tryPerformOnSerialized(route, [this](const auto payload) {
                 //
                 return client_pipe_->send({{payload}});
             });
+            // Best efforts strategy - gateway anyway is gone, so nowhere to report.
             (void) result;
-        }
-    }
-
-    template <typename Action>
-    void forEachGateway(Action action) const
-    {
-        // Calling an action might indirectly modify the map, so we first
-        // collect strong pointers to gateways into a local collection.
-        //
-        std::vector<detail::Gateway::Ptr> gateways;
-        gateways.reserve(endpoint_to_gateway_.size());
-        for (const auto& ep_to_gw : endpoint_to_gateway_)
-        {
-            const auto gateway = ep_to_gw.second.lock();
-            if (gateway)
-            {
-                gateways.push_back(gateway);
-            }
-        }
-
-        for (const auto& gateway : gateways)
-        {
-            action(gateway);
         }
     }
 
@@ -295,7 +316,7 @@ private:
                             //
                             handleRouteChannelMsg(route_ch_msg, msg_payload);
                         },
-                        [this, msg_payload](const RouteChannelEnd_1_0& route_ch_end) {
+                        [this](const RouteChannelEnd_1_0& route_ch_end) {
                             //
                             handleRouteChannelEnd(route_ch_end);
                         }),
@@ -306,40 +327,42 @@ private:
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
     {
-        // TODO: log client pipe disconnection
-
         if (is_connected_)
         {
             is_connected_ = false;
 
-            // The whole router is disconnected, so we need to notify all local gateways.
+            // The whole router is disconnected, so we need to unregister and notify all gateways.
             //
-            forEachGateway([](const auto& gateway) {
-                //
-                gateway->event(detail::Gateway::Event::Disconnected{});
-            });
+            EndpointToWeakGateway local_gateways;
+            std::swap(local_gateways, endpoint_to_gateway_);
+            for (const auto& ep_to_gw : local_gateways)
+            {
+                const auto gateway = ep_to_gw.second.lock();
+                if (gateway)
+                {
+                    gateway->event(detail::Gateway::Event::Completed{ErrorCode::Disconnected});
+                }
+            }
         }
         return 0;
     }
 
     void handleRouteConnect(const RouteConnect_1_0&)
     {
-        // TODO: log server route connection
-
         if (!is_connected_)
         {
             is_connected_ = true;
 
             // We've got connection response from the server, so we need to notify all local gateways.
             //
-            forEachGateway([](const auto& gateway) {
+            forEachRegisteredGateway([](auto& gateway) {
                 //
-                gateway->event(detail::Gateway::Event::Connected{});
+                gateway.event(detail::Gateway::Event::Connected{});
             });
         }
     }
 
-    void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_ch_msg, pipe::Payload payload)
+    void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_ch_msg, const Payload payload)
     {
         const Endpoint endpoint{route_ch_msg.tag};
 
@@ -357,11 +380,21 @@ private:
         // TODO: log unsolicited message
     }
 
-    void handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end) {}
+    void handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end)
+    {
+        const Endpoint endpoint{route_ch_end.tag};
+        const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
+
+        findRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto it) {
+            //
+            endpoint_to_gateway_.erase(it);
+            gateway.event(detail::Gateway::Event::Completed{error_code});
+        });
+    }
 
     cetl::pmr::memory_resource& memory_;
     pipe::ClientPipe::Ptr       client_pipe_;
-    Endpoint::Tag               last_unique_tag_;
+    Endpoint::Tag               next_tag_;
     EndpointToWeakGateway       endpoint_to_gateway_;
     bool                        is_connected_;
 

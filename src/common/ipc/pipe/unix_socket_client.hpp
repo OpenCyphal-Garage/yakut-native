@@ -7,8 +7,8 @@
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
 
 #include "client_pipe.hpp"
+#include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
-#include "pipe_types.hpp"
 #include "unix_socket_base.hpp"
 
 #include <cetl/cetl.hpp>

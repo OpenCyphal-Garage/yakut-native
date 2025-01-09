@@ -6,8 +6,8 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
+#include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
-#include "pipe_types.hpp"
 #include "server_pipe.hpp"
 #include "unix_socket_base.hpp"
 

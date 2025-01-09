@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 
-#include "pipe/pipe_types.hpp"
+#include "ipc_types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -37,16 +37,17 @@ public:
     {
         struct Connected final
         {};
-        struct Disconnected final
-        {};
+        struct Completed final
+        {
+            ErrorCode error_code;
+        };
         struct Message final
         {
             std::uint64_t sequence;
-            pipe::Payload payload;
+            Payload       payload;
+        };
 
-        };  // Message
-
-        using Var = cetl::variant<Message, Connected, Disconnected>;
+        using Var = cetl::variant<Connected, Message, Completed>;
 
     };  // Event
 
@@ -57,9 +58,9 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    CETL_NODISCARD virtual int send(const ServiceId service_id, const pipe::Payload payload) = 0;
-    virtual void               event(const Event::Var& event)                                = 0;
-    virtual void               subscribe(EventHandler event_handler)                         = 0;
+    CETL_NODISCARD virtual int send(const ServiceId service_id, const Payload payload) = 0;
+    virtual void               event(const Event::Var& event)                          = 0;
+    virtual void               subscribe(EventHandler event_handler)                   = 0;
 
 protected:
     Gateway()  = default;

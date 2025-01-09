@@ -6,8 +6,8 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED
 
+#include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
-#include "pipe_types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf20/cetlpf.hpp>

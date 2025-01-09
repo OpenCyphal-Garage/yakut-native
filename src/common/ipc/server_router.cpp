@@ -7,7 +7,7 @@
 
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
-#include "pipe/pipe_types.hpp"
+#include "ipc_types.hpp"
 #include "pipe/server_pipe.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
@@ -135,7 +135,7 @@ private:
         GatewayImpl(Private, ServerRouterImpl& router, const Endpoint& endpoint)
             : router_{router}
             , endpoint_{endpoint}
-            , sequence_{0}
+            , next_sequence_{0}
         {
             ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.getClientId(), endpoint.getTag());
         }
@@ -153,18 +153,18 @@ private:
 
         // detail::Gateway
 
-        CETL_NODISCARD int send(const detail::ServiceId service_id, const pipe::Payload payload) override
+        CETL_NODISCARD int send(const detail::ServiceId service_id, const Payload payload) override
         {
             if (!router_.isConnected(endpoint_))
             {
-                return ENOTCONN;
+                return static_cast<int>(ErrorCode::NotConnected);
             }
 
             Route_1_0 route{&router_.memory_};
 
             auto& channel_msg      = route.set_channel_msg();
             channel_msg.tag        = endpoint_.getTag();
-            channel_msg.sequence   = sequence_++;
+            channel_msg.sequence   = next_sequence_++;
             channel_msg.service_id = service_id;
 
             return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
@@ -198,7 +198,7 @@ private:
     private:
         ServerRouterImpl& router_;
         const Endpoint    endpoint_;
-        std::uint64_t     sequence_;
+        std::uint64_t     next_sequence_;
         EventHandler      event_handler_;
 
     };  // GatewayImpl
@@ -297,7 +297,7 @@ private:
 
     void handleRouteChannelMsg(const pipe::ServerPipe::ClientId client_id,
                                const RouteChannelMsg_1_0&       route_ch_msg,
-                               pipe::Payload                    msg_payload)
+                               const Payload                    msg_payload)
     {
         const Endpoint endpoint{route_ch_msg.tag, client_id};
 

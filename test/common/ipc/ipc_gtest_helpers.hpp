@@ -7,7 +7,7 @@
 #define OCVSMD_COMMON_IPC_GTEST_HELPERS_HPP_INCLUDED
 
 #include "dsdl_helpers.hpp"
-#include "ipc/pipe/pipe_types.hpp"
+#include "ipc/ipc_types.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
@@ -105,7 +105,7 @@ public:
     {
     }
 
-    bool MatchAndExplain(const pipe::Payload& payload, testing::MatchResultListener* listener) const
+    bool MatchAndExplain(const Payload& payload, testing::MatchResultListener* listener) const
     {
         T          msg{&memory_};
         const auto result = tryDeserializePayload<T>(payload, msg);
@@ -127,7 +127,7 @@ public:
         return match;
     }
 
-    bool MatchAndExplain(const pipe::Payloads& payloads, testing::MatchResultListener* listener) const
+    bool MatchAndExplain(const Payloads& payloads, testing::MatchResultListener* listener) const
     {
         std::vector<std::uint8_t> flatten;
         for (const auto& payload : payloads)
@@ -139,15 +139,13 @@ public:
 
     void DescribeTo(std::ostream* os) const
     {
-        *os << "is a variant<> with value of type '" << "GetTypeName()"
-            << "' and the value ";
+        *os << "is a variant<> with value of type '" << "GetTypeName()" << "' and the value ";
         matcher_.DescribeTo(os);
     }
 
     void DescribeNegationTo(std::ostream* os) const
     {
-        *os << "is a variant<> with value of type other than '" << "GetTypeName()"
-            << "' or the value ";
+        *os << "is a variant<> with value of type other than '" << "GetTypeName()" << "' or the value ";
         matcher_.DescribeNegationTo(os);
     }
 

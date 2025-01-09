@@ -6,7 +6,7 @@
 #include "ipc/server_router.hpp"
 
 #include "ipc/channel.hpp"
-#include "ipc/pipe/pipe_types.hpp"
+#include "ipc/ipc_types.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc_gtest_helpers.hpp"
 #include "pipe/server_pipe_mock.hpp"
@@ -68,7 +68,7 @@ protected:
                                 pipe::ServerPipeMock&            server_pipe_mock,
                                 const std::uint64_t              tag,
                                 const Msg&                       msg,
-                                const std::uint64_t              seq,
+                                std::uint64_t&                   seq,
                                 const cetl::string_view          service_name = "")
     {
         using ocvsmd::common::tryPerformOnSerialized;
@@ -76,7 +76,7 @@ protected:
         Route_1_0 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
         channel_msg.tag        = tag;
-        channel_msg.sequence   = seq;
+        channel_msg.sequence   = seq++;
         channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
 
         const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
@@ -86,7 +86,7 @@ protected:
                 std::vector<std::uint8_t> buffer;
                 std::copy(prefix.begin(), prefix.end(), std::back_inserter(buffer));
                 std::copy(suffix.begin(), suffix.end(), std::back_inserter(buffer));
-                const pipe::Payload payload{buffer.data(), buffer.size()};
+                const Payload payload{buffer.data(), buffer.size()};
                 return server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{client_id, payload});
             });
         });
@@ -187,19 +187,22 @@ TEST_F(TestServerRouter, channel_send)
 
     // Emulate that client posted initial `RouteChannelMsg` on 42/1 client/tag pair.
     //
+    const std::uint64_t tag = 1;
+    std::uint64_t       seq = 0;
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    emulateRouteChannelMsg(42, server_pipe_mock, 1, Channel::Input{&mr_}, 0);
+    emulateRouteChannelMsg(42, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
     ASSERT_THAT(maybe_channel.has_value(), IsTrue());
 
     // Emulate that client posted one more `RouteChannelMsg` on the same 42/1 client/tag pair.
     //
     EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
-    emulateRouteChannelMsg(42, server_pipe_mock, 1, Channel::Input{&mr_}, 1);
+    emulateRouteChannelMsg(42, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
 
-    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, 1, 0))).WillOnce(Return(0));
+    seq = 0;
+    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, tag, seq++))).WillOnce(Return(0));
     EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
 
-    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, 1, 1))).WillOnce(Return(0));
+    EXPECT_CALL(server_pipe_mock, send(42, PayloadOfRouteChannel<Msg>(mr_, tag, seq++))).WillOnce(Return(0));
     EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
 }
 

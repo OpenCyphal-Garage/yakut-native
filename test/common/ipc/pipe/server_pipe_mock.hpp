@@ -8,7 +8,7 @@
 
 #include "ipc/pipe/server_pipe.hpp"
 
-#include "ipc/pipe/pipe_types.hpp"
+#include "ipc/ipc_types.hpp"
 #include "unique_ptr_refwrapper.hpp"
 
 #include <gmock/gmock.h>

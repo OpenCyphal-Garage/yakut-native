@@ -8,13 +8,13 @@
 
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
-
-#include <nunavut/support/serialization.hpp>
+#include "ipc_types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/common/crc.hpp>
 
+#include <cerrno>
 #include <cstddef>
 #include <functional>
 #include <utility>
@@ -32,8 +32,11 @@ public:
     struct Connected final
     {};
 
-    struct Disconnected final
-    {};
+    struct Completed final
+    {
+        /// Channel completion error code. Zero means success.
+        ErrorCode error_code;
+    };
 
     /// Builds a service ID from either the service name (if not empty), or message type name.
     ///
@@ -60,7 +63,7 @@ public:
     using Input  = Input_;
     using Output = Output_;
 
-    using EventVar     = cetl::variant<Input, Connected, Disconnected>;
+    using EventVar     = cetl::variant<Connected, Input, Completed>;
     using EventHandler = std::function<void(const EventVar&)>;
 
     ~Channel()                                   = default;
@@ -124,9 +127,9 @@ private:
             }
         }
 
-        void operator()(const GatewayEvent::Disconnected&) const
+        void operator()(const GatewayEvent::Completed& completed) const
         {
-            ch_event_handler(Disconnected{});
+            ch_event_handler(Completed{completed.error_code});
         }
 
     };  // Adapter

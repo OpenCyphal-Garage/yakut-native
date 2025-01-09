@@ -8,7 +8,7 @@
 
 #include "channel.hpp"
 #include "gateway.hpp"
-#include "pipe/pipe_types.hpp"
+#include "ipc_types.hpp"
 #include "pipe/server_pipe.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -53,7 +53,7 @@ public:
         registerChannelFactory(  //
             service_id,
             [this, service_id, new_ch_handler = std::move(handler)](detail::Gateway::Ptr gateway,
-                                                                    const pipe::Payload  payload) {
+                                                                    const Payload        payload) {
                 typename Ch::Input input{&memory()};
                 if (tryDeserializePayload(payload, input))
                 {
@@ -63,7 +63,7 @@ public:
     }
 
 protected:
-    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway, const pipe::Payload payload)>;
+    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway, const Payload payload)>;
 
     ServerRouter() = default;
 

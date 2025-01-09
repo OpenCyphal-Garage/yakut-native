@@ -57,7 +57,7 @@ public:
                     [this](const ExecCmdChannel::Connected&) {
                         //
                         // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Ch connected.");
+                        ::syslog(LOG_DEBUG, "🟢 Ch connected.");
                         ExecCmd cmd{&memory_};
                         cmd.some_stuff.push_back('A');
                         cmd.some_stuff.push_back('Z');
@@ -67,14 +67,14 @@ public:
                     [this](const ExecCmdChannel::Input& input) {
                         //
                         // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Server msg (%zu bytes).", input.some_stuff.size());
+                        ::syslog(LOG_DEBUG, "🔵 Ch Msg (%zu bytes).", input.some_stuff.size());
                         const int result = ipc_exec_cmd_ch_->send(input);
                         (void) result;
                     },
-                    [](const ExecCmdChannel::Disconnected&) {
+                    [](const ExecCmdChannel::Completed& completed) {
                         //
                         // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "Server disconnected.");
+                        ::syslog(LOG_DEBUG, "🔴 Ch Completed (err=%d).", completed.error_code);
                     }),
                 event_var);
         });
