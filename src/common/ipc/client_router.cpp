@@ -154,9 +154,13 @@ private:
 
         CETL_NODISCARD int send(const detail::ServiceId service_id, const Payload payload) override
         {
-            if (!router_.is_connected_)
+            if (!router_.isConnected(endpoint_))
             {
                 return static_cast<int>(ErrorCode::NotConnected);
+            }
+            if (!router_.isRegisteredGateway(endpoint_))
+            {
+                return static_cast<int>(ErrorCode::Disconnected);
             }
 
             Route_1_0 route{&router_.memory_};
@@ -201,8 +205,13 @@ private:
         return is_connected_;
     }
 
+    CETL_NODISCARD bool isRegisteredGateway(const Endpoint& endpoint) const noexcept
+    {
+        return endpoint_to_gateway_.find(endpoint) != endpoint_to_gateway_.end();
+    }
+
     template <typename Action>
-    void findRegisteredGateway(const Endpoint endpoint, Action&& action)
+    void findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
     {
         const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
         if (ep_to_gw != endpoint_to_gateway_.end())
@@ -242,7 +251,7 @@ private:
     {
         if (is_connected_)
         {
-            findRegisteredGateway(endpoint, [](auto& gateway, auto) {
+            findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
                 //
                 gateway.event(detail::Gateway::Event::Connected{});
             });
@@ -385,9 +394,9 @@ private:
         const Endpoint endpoint{route_ch_end.tag};
         const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
 
-        findRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto it) {
+        findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
             //
-            endpoint_to_gateway_.erase(it);
+            endpoint_to_gateway_.erase(found_it);
             gateway.event(detail::Gateway::Event::Completed{error_code});
         });
     }
