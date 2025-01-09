@@ -300,7 +300,7 @@ private:
                             //
                             handleRouteChannelMsg(msg.client_id, route_ch_msg, msg_payload);
                         },
-                        [this, &msg, msg_payload](const RouteChannelEnd_1_0& route_ch_end) {
+                        [this, &msg](const RouteChannelEnd_1_0& route_ch_end) {
                             //
                             handleRouteChannelEnd(msg.client_id, route_ch_end);
                         }),
@@ -340,7 +340,7 @@ private:
             //
             return server_pipe_->send(client_id, {{payload}});
         });
-        if (0 != error)
+        if (0 == error)
         {
             connected_client_ids_.insert(client_id);
         }
