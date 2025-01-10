@@ -21,7 +21,6 @@
 #include <cetl/visit_helpers.hpp>
 
 #include <cerrno>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <sys/syslog.h>
