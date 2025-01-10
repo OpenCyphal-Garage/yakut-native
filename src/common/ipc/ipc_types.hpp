@@ -10,6 +10,7 @@
 
 #include <cerrno>
 #include <cstdint>
+#include <sys/syslog.h>
 
 namespace ocvsmd
 {
@@ -32,6 +33,23 @@ enum class ErrorCode : int  // NOLINT
 
 using Payload  = cetl::span<const std::uint8_t>;
 using Payloads = cetl::span<const Payload>;
+
+template <typename Action>
+void performWithoutThrowing(Action&& action) noexcept
+{
+#if defined(__cpp_exceptions)
+    try
+#endif
+    {
+        std::forward<Action>(action)();
+    }
+#if defined(__cpp_exceptions)
+    catch (...)
+    {
+        ::syslog(LOG_WARNING, "Unexpected exception is caught!");  // NOLINT
+    }
+#endif
+}
 
 }  // namespace ipc
 }  // namespace common

@@ -145,9 +145,12 @@ private:
         {
             ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.getTag(), next_sequence_);  // NOLINT
 
-            // `next_sequence_ == 0` means that this gateway was never used for sending messages,
-            // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
-            router_.onGatewayDisposal(endpoint_, next_sequence_ > 0);
+            performWithoutThrowing([this] {
+                //
+                // `next_sequence_ == 0` means that this gateway was never used for sending messages,
+                // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
+                router_.onGatewayDisposal(endpoint_, next_sequence_ > 0);
+            });
         }
 
         // detail::Gateway

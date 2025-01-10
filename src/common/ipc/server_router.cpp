@@ -149,7 +149,10 @@ private:
         {
             ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.getClientId(), endpoint_.getTag());  // NOLINT
 
-            router_.onGatewayDisposal(endpoint_);
+            performWithoutThrowing([this] {
+                //
+                router_.onGatewayDisposal(endpoint_);
+            });
         }
 
         // detail::Gateway
