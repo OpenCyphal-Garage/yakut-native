@@ -69,7 +69,7 @@ cetl::optional<std::string> Application::init()
     ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
     using Ch = ExecCmdChannel;
-    ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto& request) {
+    ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto&) {
         //
         ::syslog(LOG_DEBUG, "D << 🆕 Ch created.");       // NOLINT
         ::syslog(LOG_DEBUG, "D << 🔵 Ch ininital msg.");  // NOLINT
@@ -84,8 +84,8 @@ cetl::optional<std::string> Application::init()
                         ::syslog(LOG_DEBUG, "D << 🟢 Ch connected.");  // NOLINT
 
                         ::syslog(LOG_DEBUG, "D >> 🔵 Ch Msg.");  // NOLINT
-                        ExecCmd   cmd{&memory_};
-                        const int result = ipc_exec_cmd_ch_->send(cmd);
+                        const ExecCmd cmd{&memory_};
+                        const int     result = ipc_exec_cmd_ch_->send(cmd);
                         (void) result;
                     },
                     [this](const ExecCmdChannel::Input& input) {
