@@ -238,8 +238,7 @@ private:
                 //
                 return gateway.event(detail::Gateway::Event::Connected{});
             });
-            // Best efforts strategy.
-            (void) err;
+            (void) err;  // Best efforts strategy.
         }
     }
 

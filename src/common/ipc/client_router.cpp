@@ -257,8 +257,7 @@ private:
                 //
                 return gateway.event(detail::Gateway::Event::Connected{});
             });
-            // Best efforts strategy.
-            (void) err;
+            (void) err;  // Best efforts strategy.
         }
     }
 
@@ -362,8 +361,7 @@ private:
                 if (const auto gateway = ep_to_gw.second.lock())
                 {
                     const int err = gateway->event(detail::Gateway::Event::Completed{ErrorCode::Disconnected});
-                    // Best efforts strategy.
-                    (void) err;
+                    (void) err;  // Best efforts strategy.
                 }
             }
         }
@@ -386,7 +384,8 @@ private:
             //
             forEachRegisteredGateway([](auto& gateway) {
                 //
-                gateway.event(detail::Gateway::Event::Connected{});
+                const int err = gateway.event(detail::Gateway::Event::Connected{});
+                (void) err;  // Best efforts strategy.
             });
         }
 
