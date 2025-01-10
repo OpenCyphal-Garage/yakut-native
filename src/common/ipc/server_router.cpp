@@ -20,12 +20,10 @@
 #include <cetl/visit_helpers.hpp>
 
 #include <cerrno>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <sys/syslog.h>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 
 namespace ocvsmd
