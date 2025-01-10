@@ -79,45 +79,9 @@ private:
         using Tag      = std::uint64_t;
         using ClientId = pipe::ServerPipe::ClientId;
 
-        Endpoint(const Tag tag, ClientId client_id) noexcept
-            : tag_{tag}
-            , client_id_{client_id}
-        {
-        }
-
-        CETL_NODISCARD Tag getTag() const noexcept
-        {
-            return tag_;
-        }
-
-        CETL_NODISCARD ClientId getClientId() const noexcept
-        {
-            return client_id_;
-        }
-
-        // Hasher
-
-        CETL_NODISCARD bool operator==(const Endpoint& other) const noexcept
-        {
-            return tag_ == other.tag_ && client_id_ == other.client_id_;
-        }
-
-        struct Hasher final
-        {
-            CETL_NODISCARD std::size_t operator()(const Endpoint& endpoint) const noexcept
-            {
-                const std::size_t h1 = std::hash<Tag>{}(endpoint.tag_);
-                const std::size_t h2 = std::hash<ClientId>{}(endpoint.client_id_);
-                return h1 ^ (h2 << 1ULL);
-            }
-
-        };  // Hasher
-
-    private:
-        const Tag      tag_;
-        const ClientId client_id_;
-
-    };  // Endpoint
+        const Tag      tag;
+        const ClientId client_id;
+    };
 
     class GatewayImpl final : public std::enable_shared_from_this<GatewayImpl>, public detail::Gateway
     {
@@ -137,7 +101,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.getClientId(), endpoint.getTag());  // NOLINT
+            ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.client_id, endpoint.tag);  // NOLINT
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -147,7 +111,7 @@ private:
 
         ~GatewayImpl()
         {
-            ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.getClientId(), endpoint_.getTag());  // NOLINT
+            ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.client_id, endpoint_.tag);  // NOLINT
 
             performWithoutThrowing([this] {
                 //
@@ -171,13 +135,13 @@ private:
             Route_1_0 route{&router_.memory_};
 
             auto& channel_msg      = route.set_channel_msg();
-            channel_msg.tag        = endpoint_.getTag();
+            channel_msg.tag        = endpoint_.tag;
             channel_msg.sequence   = next_sequence_++;
             channel_msg.service_id = service_id;
 
             return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //
-                return router_.server_pipe_->send(endpoint_.getClientId(), {{prefix, payload}});
+                return router_.server_pipe_->send(endpoint_.client_id, {{prefix, payload}});
             });
         }
 
@@ -202,27 +166,41 @@ private:
     };  // GatewayImpl
 
     using ServiceIdToChannelFactory = std::unordered_map<detail::ServiceId, TypeErasedChannelFactory>;
-    using EndpointToWeakGateway     = std::unordered_map<Endpoint, detail::Gateway::WeakPtr, Endpoint::Hasher>;
+    using MapOfWeakGateways         = std::unordered_map<Endpoint::Tag, detail::Gateway::WeakPtr>;
+    using ClientIdToMapOfGateways   = std::unordered_map<Endpoint::ClientId, MapOfWeakGateways>;
 
     CETL_NODISCARD bool isConnected(const Endpoint& endpoint) const noexcept
     {
-        return connected_client_ids_.find(endpoint.getClientId()) != connected_client_ids_.end();
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(endpoint.client_id);
+        return cl_to_gws != client_id_to_map_of_gateways_.end();
     }
 
     CETL_NODISCARD bool isRegisteredGateway(const Endpoint& endpoint) const noexcept
     {
-        return endpoint_to_gateway_.find(endpoint) != endpoint_to_gateway_.end();
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(endpoint.client_id);
+        if (cl_to_gws != client_id_to_map_of_gateways_.end())
+        {
+            const auto& map_of_gws = cl_to_gws->second;
+            return map_of_gws.find(endpoint.tag) != map_of_gws.end();
+        }
+        return false;
     }
 
     template <typename Action>
-    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
+    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action) const
     {
-        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
-        if (ep_to_gw != endpoint_to_gateway_.end())
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(endpoint.client_id);
+        if (cl_to_gws != client_id_to_map_of_gateways_.end())
         {
-            if (const auto gateway = ep_to_gw->second.lock())
+            const auto& map_of_gws = cl_to_gws->second;
+
+            const auto tag_to_gw = map_of_gws.find(endpoint.tag);
+            if (tag_to_gw != map_of_gws.end())
             {
-                return std::forward<Action>(action)(*gateway, ep_to_gw);
+                if (const auto gateway = tag_to_gw->second.lock())
+                {
+                    return std::forward<Action>(action)(*gateway, tag_to_gw);
+                }
             }
         }
 
@@ -250,24 +228,29 @@ private:
     ///
     void onGatewayDisposal(const Endpoint& endpoint)
     {
-        const bool was_registered = (endpoint_to_gateway_.erase(endpoint) > 0);
-
-        // Notify remote client router about the gateway disposal (aka channel completion).
-        // The router will propagate "ChEnd" event to the counterpart gateway (if it's registered).
-        //
-        if (was_registered && isConnected(endpoint))
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(endpoint.client_id);
+        if (cl_to_gws != client_id_to_map_of_gateways_.end())
         {
-            Route_1_0 route{&memory_};
-            auto&     channel_end  = route.set_channel_end();
-            channel_end.tag        = endpoint.getTag();
-            channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
+            auto&      map_of_gws     = cl_to_gws->second;
+            const bool was_registered = (map_of_gws.erase(endpoint.tag) > 0);
 
-            const int error = tryPerformOnSerialized(route, [this, &endpoint](const auto payload) {
-                //
-                return server_pipe_->send(endpoint.getClientId(), {{payload}});
-            });
-            // Best efforts strategy - gateway anyway is gone, so nowhere to report.
-            (void) error;
+            // Notify remote client router about the gateway disposal (aka channel completion).
+            // The router will propagate "ChEnd" event to the counterpart gateway (if it's registered).
+            //
+            if (was_registered && isConnected(endpoint))
+            {
+                Route_1_0 route{&memory_};
+                auto&     channel_end  = route.set_channel_end();
+                channel_end.tag        = endpoint.tag;
+                channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
+
+                const int error = tryPerformOnSerialized(route, [this, &endpoint](const auto payload) {
+                    //
+                    return server_pipe_->send(endpoint.client_id, {{payload}});
+                });
+                // Best efforts strategy - gateway anyway is gone, so nowhere to report.
+                (void) error;
+            }
         }
     }
 
@@ -317,11 +300,29 @@ private:
             route_msg.union_value);
     }
 
-    CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected& disconn)
+    CETL_NODISCARD int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected& disconn)
     {
         ::syslog(LOG_DEBUG, "Pipe is disconnected (cl=%zu).", disconn.client_id);  // NOLINT
 
-        // TODO: Implement! disconnected for all gateways which belong to the corresponding client id
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(disconn.client_id);
+        if (cl_to_gws != client_id_to_map_of_gateways_.end())
+        {
+            const auto local_map_of_gateways = std::move(cl_to_gws->second);
+            client_id_to_map_of_gateways_.erase(cl_to_gws);
+
+            // The whole client router is disconnected, so we need to unregister and notify all its gateways.
+            //
+            for (const auto& tag_to_gw : local_map_of_gateways)
+            {
+                if (const auto gateway = tag_to_gw.second.lock())
+                {
+                    const int err = gateway->event(detail::Gateway::Event::Completed{ErrorCode::Disconnected});
+                    (void) err;  // Best efforts strategy.
+                }
+            }
+        }
+
+        // It's fine for a client to be already disconnected.
         return 0;
     }
 
@@ -348,7 +349,7 @@ private:
         });
         if (0 == err)
         {
-            connected_client_ids_.insert(client_id);
+            client_id_to_map_of_gateways_.insert({client_id, MapOfWeakGateways{}});
         }
         return err;
     }
@@ -357,26 +358,33 @@ private:
                                              const RouteChannelMsg_1_0&       route_ch_msg,
                                              const Payload                    msg_payload)
     {
-        const Endpoint endpoint{route_ch_msg.tag, client_id};
-
-        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
-        if (ep_to_gw != endpoint_to_gateway_.end())
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(client_id);
+        if (cl_to_gws != client_id_to_map_of_gateways_.end())
         {
-            if (auto gateway = ep_to_gw->second.lock())
+            auto& map_of_gws = cl_to_gws->second;
+
+            const auto tag_to_gw = map_of_gws.find(route_ch_msg.tag);
+            if (tag_to_gw != map_of_gws.end())
             {
-                return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_payload});
+                if (auto gateway = tag_to_gw->second.lock())
+                {
+                    return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_payload});
+                }
             }
-        }
 
-        // Only the very first message in the sequence is considered to trigger channel factory.
-        if (route_ch_msg.sequence == 0)
-        {
-            const auto si_to_cf = service_id_to_channel_factory_.find(route_ch_msg.service_id);
-            if (si_to_cf != service_id_to_channel_factory_.end())
+            // Only the very first message in the sequence is considered to trigger channel factory.
+            if (route_ch_msg.sequence == 0)
             {
-                auto gateway                   = GatewayImpl::create(*this, endpoint);
-                endpoint_to_gateway_[endpoint] = gateway;
-                si_to_cf->second(gateway, msg_payload);
+                const auto si_to_ch_factory = service_id_to_channel_factory_.find(route_ch_msg.service_id);
+                if (si_to_ch_factory != service_id_to_channel_factory_.end())
+                {
+                    const Endpoint endpoint{route_ch_msg.tag, client_id};
+
+                    auto gateway                 = GatewayImpl::create(*this, endpoint);
+                    map_of_gws[route_ch_msg.tag] = gateway;
+
+                    si_to_ch_factory->second(gateway, msg_payload);
+                }
             }
         }
 
@@ -389,21 +397,31 @@ private:
     {
         ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
 
-        const Endpoint endpoint{route_ch_end.tag, client_id};
-        const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
+        const auto cl_to_gws = client_id_to_map_of_gateways_.find(client_id);
+        if (cl_to_gws != client_id_to_map_of_gateways_.end())
+        {
+            auto& map_of_gws = cl_to_gws->second;
 
-        return findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
-            //
-            endpoint_to_gateway_.erase(found_it);
-            return gateway.event(detail::Gateway::Event::Completed{error_code});
-        });
+            const Endpoint endpoint{route_ch_end.tag, client_id};
+            const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
+
+            return findAndActOnRegisteredGateway(  //
+                endpoint,
+                [this, error_code, &map_of_gws](auto& gateway, auto found_it) {
+                    //
+                    map_of_gws.erase(found_it);
+                    return gateway.event(detail::Gateway::Event::Completed{error_code});
+                });
+        }
+
+        // It's fine for a client to be already disconnected.
+        return 0;
     }
 
-    cetl::pmr::memory_resource&            memory_;
-    pipe::ServerPipe::Ptr                  server_pipe_;
-    EndpointToWeakGateway                  endpoint_to_gateway_;
-    ServiceIdToChannelFactory              service_id_to_channel_factory_;
-    std::unordered_set<Endpoint::ClientId> connected_client_ids_;
+    cetl::pmr::memory_resource& memory_;
+    pipe::ServerPipe::Ptr       server_pipe_;
+    ClientIdToMapOfGateways     client_id_to_map_of_gateways_;
+    ServiceIdToChannelFactory   service_id_to_channel_factory_;
 
 };  // ClientRouterImpl
 

@@ -75,7 +75,7 @@ public:
         const Endpoint endpoint{next_tag_++};
 
         auto gateway                   = GatewayImpl::create(*this, endpoint);
-        endpoint_to_gateway_[endpoint] = gateway;
+        map_of_gateways_[endpoint.tag] = gateway;
         return gateway;
     }
 
@@ -84,36 +84,8 @@ private:
     {
         using Tag = std::uint64_t;
 
-        explicit Endpoint(const Tag tag) noexcept
-            : tag_{tag}
-        {
-        }
-
-        CETL_NODISCARD Tag getTag() const noexcept
-        {
-            return tag_;
-        }
-
-        // Hasher
-
-        CETL_NODISCARD bool operator==(const Endpoint& other) const noexcept
-        {
-            return tag_ == other.tag_;
-        }
-
-        struct Hasher final
-        {
-            CETL_NODISCARD std::size_t operator()(const Endpoint& endpoint) const noexcept
-            {
-                return std::hash<Tag>{}(endpoint.tag_);
-            }
-
-        };  // Hasher
-
-    private:
-        const Tag tag_;
-
-    };  // Endpoint
+        const Tag tag;
+    };
 
     class GatewayImpl final : public std::enable_shared_from_this<GatewayImpl>, public detail::Gateway
     {
@@ -133,7 +105,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.getTag());  // NOLINT
+            ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.tag);  // NOLINT
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -143,7 +115,7 @@ private:
 
         ~GatewayImpl()
         {
-            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.getTag(), next_sequence_);  // NOLINT
+            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.tag, next_sequence_);  // NOLINT
 
             performWithoutThrowing([this] {
                 //
@@ -169,7 +141,7 @@ private:
             Route_1_0 route{&router_.memory_};
 
             auto& channel_msg      = route.set_channel_msg();
-            channel_msg.tag        = endpoint_.getTag();
+            channel_msg.tag        = endpoint_.tag;
             channel_msg.sequence   = next_sequence_++;
             channel_msg.service_id = service_id;
 
@@ -199,7 +171,7 @@ private:
 
     };  // GatewayImpl
 
-    using EndpointToWeakGateway = std::unordered_map<Endpoint, detail::Gateway::WeakPtr, Endpoint::Hasher>;
+    using MapOfWeakGateways = std::unordered_map<Endpoint::Tag, detail::Gateway::WeakPtr>;
 
     CETL_NODISCARD bool isConnected(const Endpoint&) const noexcept
     {
@@ -208,18 +180,18 @@ private:
 
     CETL_NODISCARD bool isRegisteredGateway(const Endpoint& endpoint) const noexcept
     {
-        return endpoint_to_gateway_.find(endpoint) != endpoint_to_gateway_.end();
+        return map_of_gateways_.find(endpoint.tag) != map_of_gateways_.end();
     }
 
     template <typename Action>
-    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
+    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action) const
     {
-        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
-        if (ep_to_gw != endpoint_to_gateway_.end())
+        const auto tag_to_gw = map_of_gateways_.find(endpoint.tag);
+        if (tag_to_gw != map_of_gateways_.end())
         {
-            if (const auto gateway = ep_to_gw->second.lock())
+            if (const auto gateway = tag_to_gw->second.lock())
             {
-                return std::forward<Action>(action)(*gateway, ep_to_gw);
+                return std::forward<Action>(action)(*gateway, tag_to_gw);
             }
         }
 
@@ -234,10 +206,10 @@ private:
         // collect strong pointers to gateways into a local collection.
         //
         std::vector<detail::Gateway::Ptr> gateway_ptrs;
-        gateway_ptrs.reserve(endpoint_to_gateway_.size());
-        for (const auto& ep_to_gw : endpoint_to_gateway_)
+        gateway_ptrs.reserve(map_of_gateways_.size());
+        for (const auto& tag_to_gw : map_of_gateways_)
         {
-            if (const auto gateway_ptr = ep_to_gw.second.lock())
+            if (const auto gateway_ptr = tag_to_gw.second.lock())
             {
                 gateway_ptrs.push_back(gateway_ptr);
             }
@@ -269,7 +241,7 @@ private:
     ///
     void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end)
     {
-        const bool was_registered = (endpoint_to_gateway_.erase(endpoint) > 0);
+        const bool was_registered = (map_of_gateways_.erase(endpoint.tag) > 0);
 
         // Notify "remote" router about the gateway disposal (aka channel completion).
         // The router will propagate "ChEnd" event to the counterpart gateway (if it's registered).
@@ -278,7 +250,7 @@ private:
         {
             Route_1_0 route{&memory_};
             auto&     channel_end  = route.set_channel_end();
-            channel_end.tag        = endpoint.getTag();
+            channel_end.tag        = endpoint.tag;
             channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
 
             const int error = tryPerformOnSerialized(route, [this](const auto payload) {
@@ -354,17 +326,19 @@ private:
 
             // The whole router is disconnected, so we need to unregister and notify all gateways.
             //
-            EndpointToWeakGateway local_gateways;
-            std::swap(local_gateways, endpoint_to_gateway_);
-            for (const auto& ep_to_gw : local_gateways)
+            MapOfWeakGateways local_map_of_gateways;
+            std::swap(local_map_of_gateways, map_of_gateways_);
+            for (const auto& tag_to_gw : local_map_of_gateways)
             {
-                if (const auto gateway = ep_to_gw.second.lock())
+                if (const auto gateway = tag_to_gw.second.lock())
                 {
                     const int err = gateway->event(detail::Gateway::Event::Completed{ErrorCode::Disconnected});
                     (void) err;  // Best efforts strategy.
                 }
             }
         }
+
+        // It's fine to be already disconnected.
         return 0;
     }
 
@@ -397,10 +371,10 @@ private:
     {
         const Endpoint endpoint{route_ch_msg.tag};
 
-        const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
-        if (ep_to_gw != endpoint_to_gateway_.end())
+        const auto tag_to_gw = map_of_gateways_.find(endpoint.tag);
+        if (tag_to_gw != map_of_gateways_.end())
         {
-            if (const auto gateway = ep_to_gw->second.lock())
+            if (const auto gateway = tag_to_gw->second.lock())
             {
                 return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, payload});
             }
@@ -419,7 +393,7 @@ private:
 
         return findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
             //
-            endpoint_to_gateway_.erase(found_it);
+            map_of_gateways_.erase(found_it);
             return gateway.event(detail::Gateway::Event::Completed{error_code});
         });
     }
@@ -427,8 +401,8 @@ private:
     cetl::pmr::memory_resource& memory_;
     pipe::ClientPipe::Ptr       client_pipe_;
     Endpoint::Tag               next_tag_;
-    EndpointToWeakGateway       endpoint_to_gateway_;
     bool                        is_connected_;
+    MapOfWeakGateways           map_of_gateways_;
 
 };  // ClientRouterImpl
 
