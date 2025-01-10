@@ -181,12 +181,10 @@ private:
             });
         }
 
-        void event(const Event::Var& event) override
+        CETL_NODISCARD int event(const Event::Var& event) override
         {
-            if (event_handler_)
-            {
-                event_handler_(event);
-            }
+            // It's fine to be not subscribed to events.
+            return (event_handler_) ? event_handler_(event) : 0;
         }
 
         void subscribe(EventHandler event_handler) override
@@ -217,27 +215,31 @@ private:
     }
 
     template <typename Action>
-    void findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
+    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
     {
         const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
         if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            const auto gateway = ep_to_gw->second.lock();
-            if (gateway)
+            if (const auto gateway = ep_to_gw->second.lock())
             {
-                std::forward<Action>(action)(*gateway, ep_to_gw);
+                return std::forward<Action>(action)(*gateway, ep_to_gw);
             }
         }
+
+        // It's fine and expected to have no gateway registered for the given endpoint.
+        return 0;
     }
 
     void onGatewaySubscription(const Endpoint endpoint)
     {
         if (isConnected(endpoint))
         {
-            findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
+            const int err = findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
                 //
-                gateway.event(detail::Gateway::Event::Connected{});
+                return gateway.event(detail::Gateway::Event::Connected{});
             });
+            // Best efforts strategy.
+            (void) err;
         }
     }
 
@@ -286,30 +288,34 @@ private:
         const auto result_size = tryDeserializePayload(msg.payload, route_msg);
         if (!result_size.has_value())
         {
+            // Invalid message payload.
             return EINVAL;
         }
 
         // Cut routing stuff from the payload - remaining is the actual message payload.
         const auto msg_payload = msg.payload.subspan(result_size.value());
 
-        cetl::visit(cetl::make_overloaded(
-                        //
-                        [this](const uavcan::primitive::Empty_1_0&) {},
-                        [this, &msg](const RouteConnect_0_1& route_conn) {
-                            //
-                            handleRouteConnect(msg.client_id, route_conn);
-                        },
-                        [this, &msg, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
-                            //
-                            handleRouteChannelMsg(msg.client_id, route_ch_msg, msg_payload);
-                        },
-                        [this, &msg](const RouteChannelEnd_1_0& route_ch_end) {
-                            //
-                            handleRouteChannelEnd(msg.client_id, route_ch_end);
-                        }),
-                    route_msg.union_value);
-
-        return 0;
+        return cetl::visit(         //
+            cetl::make_overloaded(  //
+                [this](const uavcan::primitive::Empty_1_0&) {
+                    //
+                    // Unexpected message, but we can't remove it
+                    // b/c Nunavut generated code needs a default case.
+                    return EINVAL;
+                },
+                [this, &msg](const RouteConnect_0_1& route_conn) {
+                    //
+                    return handleRouteConnect(msg.client_id, route_conn);
+                },
+                [this, &msg, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
+                    //
+                    return handleRouteChannelMsg(msg.client_id, route_ch_msg, msg_payload);
+                },
+                [this, &msg](const RouteChannelEnd_1_0& route_ch_end) {
+                    //
+                    return handleRouteChannelEnd(msg.client_id, route_ch_end);
+                }),
+            route_msg.union_value);
     }
 
     CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected& disconn)
@@ -320,7 +326,7 @@ private:
         return 0;
     }
 
-    void handleRouteConnect(const pipe::ServerPipe::ClientId client_id, const RouteConnect_0_1& rt_conn)
+    CETL_NODISCARD int handleRouteConnect(const pipe::ServerPipe::ClientId client_id, const RouteConnect_0_1& rt_conn)
     {
         ::syslog(LOG_DEBUG,  // NOLINT
                  "Route connect request (cl=%zu, ver='%d.%d', err=%d).",
@@ -337,30 +343,29 @@ private:
         // and potentially refuse the connection if the versions are incompatible.
         route_conn.error_code = 0;
         //
-        const int error = tryPerformOnSerialized(route, [this, client_id](const auto payload) {
+        const int err = tryPerformOnSerialized(route, [this, client_id](const auto payload) {
             //
             return server_pipe_->send(client_id, {{payload}});
         });
-        if (0 == error)
+        if (0 == err)
         {
             connected_client_ids_.insert(client_id);
         }
+        return err;
     }
 
-    void handleRouteChannelMsg(const pipe::ServerPipe::ClientId client_id,
-                               const RouteChannelMsg_1_0&       route_ch_msg,
-                               const Payload                    msg_payload)
+    CETL_NODISCARD int handleRouteChannelMsg(const pipe::ServerPipe::ClientId client_id,
+                                             const RouteChannelMsg_1_0&       route_ch_msg,
+                                             const Payload                    msg_payload)
     {
         const Endpoint endpoint{route_ch_msg.tag, client_id};
 
         const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
         if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            auto gateway = ep_to_gw->second.lock();
-            if (gateway)
+            if (auto gateway = ep_to_gw->second.lock())
             {
-                gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_payload});
-                return;
+                return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_payload});
             }
         }
 
@@ -376,20 +381,22 @@ private:
             }
         }
 
-        // TODO: log unsolicited message
+        // Nothing to do here with unsolicited messages - just ignore them.
+        return 0;
     }
 
-    void handleRouteChannelEnd(const pipe::ServerPipe::ClientId client_id, const RouteChannelEnd_1_0& route_ch_end)
+    CETL_NODISCARD int handleRouteChannelEnd(const pipe::ServerPipe::ClientId client_id,
+                                             const RouteChannelEnd_1_0&       route_ch_end)
     {
         ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
 
         const Endpoint endpoint{route_ch_end.tag, client_id};
         const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
 
-        findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
+        return findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
             //
             endpoint_to_gateway_.erase(found_it);
-            gateway.event(detail::Gateway::Event::Completed{error_code});
+            return gateway.event(detail::Gateway::Event::Completed{error_code});
         });
     }
 

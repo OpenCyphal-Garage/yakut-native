@@ -51,7 +51,7 @@ public:
 
     };  // Event
 
-    using EventHandler = std::function<void(const Event::Var&)>;
+    using EventHandler = std::function<int(const Event::Var&)>;
 
     Gateway(const Gateway&)                = delete;
     Gateway(Gateway&&) noexcept            = delete;
@@ -59,7 +59,7 @@ public:
     Gateway& operator=(Gateway&&) noexcept = delete;
 
     CETL_NODISCARD virtual int send(const ServiceId service_id, const Payload payload) = 0;
-    virtual void               event(const Event::Var& event)                          = 0;
+    CETL_NODISCARD virtual int event(const Event::Var& event)                          = 0;
     virtual void               subscribe(EventHandler event_handler)                   = 0;
 
 protected:

@@ -179,12 +179,10 @@ private:
             });
         }
 
-        void event(const Event::Var& event) override
+        CETL_NODISCARD int event(const Event::Var& event) override
         {
-            if (event_handler_)
-            {
-                event_handler_(event);
-            }
+            // It's fine to be not subscribed to events.
+            return (event_handler_) ? event_handler_(event) : 0;
         }
 
         void subscribe(EventHandler event_handler) override
@@ -214,17 +212,19 @@ private:
     }
 
     template <typename Action>
-    void findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
+    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action)
     {
         const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
         if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            const auto gateway = ep_to_gw->second.lock();
-            if (gateway)
+            if (const auto gateway = ep_to_gw->second.lock())
             {
-                std::forward<Action>(action)(*gateway, ep_to_gw);
+                return std::forward<Action>(action)(*gateway, ep_to_gw);
             }
         }
+
+        // It's fine and expected to have no gateway registered for the given endpoint.
+        return 0;
     }
 
     template <typename Action>
@@ -237,8 +237,7 @@ private:
         gateway_ptrs.reserve(endpoint_to_gateway_.size());
         for (const auto& ep_to_gw : endpoint_to_gateway_)
         {
-            const auto gateway_ptr = ep_to_gw.second.lock();
-            if (gateway_ptr)
+            if (const auto gateway_ptr = ep_to_gw.second.lock())
             {
                 gateway_ptrs.push_back(gateway_ptr);
             }
@@ -254,10 +253,12 @@ private:
     {
         if (is_connected_)
         {
-            findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
+            const int err = findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
                 //
-                gateway.event(detail::Gateway::Event::Connected{});
+                return gateway.event(detail::Gateway::Event::Connected{});
             });
+            // Best efforts strategy.
+            (void) err;
         }
     }
 
@@ -314,30 +315,34 @@ private:
         const auto result_size = tryDeserializePayload(msg.payload, route_msg);
         if (!result_size.has_value())
         {
+            // Invalid message payload.
             return EINVAL;
         }
 
         // Cut routing stuff from the payload - remaining is the actual message payload.
         const auto msg_payload = msg.payload.subspan(result_size.value());
 
-        cetl::visit(cetl::make_overloaded(
-                        //
-                        [this](const uavcan::primitive::Empty_1_0&) {},
-                        [this](const RouteConnect_0_1& route_conn) {
-                            //
-                            handleRouteConnect(route_conn);
-                        },
-                        [this, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
-                            //
-                            handleRouteChannelMsg(route_ch_msg, msg_payload);
-                        },
-                        [this](const RouteChannelEnd_1_0& route_ch_end) {
-                            //
-                            handleRouteChannelEnd(route_ch_end);
-                        }),
-                    route_msg.union_value);
-
-        return 0;
+        return cetl::visit(         //
+            cetl::make_overloaded(  //
+                [this](const uavcan::primitive::Empty_1_0&) {
+                    //
+                    // Unexpected message, but we can't remove it
+                    // b/c Nunavut generated code needs a default case.
+                    return EINVAL;
+                },
+                [this](const RouteConnect_0_1& route_conn) {
+                    //
+                    return handleRouteConnect(route_conn);
+                },
+                [this, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
+                    //
+                    return handleRouteChannelMsg(route_ch_msg, msg_payload);
+                },
+                [this](const RouteChannelEnd_1_0& route_ch_end) {
+                    //
+                    return handleRouteChannelEnd(route_ch_end);
+                }),
+            route_msg.union_value);
     }
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
@@ -354,17 +359,18 @@ private:
             std::swap(local_gateways, endpoint_to_gateway_);
             for (const auto& ep_to_gw : local_gateways)
             {
-                const auto gateway = ep_to_gw.second.lock();
-                if (gateway)
+                if (const auto gateway = ep_to_gw.second.lock())
                 {
-                    gateway->event(detail::Gateway::Event::Completed{ErrorCode::Disconnected});
+                    const int err = gateway->event(detail::Gateway::Event::Completed{ErrorCode::Disconnected});
+                    // Best efforts strategy.
+                    (void) err;
                 }
             }
         }
         return 0;
     }
 
-    void handleRouteConnect(const RouteConnect_0_1& rt_conn)
+    CETL_NODISCARD int handleRouteConnect(const RouteConnect_0_1& rt_conn)
     {
         ::syslog(LOG_DEBUG,  // NOLINT
                  "Route connect response (ver='%d.%d', err=%d).",
@@ -383,37 +389,39 @@ private:
                 gateway.event(detail::Gateway::Event::Connected{});
             });
         }
+
+        // It's fine to be already connected.
+        return 0;
     }
 
-    void handleRouteChannelMsg(const RouteChannelMsg_1_0& route_ch_msg, const Payload payload)
+    CETL_NODISCARD int handleRouteChannelMsg(const RouteChannelMsg_1_0& route_ch_msg, const Payload payload)
     {
         const Endpoint endpoint{route_ch_msg.tag};
 
         const auto ep_to_gw = endpoint_to_gateway_.find(endpoint);
         if (ep_to_gw != endpoint_to_gateway_.end())
         {
-            const auto gateway = ep_to_gw->second.lock();
-            if (gateway)
+            if (const auto gateway = ep_to_gw->second.lock())
             {
-                gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, payload});
-                return;
+                return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, payload});
             }
         }
 
-        // TODO: log unsolicited message
+        // Nothing to do here with unsolicited messages - just ignore them.
+        return 0;
     }
 
-    void handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end)
+    CETL_NODISCARD int handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end)
     {
         ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
 
         const Endpoint endpoint{route_ch_end.tag};
         const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
 
-        findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
+        return findAndActOnRegisteredGateway(endpoint, [this, error_code](auto& gateway, auto found_it) {
             //
             endpoint_to_gateway_.erase(found_it);
-            gateway.event(detail::Gateway::Event::Completed{error_code});
+            return gateway.event(detail::Gateway::Event::Completed{error_code});
         });
     }
 

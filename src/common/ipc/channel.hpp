@@ -93,7 +93,7 @@ public:
             auto adapter = Adapter{memory_, std::move(event_handler)};
             gateway_->subscribe([adapter = std::move(adapter)](const GatewayEvent::Var& ge_var) {
                 //
-                cetl::visit(adapter, ge_var);
+                return cetl::visit(adapter, ge_var);
             });
         }
         else
@@ -113,23 +113,29 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        void operator()(const GatewayEvent::Connected&) const
+        CETL_NODISCARD int operator()(const GatewayEvent::Connected&) const
         {
             ch_event_handler(Connected{});
+            return 0;
         }
 
-        void operator()(const GatewayEvent::Message& gateway_msg) const
+        CETL_NODISCARD int operator()(const GatewayEvent::Message& gateway_msg) const
         {
             Input input{&memory};
-            if (tryDeserializePayload(gateway_msg.payload, input))
+            if (!tryDeserializePayload(gateway_msg.payload, input))
             {
-                ch_event_handler(input);
+                // Invalid message payload.
+                return EINVAL;
             }
+
+            ch_event_handler(input);
+            return 0;
         }
 
-        void operator()(const GatewayEvent::Completed& completed) const
+        CETL_NODISCARD int operator()(const GatewayEvent::Completed& completed) const
         {
             ch_event_handler(Completed{completed.error_code});
+            return 0;
         }
 
     };  // Adapter
