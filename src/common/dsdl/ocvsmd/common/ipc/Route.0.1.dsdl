@@ -2,7 +2,7 @@
 
 uavcan.primitive.Empty.1.0 empty
 RouteConnect.0.1 connect
-RouteChannelMsg.1.0 channel_msg
-RouteChannelEnd.1.0 channel_end
+RouteChannelMsg.0.1 channel_msg
+RouteChannelEnd.0.1 channel_end
 
 @sealed

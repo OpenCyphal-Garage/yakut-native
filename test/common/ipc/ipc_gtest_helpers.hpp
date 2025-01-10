@@ -9,10 +9,10 @@
 #include "dsdl_helpers.hpp"
 #include "ipc/ipc_types.hpp"
 
-#include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
-#include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteChannelEnd_0_1.hpp"
+#include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
-#include "ocvsmd/common/ipc/Route_1_0.hpp"
+#include "ocvsmd/common/ipc/Route_0_1.hpp"
 
 #include <uavcan/node/Version_1_0.hpp>
 #include <uavcan/primitive/Empty_1_0.hpp>
@@ -56,20 +56,20 @@ inline void PrintTo(const RouteConnect_0_1& conn, std::ostream* os)
     *os << "}";
 }
 
-inline void PrintTo(const RouteChannelMsg_1_0& msg, std::ostream* os)
+inline void PrintTo(const RouteChannelMsg_0_1& msg, std::ostream* os)
 {
     *os << "RouteChannelMsg_1_0{tag=" << msg.tag << ", seq=" << msg.sequence << ", srv=0x" << std::hex << msg.service_id
-        << "}";
+        << ", payload_size=" << msg.payload_size << "}";
 }
 
-inline void PrintTo(const RouteChannelEnd_1_0& msg, std::ostream* os)
+inline void PrintTo(const RouteChannelEnd_0_1& msg, std::ostream* os)
 {
-    *os << "RouteChannelEnd_1_0{tag=" << msg.tag << ", err=" << msg.error_code << "}";
+    *os << "RouteChannelEnd_0_1{tag=" << msg.tag << ", err=" << msg.error_code << "}";
 }
 
-inline void PrintTo(const Route_1_0& route, std::ostream* os)
+inline void PrintTo(const Route_0_1& route, std::ostream* os)
 {
-    *os << "Route_1_0{";
+    *os << "Route_0_1{";
     cetl::visit([os](const auto& v) { PrintTo(v, os); }, route.union_value);
     *os << "}";
 }
@@ -81,12 +81,13 @@ inline bool operator==(const RouteConnect_0_1& lhs, const RouteConnect_0_1& rhs)
     return lhs.version.major == rhs.version.major && lhs.version.minor == rhs.version.minor;
 }
 
-inline bool operator==(const RouteChannelMsg_1_0& lhs, const RouteChannelMsg_1_0& rhs)
+inline bool operator==(const RouteChannelMsg_0_1& lhs, const RouteChannelMsg_0_1& rhs)
 {
-    return lhs.tag == rhs.tag && lhs.sequence == rhs.sequence && lhs.service_id == rhs.service_id;
+    return lhs.tag == rhs.tag && lhs.sequence == rhs.sequence && lhs.service_id == rhs.service_id &&
+           lhs.payload_size == rhs.payload_size;
 }
 
-inline bool operator==(const RouteChannelEnd_1_0& lhs, const RouteChannelEnd_1_0& rhs)
+inline bool operator==(const RouteChannelEnd_0_1& lhs, const RouteChannelEnd_0_1& rhs)
 {
     return lhs.tag == rhs.tag && lhs.error_code == rhs.error_code;
 }
@@ -170,25 +171,34 @@ inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
                                   ErrorCode                   error_code = ErrorCode::Success)
 {
     const RouteConnect_0_1 route_conn{{ver_major, ver_minor, &mr}, static_cast<std::int32_t>(error_code), &mr};
-    return PayloadWith<Route_1_0>(testing::VariantWith<RouteConnect_0_1>(route_conn), mr);
+    return PayloadWith<Route_0_1>(testing::VariantWith<RouteConnect_0_1>(route_conn), mr);
 }
 
 template <typename Msg>
-auto PayloadOfRouteChannel(cetl::pmr::memory_resource& mr,
-                           const std::uint64_t         tag,
-                           const std::uint64_t         seq,
-                           const cetl::string_view     srv_name = "")
+auto PayloadOfRouteChannelMsg(const Msg&                  msg,
+                              cetl::pmr::memory_resource& mr,
+                              const std::uint64_t         tag,
+                              const std::uint64_t         seq,
+                              const cetl::string_view     srv_name = "")
 {
-    const RouteChannelMsg_1_0 msg{tag, seq, AnyChannel::getServiceId<Msg>(srv_name), &mr};
-    return PayloadWith<Route_1_0>(testing::VariantWith<RouteChannelMsg_1_0>(msg), mr);
+    RouteChannelMsg_0_1 route_ch_msg{tag, seq, AnyChannel::getServiceId<Msg>(srv_name), 0, &mr};
+    EXPECT_THAT(tryPerformOnSerialized(  //
+                    msg,
+                    [&route_ch_msg](const auto payload) {
+                        //
+                        route_ch_msg.payload_size = payload.size();
+                        return 0;
+                    }),
+                0);
+    return PayloadWith<Route_0_1>(testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg), mr);
 }
 
 inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
                                      const std::uint64_t         tag,
                                      const ErrorCode             error_code)
 {
-    const RouteChannelEnd_1_0 ch_end{{tag, static_cast<std::int32_t>(error_code), &mr}, &mr};
-    return PayloadWith<Route_1_0>(testing::VariantWith<RouteChannelEnd_1_0>(ch_end), mr);
+    const RouteChannelEnd_0_1 ch_end{{tag, static_cast<std::int32_t>(error_code), &mr}, &mr};
+    return PayloadWith<Route_0_1>(testing::VariantWith<RouteChannelEnd_0_1>(ch_end), mr);
 }
 
 }  // namespace ipc

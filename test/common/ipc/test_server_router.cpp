@@ -12,8 +12,8 @@
 #include "pipe/server_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
-#include "ocvsmd/common/ipc/Route_1_0.hpp"
-#include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
+#include "ocvsmd/common/ipc/Route_0_1.hpp"
+#include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -67,7 +67,7 @@ protected:
 
         server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Connected{client_id});
 
-        Route_1_0 route{&mr_};
+        Route_0_1 route{&mr_};
         auto&     rt_conn     = route.set_connect();
         rt_conn.version.major = ver_major;
         rt_conn.version.minor = ver_minor;
@@ -92,7 +92,7 @@ protected:
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
-        Route_1_0 route{&mr_};
+        Route_0_1 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
         channel_msg.tag        = tag;
         channel_msg.sequence   = seq++;
@@ -151,7 +151,7 @@ TEST_F(TestServerRouter, start)
 
 TEST_F(TestServerRouter, registerChannel)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ServerPipeMock> server_pipe_mock;
@@ -172,7 +172,7 @@ TEST_F(TestServerRouter, registerChannel)
 
 TEST_F(TestServerRouter, channel_send)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ServerPipeMock> server_pipe_mock;
@@ -221,13 +221,14 @@ TEST_F(TestServerRouter, channel_send)
     emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
 
     seq = 0;
-    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+    const Channel::Output msg{&mr_};
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
+    EXPECT_THAT(maybe_channel->send(msg), 0);
 
-    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(Channel::Output{&mr_}), 0);
+    EXPECT_THAT(maybe_channel->send(msg), 0);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

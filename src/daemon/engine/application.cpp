@@ -69,10 +69,10 @@ cetl::optional<std::string> Application::init()
     ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
     using Ch = ExecCmdChannel;
-    ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto&) {
+    ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto& request) {
         //
-        ::syslog(LOG_DEBUG, "D << 🆕 Ch created.");       // NOLINT
-        ::syslog(LOG_DEBUG, "D << 🔵 Ch ininital msg.");  // NOLINT
+        ::syslog(LOG_DEBUG, "D << 🆕 Ch created.");                                       // NOLINT
+        ::syslog(LOG_DEBUG, "D << 🔵 Ch ininital Msg='%s'.", request.some_stuff.data());  // NOLINT
 
         ipc_exec_cmd_ch_ = std::move(ch);
         ipc_exec_cmd_ch_->subscribe([this](const auto& event_var) {
@@ -83,16 +83,19 @@ cetl::optional<std::string> Application::init()
                         //
                         ::syslog(LOG_DEBUG, "D << 🟢 Ch connected.");  // NOLINT
 
-                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch Msg.");  // NOLINT
-                        const ExecCmd cmd{&memory_};
-                        const int     result = ipc_exec_cmd_ch_->send(cmd);
+                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch 'SR' msg.");  // NOLINT
+                        ExecCmd cmd{&memory_};
+                        cmd.some_stuff.push_back('S');
+                        cmd.some_stuff.push_back('R');
+                        cmd.some_stuff.push_back('\0');
+                        const int result = ipc_exec_cmd_ch_->send(cmd);
                         (void) result;
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
-                        ::syslog(LOG_DEBUG, "D << 🔵 Ch Msg.");  // NOLINT
+                        ::syslog(LOG_DEBUG, "D << 🔵 Ch Msg='%s'.", input.some_stuff.data());  // NOLINT
 
-                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch Msg.");  // NOLINT
+                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch '%s' msg.", input.some_stuff.data());  // NOLINT
                         const int result = ipc_exec_cmd_ch_->send(input);
                         (void) result;
                     },

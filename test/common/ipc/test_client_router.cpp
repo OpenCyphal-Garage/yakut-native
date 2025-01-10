@@ -13,10 +13,10 @@
 #include "pipe/client_pipe_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
-#include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
-#include "ocvsmd/common/ipc/Route_1_0.hpp"
-#include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
+#include "ocvsmd/common/ipc/Route_0_1.hpp"
+#include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -72,7 +72,7 @@ protected:
             .WillOnce(Return(0));
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
 
-        Route_1_0 route{&mr_};
+        Route_0_1 route{&mr_};
         auto&     rt_conn     = route.set_connect();
         rt_conn.version.major = ver_major;
         rt_conn.version.minor = ver_minor;
@@ -94,7 +94,7 @@ protected:
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
-        Route_1_0 route{&mr_};
+        Route_0_1 route{&mr_};
         auto&     channel_msg  = route.set_channel_msg();
         channel_msg.tag        = tag;
         channel_msg.sequence   = seq++;
@@ -155,7 +155,7 @@ TEST_F(TestClientRouter, start)
 
 TEST_F(TestClientRouter, makeChannel)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -175,7 +175,7 @@ TEST_F(TestClientRouter, makeChannel)
 
 TEST_F(TestClientRouter, makeChannel_send)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -198,11 +198,11 @@ TEST_F(TestClientRouter, makeChannel_send)
 
     const std::uint64_t tag = 0;
     std::uint64_t       seq = 0;
-    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
     EXPECT_THAT(channel.send(msg), 0);
 
-    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannel<Msg>(mr_, tag, seq++)))  //
+    EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
     EXPECT_THAT(channel.send(msg), 0);
 
@@ -212,7 +212,7 @@ TEST_F(TestClientRouter, makeChannel_send)
 
 TEST_F(TestClientRouter, makeChannel_receive_events)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_1_0;
+    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;

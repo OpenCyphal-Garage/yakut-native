@@ -10,10 +10,10 @@
 #include "ipc_types.hpp"
 #include "pipe/client_pipe.hpp"
 
-#include "ocvsmd/common/ipc/RouteChannelEnd_1_0.hpp"
-#include "ocvsmd/common/ipc/RouteChannelMsg_1_0.hpp"
+#include "ocvsmd/common/ipc/RouteChannelEnd_0_1.hpp"
+#include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
-#include "ocvsmd/common/ipc/Route_1_0.hpp"
+#include "ocvsmd/common/ipc/Route_0_1.hpp"
 #include "uavcan/primitive/Empty_1_0.hpp"
 
 #include <cetl/cetl.hpp>
@@ -138,12 +138,13 @@ private:
                 return static_cast<int>(ErrorCode::Shutdown);
             }
 
-            Route_1_0 route{&router_.memory_};
+            Route_0_1 route{&router_.memory_};
 
-            auto& channel_msg      = route.set_channel_msg();
-            channel_msg.tag        = endpoint_.tag;
-            channel_msg.sequence   = next_sequence_++;
-            channel_msg.service_id = service_id;
+            auto& channel_msg        = route.set_channel_msg();
+            channel_msg.tag          = endpoint_.tag;
+            channel_msg.sequence     = next_sequence_++;
+            channel_msg.service_id   = service_id;
+            channel_msg.payload_size = payload.size();
 
             return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
                 //
@@ -248,7 +249,7 @@ private:
         //
         if (was_registered && send_ch_end && isConnected(endpoint))
         {
-            Route_1_0 route{&memory_};
+            Route_0_1 route{&memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint.tag;
             channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
@@ -269,7 +270,7 @@ private:
         // It's not enough to consider the server route connected by the pipe event.
         // We gonna initiate `RouteConnect` negotiation (see `handleRouteConnect`).
         //
-        Route_1_0 route{&memory_};
+        Route_0_1 route{&memory_};
         auto&     route_conn     = route.set_connect();
         route_conn.version.major = VERSION_MAJOR;
         route_conn.version.minor = VERSION_MINOR;
@@ -282,16 +283,13 @@ private:
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
     {
-        Route_1_0  route_msg{&memory_};
+        Route_0_1  route_msg{&memory_};
         const auto result_size = tryDeserializePayload(msg.payload, route_msg);
         if (!result_size.has_value())
         {
             // Invalid message payload.
             return EINVAL;
         }
-
-        // Cut routing stuff from the payload - remaining is the actual message payload.
-        const auto msg_payload = msg.payload.subspan(result_size.value());
 
         return cetl::visit(         //
             cetl::make_overloaded(  //
@@ -305,11 +303,11 @@ private:
                     //
                     return handleRouteConnect(route_conn);
                 },
-                [this, msg_payload](const RouteChannelMsg_1_0& route_ch_msg) {
+                [this, &msg](const RouteChannelMsg_0_1& route_ch_msg) {
                     //
-                    return handleRouteChannelMsg(route_ch_msg, msg_payload);
+                    return handleRouteChannelMsg(route_ch_msg, msg.payload);
                 },
-                [this](const RouteChannelEnd_1_0& route_ch_end) {
+                [this](const RouteChannelEnd_0_1& route_ch_end) {
                     //
                     return handleRouteChannelEnd(route_ch_end);
                 }),
@@ -367,8 +365,11 @@ private:
         return 0;
     }
 
-    CETL_NODISCARD int handleRouteChannelMsg(const RouteChannelMsg_1_0& route_ch_msg, const Payload payload)
+    CETL_NODISCARD int handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg, const Payload payload)
     {
+        // Cut routing stuff from the payload - remaining is the real message payload.
+        const auto msg_real_payload = payload.subspan(payload.size() - route_ch_msg.payload_size);
+
         const Endpoint endpoint{route_ch_msg.tag};
 
         const auto tag_to_gw = map_of_gateways_.find(endpoint.tag);
@@ -376,7 +377,7 @@ private:
         {
             if (const auto gateway = tag_to_gw->second.lock())
             {
-                return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, payload});
+                return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_real_payload});
             }
         }
 
@@ -384,7 +385,7 @@ private:
         return 0;
     }
 
-    CETL_NODISCARD int handleRouteChannelEnd(const RouteChannelEnd_1_0& route_ch_end)
+    CETL_NODISCARD int handleRouteChannelEnd(const RouteChannelEnd_0_1& route_ch_end)
     {
         ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
 

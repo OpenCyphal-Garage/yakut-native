@@ -10,7 +10,7 @@
 #include "ipc/pipe/client_pipe.hpp"
 #include "ipc/pipe/unix_socket_client.hpp"
 
-#include "ocvsmd/common/node_command/ExecCmd_1_0.hpp"
+#include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -60,19 +60,20 @@ public:
                         ::syslog(LOG_DEBUG, "C << 🟢 Ch connected.");  // NOLINT
 
                         ExecCmd cmd{&memory_};
-                        cmd.some_stuff.push_back('A');
-                        cmd.some_stuff.push_back('Z');
-                        ::syslog(LOG_DEBUG, "C >> 🔵 Ch Msg.");  // NOLINT
+                        cmd.some_stuff.push_back('C');
+                        cmd.some_stuff.push_back('L');
+                        cmd.some_stuff.push_back('\0');
+                        ::syslog(LOG_DEBUG, "C >> 🔵 Ch 'CL' msg.");  // NOLINT
                         const int result = ipc_exec_cmd_ch_->send(cmd);
                         (void) result;
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
-                        ::syslog(LOG_DEBUG, "C << 🔵 Ch Msg.");  // NOLINT
+                        ::syslog(LOG_DEBUG, "C << 🔵 Ch Msg='%s'.", input.some_stuff.data());  // NOLINT
 
                         if (countdown_--)
                         {
-                            ::syslog(LOG_DEBUG, "C >> 🔵 Ch Msg.");  // NOLINT
+                            ::syslog(LOG_DEBUG, "C >> 🔵 Ch '%s' msg.", input.some_stuff.data());  // NOLINT
                             const int result = ipc_exec_cmd_ch_->send(input);
                             (void) result;
                         }
@@ -90,7 +91,7 @@ public:
     }
 
 private:
-    using ExecCmd        = common::node_command::ExecCmd_1_0;
+    using ExecCmd        = common::node_command::ExecCmd_0_1;
     using ExecCmdChannel = common::ipc::Channel<ExecCmd, ExecCmd>;
 
     cetl::pmr::memory_resource&    memory_;
