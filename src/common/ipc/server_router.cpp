@@ -307,8 +307,6 @@ private:
                     route_msg.union_value);
 
         return 0;
-
-        return 0;
     }
 
     CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected& disconn)
