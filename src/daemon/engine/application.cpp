@@ -71,18 +71,38 @@ cetl::optional<std::string> Application::init()
     using Ch = ExecCmdChannel;
     ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto& request) {
         //
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_DEBUG, "Client initial msg (%zu).", request.some_stuff.size());
-        const int result = ch.send(request);
-        (void) result;
+        ::syslog(LOG_DEBUG, "D << 🆕 Ch created.");       // NOLINT
+        ::syslog(LOG_DEBUG, "D << 🔵 Ch ininital msg.");  // NOLINT
+
         ipc_exec_cmd_ch_ = std::move(ch);
-        ipc_exec_cmd_ch_->subscribe([this](const auto&) {
+        ipc_exec_cmd_ch_->subscribe([this](const auto& event_var) {
             //
-            ::syslog(LOG_DEBUG, "Client nested msg");  // NOLINT
-            const ExecCmd r1{&memory_};
-            const int     res1 = ipc_exec_cmd_ch_->send(r1);
-            (void) res1;
-            ipc_exec_cmd_ch_.reset();
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [this](const ExecCmdChannel::Connected&) {
+                        //
+                        ::syslog(LOG_DEBUG, "D << 🟢 Ch connected.");  // NOLINT
+
+                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch Msg.");  // NOLINT
+                        ExecCmd   cmd{&memory_};
+                        const int result = ipc_exec_cmd_ch_->send(cmd);
+                        (void) result;
+                    },
+                    [this](const ExecCmdChannel::Input& input) {
+                        //
+                        ::syslog(LOG_DEBUG, "D << 🔵 Ch Msg.");  // NOLINT
+
+                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch Msg.");  // NOLINT
+                        const int result = ipc_exec_cmd_ch_->send(input);
+                        (void) result;
+                    },
+                    [this](const ExecCmdChannel::Completed& completed) {
+                        //
+                        // NOLINTNEXTLINE
+                        ::syslog(LOG_DEBUG, "D << 🔴 Ch Completed (err=%d).", static_cast<int>(completed.error_code));
+                        ipc_exec_cmd_ch_.reset();
+                    }),
+                event_var);
         });
     });
 

@@ -27,7 +27,8 @@ enum class ErrorCode : int  // NOLINT
 {
     Success      = 0,
     NotConnected = ENOTCONN,
-    Disconnected = ESHUTDOWN,
+    Disconnected = ECONNRESET,
+    Shutdown     = ESHUTDOWN,
 
 };  // ErrorCode
 

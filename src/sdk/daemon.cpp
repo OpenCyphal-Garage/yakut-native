@@ -49,36 +49,42 @@ public:
             return result;
         }
 
-        auto channel = ipc_router_->makeChannel<ExecCmdChannel>("daemon");
-        channel.subscribe([this](const auto& event_var) {
+        ipc_exec_cmd_ch_ = ipc_router_->makeChannel<ExecCmdChannel>("daemon");
+        ::syslog(LOG_DEBUG, "C << 🆕 Ch created.");  // NOLINT
+        ipc_exec_cmd_ch_->subscribe([this](const auto& event_var) {
             //
             cetl::visit(  //
                 cetl::make_overloaded(
                     [this](const ExecCmdChannel::Connected&) {
                         //
-                        // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "🟢 Ch connected.");
+                        ::syslog(LOG_DEBUG, "C << 🟢 Ch connected.");  // NOLINT
+
                         ExecCmd cmd{&memory_};
                         cmd.some_stuff.push_back('A');
                         cmd.some_stuff.push_back('Z');
+                        ::syslog(LOG_DEBUG, "C >> 🔵 Ch Msg.");  // NOLINT
                         const int result = ipc_exec_cmd_ch_->send(cmd);
                         (void) result;
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
-                        // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "🔵 Ch Msg (%zu bytes).", input.some_stuff.size());
-                        const int result = ipc_exec_cmd_ch_->send(input);
-                        (void) result;
+                        ::syslog(LOG_DEBUG, "C << 🔵 Ch Msg.");  // NOLINT
+
+                        if (countdown_--)
+                        {
+                            ::syslog(LOG_DEBUG, "C >> 🔵 Ch Msg.");  // NOLINT
+                            const int result = ipc_exec_cmd_ch_->send(input);
+                            (void) result;
+                        }
                     },
-                    [](const ExecCmdChannel::Completed& completed) {
+                    [this](const ExecCmdChannel::Completed& completed) {
                         //
-                        // NOLINTNEXTLINE *-vararg
-                        ::syslog(LOG_DEBUG, "🔴 Ch Completed (err=%d).", static_cast<int>(completed.error_code));
+                        // NOLINTNEXTLINE
+                        ::syslog(LOG_DEBUG, "C << 🔴 Ch Completed (err=%d).", static_cast<int>(completed.error_code));
+                        ipc_exec_cmd_ch_.reset();
                     }),
                 event_var);
         });
-        ipc_exec_cmd_ch_ = std::move(channel);
 
         return 0;
     }
@@ -90,6 +96,8 @@ private:
     cetl::pmr::memory_resource&    memory_;
     common::ipc::ClientRouter::Ptr ipc_router_;
     cetl::optional<ExecCmdChannel> ipc_exec_cmd_ch_;
+
+    int countdown_{2};
 
 };  // DaemonImpl
 

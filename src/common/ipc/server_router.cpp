@@ -127,7 +127,7 @@ private:
             }
             if (!router_.isRegisteredGateway(endpoint_))
             {
-                return static_cast<int>(ErrorCode::Disconnected);
+                return static_cast<int>(ErrorCode::Shutdown);
             }
 
             Route_1_0 route{&router_.memory_};
