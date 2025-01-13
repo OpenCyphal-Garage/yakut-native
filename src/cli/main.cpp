@@ -9,6 +9,9 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/types.hpp>
 
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -52,6 +55,7 @@ int main(const int, const char** const)
 
     setup_signal_handlers();
 
+    spdlog::info("ocvsmd cli started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
     ::openlog("ocvsmd-cli", LOG_PID, LOG_USER);
     ::syslog(LOG_NOTICE, "ocvsmd cli started.");  // NOLINT *-vararg
     {
