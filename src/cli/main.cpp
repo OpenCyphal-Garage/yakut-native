@@ -9,7 +9,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/types.hpp>
 
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/cfg/argv.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>

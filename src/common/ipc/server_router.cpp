@@ -8,6 +8,7 @@
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 #include "ipc_types.hpp"
+#include "logging.hpp"
 #include "pipe/server_pipe.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
@@ -22,7 +23,6 @@
 #include <cerrno>
 #include <cstdint>
 #include <memory>
-#include <sys/syslog.h>
 #include <unordered_map>
 #include <utility>
 
@@ -41,6 +41,7 @@ public:
     ServerRouterImpl(cetl::pmr::memory_resource& memory, pipe::ServerPipe::Ptr server_pipe)
         : memory_{memory}
         , server_pipe_{std::move(server_pipe)}
+        , logger_{getLogger("ipc")}
     {
         CETL_DEBUG_ASSERT(server_pipe_, "");
     }
@@ -99,7 +100,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            ::syslog(LOG_DEBUG, "Gateway(cl=%zu, tag=%zu).", endpoint.client_id, endpoint.tag);  // NOLINT
+            router.logger_->trace("Gateway(cl={}, tag={}).", endpoint.client_id, endpoint.tag);
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -109,7 +110,7 @@ private:
 
         ~GatewayImpl()
         {
-            ::syslog(LOG_DEBUG, "~Gateway(cl=%zu, tag=%zu).", endpoint_.client_id, endpoint_.tag);  // NOLINT
+            router_.logger_->trace("~Gateway(cl={}, tag={}).", endpoint_.client_id, endpoint_.tag);
 
             performWithoutThrowing([this] {
                 //
@@ -253,9 +254,9 @@ private:
         }
     }
 
-    CETL_NODISCARD static int handlePipeEvent(const pipe::ServerPipe::Event::Connected& pipe_conn)
+    CETL_NODISCARD int handlePipeEvent(const pipe::ServerPipe::Event::Connected& pipe_conn)
     {
-        ::syslog(LOG_DEBUG, "Pipe is connected (cl=%zu).", pipe_conn.client_id);  // NOLINT
+        logger_->debug("Pipe is connected (cl={}).", pipe_conn.client_id);
 
         // It's not enough to consider the client router connected by the pipe event.
         // We gonna wait for `RouteConnect` negotiation (see `handleRouteConnect`).
@@ -298,7 +299,7 @@ private:
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ServerPipe::Event::Disconnected& disconn)
     {
-        ::syslog(LOG_DEBUG, "Pipe is disconnected (cl=%zu).", disconn.client_id);  // NOLINT
+        logger_->debug("Pipe is disconnected (cl={}).", disconn.client_id);
 
         const auto cl_to_gws = client_id_to_map_of_gateways_.find(disconn.client_id);
         if (cl_to_gws != client_id_to_map_of_gateways_.end())
@@ -324,12 +325,11 @@ private:
 
     CETL_NODISCARD int handleRouteConnect(const pipe::ServerPipe::ClientId client_id, const RouteConnect_0_1& rt_conn)
     {
-        ::syslog(LOG_DEBUG,  // NOLINT
-                 "Route connect request (cl=%zu, ver='%d.%d', err=%d).",
-                 client_id,
-                 static_cast<int>(rt_conn.version.major),
-                 static_cast<int>(rt_conn.version.minor),
-                 static_cast<int>(rt_conn.error_code));
+        logger_->debug("Route connect request (cl={}, ver='{}.{}', err={}).",
+                       client_id,
+                       static_cast<int>(rt_conn.version.major),
+                       static_cast<int>(rt_conn.version.minor),
+                       static_cast<int>(rt_conn.error_code));
 
         Route_0_1 route{&memory_};
         auto&     route_conn     = route.set_connect();
@@ -367,6 +367,11 @@ private:
             {
                 if (auto gateway = tag_to_gw->second.lock())
                 {
+                    logger_->trace("Route Ch Msg (cl={}, tag={}, seq={}).",
+                                   client_id,
+                                   route_ch_msg.tag,
+                                   route_ch_msg.sequence);
+
                     return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_real_payload});
                 }
             }
@@ -382,19 +387,32 @@ private:
                     auto gateway                 = GatewayImpl::create(*this, endpoint);
                     map_of_gws[route_ch_msg.tag] = gateway;
 
+                    logger_->debug("Route Ch Msg (cl={}, tag={}, seq={}, srv=0x{:X}).",
+                                   client_id,
+                                   route_ch_msg.tag,
+                                   route_ch_msg.sequence,
+                                   route_ch_msg.service_id);
+
                     si_to_ch_factory->second(gateway, msg_real_payload);
+                    return 0;
                 }
             }
         }
 
-        // Nothing to do here with unsolicited messages - just ignore them.
+        // Nothing to do here with unsolicited messages - just trace and ignore them.
+        //
+        logger_->debug("Route Ch Unsolicited Msg (cl={}, tag={}, seq={}, srv=0x{:X}).",
+                       client_id,
+                       route_ch_msg.tag,
+                       route_ch_msg.sequence,
+                       route_ch_msg.service_id);
         return 0;
     }
 
     CETL_NODISCARD int handleRouteChannelEnd(const pipe::ServerPipe::ClientId client_id,
                                              const RouteChannelEnd_0_1&       route_ch_end)
     {
-        ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
+        logger_->debug("Route Ch End (cl={}, tag={}, err={}).", client_id, route_ch_end.tag, route_ch_end.error_code);
 
         const auto cl_to_gws = client_id_to_map_of_gateways_.find(client_id);
         if (cl_to_gws != client_id_to_map_of_gateways_.end())
@@ -419,6 +437,7 @@ private:
 
     cetl::pmr::memory_resource& memory_;
     pipe::ServerPipe::Ptr       server_pipe_;
+    LoggerPtr                   logger_;
     ClientIdToMapOfGateways     client_id_to_map_of_gateways_;
     ServiceIdToChannelFactory   service_id_to_channel_factory_;
 

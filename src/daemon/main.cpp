@@ -5,6 +5,13 @@
 
 #include "engine/application.hpp"
 
+#include <spdlog/cfg/argv.h>
+#include <spdlog/common.h>
+#include <spdlog/logger.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/syslog_sink.h>
+#include <spdlog/spdlog.h>
+
 #include <array>
 #include <cassert>
 #include <cerrno>
@@ -12,7 +19,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <initializer_list>
 #include <iostream>
+#include <memory>
 #include <signal.h>  // NOLINT
 #include <string>
 #include <sys/resource.h>
@@ -296,6 +305,51 @@ int daemonize()
     return -1;  // Unreachable actually b/c of `::exit` call.
 }
 
+/// Sets up the logging system.
+///
+/// Both syslog and file logging sinks are used.
+/// The syslog sink is used for the default logger only (with Info default level),
+/// while the file sink is used for all loggers (with Debug default level).
+///
+void setupLogging(const bool is_daemonized, const int argc, const char** const argv)
+{
+    using spdlog::sinks::syslog_sink_st;
+    using spdlog::sinks::rotating_file_sink_st;
+
+    constexpr std::size_t log_files_max     = 4;
+    constexpr std::size_t log_file_max_size = 16UL * 1048576UL;  // 16 MB
+
+    const std::string log_prefix    = "ocvsmd";
+    const std::string log_file_nm   = log_prefix + ".log";
+    const std::string log_file_dir  = is_daemonized ? "/var/log/" : "./";
+    const auto        log_file_path = log_file_dir + log_file_nm;
+
+    // Drop all existing loggers, including the default one, so that we can reconfigure them.
+    spdlog::drop_all();
+
+    const auto file_sink = std::make_shared<rotating_file_sink_st>(log_file_path, log_file_max_size, log_files_max);
+    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%P] [%n] [%l] %v");
+
+    const int  syslog_facility = is_daemonized ? LOG_DAEMON : LOG_USER;
+    const auto syslog_sink     = std::make_shared<syslog_sink_st>(log_prefix, LOG_PID, syslog_facility, true);
+    syslog_sink->set_pattern("[%l] '%n' | %v");
+
+    // The default logger goes to all sinks.
+    //
+    const std::initializer_list<spdlog::sink_ptr> sinks{syslog_sink, file_sink};
+    const auto                                    default_logger = std::make_shared<spdlog::logger>("", sinks);
+    default_logger->flush_on(spdlog::level::trace);
+    register_logger(default_logger);
+    set_default_logger(default_logger);
+
+    // Register specific subsystem loggers - they go to the file sink only.
+    //
+    register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
+
+    // Accept `SPDLOG_LEVEL` argument (like `SPDLOG_LEVEL=debug,ipc=trace`).
+    spdlog::cfg::load_argv_levels(argc, argv);
+}
+
 }  // namespace
 
 int main(const int argc, const char** const argv)
@@ -324,12 +378,16 @@ int main(const int argc, const char** const argv)
         setup_signal_handlers();
     }
 
-    ::openlog("ocvsmd", LOG_PID, should_daemonize ? LOG_DAEMON : LOG_USER);
-    ::syslog(LOG_NOTICE, "ocvsmd daemon started.");  // NOLINT *-vararg
+    setupLogging(should_daemonize, argc, argv);
+
+    spdlog::info("OCVSMD started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
     {
         Application application;
         if (const auto failure_str = application.init())
         {
+            spdlog::critical("Failed to init application: {}", failure_str.value());
+
+            // Report the failure to the parent process (if daemonized; otherwise goes to stderr).
             write_string(pipe_write_fd, "Failed to init application: ");
             write_string(pipe_write_fd, failure_str.value().c_str());
             ::exit(EXIT_FAILURE);
@@ -343,11 +401,10 @@ int main(const int argc, const char** const argv)
 
         if (g_running == 0)
         {
-            ::syslog(LOG_NOTICE, "Received termination signal.");  // NOLINT *-vararg
+            spdlog::debug("Received termination signal.");  // NOLINT *-vararg
         }
     }
-    ::syslog(LOG_NOTICE, "ocvsmd daemon terminated.");  // NOLINT *-vararg
-    ::closelog();
+    spdlog::info("OCVSMD daemon terminated.");  // NOLINT *-vararg
 
     return EXIT_SUCCESS;
 }
