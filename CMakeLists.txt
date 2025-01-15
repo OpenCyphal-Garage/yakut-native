@@ -14,7 +14,7 @@ enable_testing()
 
 set(NO_STATIC_ANALYSIS OFF CACHE BOOL "disable static analysis")
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -55,6 +55,13 @@ endif ()
 
 # Pull in Nunavut's cmake integration
 find_package("Nunavut" 3.0 REQUIRED)
+
+# libcyphal requires PMR support for Nunavut generated code.
+if (${CMAKE_CXX_STANDARD} STREQUAL "14")
+    set(CYPHAL_LANGUAGE_STANDARD "cetl++14-17")
+else ()
+    set(CYPHAL_LANGUAGE_STANDARD "c++${CMAKE_CXX_STANDARD}-pmr")
+endif ()
 
 # Forward the revision information to the compiler so that we could expose it at runtime. This is entirely optional.
 execute_process(

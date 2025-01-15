@@ -14,7 +14,7 @@ add_cyphal_library(
         DSDL_NAMESPACES ${dsdl_ocvsmd_dir}
         ALLOW_EXPERIMENTAL_LANGUAGES
         LANGUAGE cpp
-        LANGUAGE_STANDARD cetl++14-17
+        LANGUAGE_STANDARD ${CYPHAL_LANGUAGE_STANDARD}
         OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dsdl_transpiled
         OUT_LIBRARY_TARGET common_transpiled
 )

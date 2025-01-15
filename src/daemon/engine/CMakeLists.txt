@@ -19,7 +19,7 @@ add_cyphal_library(
         DSDL_FILES ${dsdl_types_in_engine}
         ALLOW_EXPERIMENTAL_LANGUAGES
         LANGUAGE cpp
-        LANGUAGE_STANDARD cetl++14-17
+        LANGUAGE_STANDARD ${CYPHAL_LANGUAGE_STANDARD}
         OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dsdl_transpiled
         OUT_LIBRARY_TARGET engine_transpiled
 )
