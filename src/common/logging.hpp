@@ -8,6 +8,8 @@
 
 #include "common_helpers.hpp"
 
+#include <cetl/cetl.hpp>
+
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 
