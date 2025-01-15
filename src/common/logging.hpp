@@ -6,6 +6,8 @@
 #ifndef OCVSMD_COMMON_LOGGING_HPP_INCLUDED
 #define OCVSMD_COMMON_LOGGING_HPP_INCLUDED
 
+#include "common_helpers.hpp"
+
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 
@@ -20,7 +22,7 @@ namespace common
 using Logger    = spdlog::logger;
 using LoggerPtr = std::shared_ptr<Logger>;
 
-inline LoggerPtr getLogger(const std::string& name)
+inline LoggerPtr getLogger(const std::string& name) noexcept
 {
     if (auto logger = spdlog::get(name))
     {
@@ -34,7 +36,11 @@ inline LoggerPtr getLogger(const std::string& name)
     CETL_DEBUG_ASSERT(logger, name.c_str());
 
     apply_logger_env_levels(logger);
-    register_logger(logger);
+
+    performWithoutThrowing([&logger] {
+        //
+        register_logger(logger);
+    });
 
     return logger;
 }
