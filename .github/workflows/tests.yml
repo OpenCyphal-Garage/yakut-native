@@ -36,7 +36,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{github.job}}_${{matrix.toolchain}}
+          name: ${{github.job}}_cpp${{ matrix.cpp_version }}_${{matrix.toolchain}}
           path: ${{github.workspace}}/**/*
           retention-days: 2
 
@@ -69,7 +69,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{github.job}}_${{matrix.toolchain}}_${{matrix.build_type}}
+          name: ${{github.job}}_cpp${{ matrix.cpp_version }}_${{matrix.toolchain}}_${{matrix.build_type}}
           path: ${{github.workspace}}/**/*
           retention-days: 2
 
