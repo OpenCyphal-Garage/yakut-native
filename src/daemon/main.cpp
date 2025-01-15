@@ -340,7 +340,6 @@ void setupLogging(const int err_fd, const bool is_daemonized, const int argc, co
         //
         const std::initializer_list<spdlog::sink_ptr> sinks{syslog_sink, file_sink};
         const auto                                    default_logger = std::make_shared<spdlog::logger>("", sinks);
-        default_logger->flush_on(spdlog::level::trace);
         register_logger(default_logger);
         set_default_logger(default_logger);
 

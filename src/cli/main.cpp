@@ -79,7 +79,6 @@ void setupLogging(const int argc, const char** const argv)
         file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%P] [%n] [%l] %v");
 
         const auto default_logger = std::make_shared<spdlog::logger>("", file_sink);
-        default_logger->flush_on(spdlog::level::trace);
         register_logger(default_logger);
         set_default_logger(default_logger);
 
