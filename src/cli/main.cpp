@@ -103,23 +103,26 @@ void setupLogging(const int argc, const char** const argv)
 int main(const int argc, const char** const argv)
 {
     using std::chrono_literals::operator""s;
+    using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
     setupSignalHandlers();
     setupLogging(argc, argv);
 
-    spdlog::info("ocvsmd cli started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
+    spdlog::info("OCVSMD client started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
     int result = EXIT_SUCCESS;
     try
     {
-        auto&                                    memory = *cetl::pmr::new_delete_resource();
-        ocvsmd::platform::SingleThreadedExecutor executor;
+        auto&    memory = *cetl::pmr::new_delete_resource();
+        Executor executor;
 
         const auto daemon = ocvsmd::sdk::Daemon::make(memory, executor);
         if (!daemon)
         {
-            std::cerr << "Failed to create daemon.\n";
+            spdlog::critical("Failed to create daemon.\n");
+            std::cerr << "Failed to create daemon.";
             return EXIT_FAILURE;
         }
+
         while (g_running != 0)
         {
             const auto spin_result = executor.spinOnce();
@@ -147,7 +150,7 @@ int main(const int argc, const char** const argv)
         spdlog::critical("Unhandled exception: {}", ex.what());
         result = EXIT_FAILURE;
     }
-    spdlog::info("OCVSMD cli terminated.");
+    spdlog::info("OCVSMD client terminated.\n");
 
     return result;
 }
