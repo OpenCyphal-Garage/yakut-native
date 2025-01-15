@@ -224,11 +224,11 @@ TEST_F(TestServerRouter, channel_send)
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(msg), 0);
+    EXPECT_THAT(maybe_channel->send(msg), 0);  // NOLINT
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(msg), 0);
+    EXPECT_THAT(maybe_channel->send(msg), 0);  // NOLINT
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

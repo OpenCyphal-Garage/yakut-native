@@ -391,23 +391,32 @@ int main(const int argc, const char** const argv)
     setupLogging(pipe_write_fd, should_daemonize, argc, argv);
 
     spdlog::info("OCVSMD started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
+    int result = EXIT_SUCCESS;
     {
-        Application application;
-        if (const auto failure_str = application.init())
+        try
         {
-            spdlog::critical("Failed to init application: {}", failure_str.value());
+            Application application;
+            if (const auto failure_str = application.init())
+            {
+                spdlog::critical("Failed to init application: {}", failure_str.value());
 
-            // Report the failure to the parent process (if daemonized; otherwise goes to stderr).
-            writeString(pipe_write_fd, "Failed to init application: ");
-            writeString(pipe_write_fd, failure_str.value().c_str());
-            ::exit(EXIT_FAILURE);
-        }
-        if (should_daemonize)
+                // Report the failure to the parent process (if daemonized; otherwise goes to stderr).
+                writeString(pipe_write_fd, "Failed to init application: ");
+                writeString(pipe_write_fd, failure_str.value().c_str());
+                ::exit(EXIT_FAILURE);
+            }
+            if (should_daemonize)
+            {
+                step_14_notify_init_complete(pipe_write_fd);
+            }
+
+            application.runWhile([] { return g_running == 1; });
+
+        } catch (const std::exception& ex)
         {
-            step_14_notify_init_complete(pipe_write_fd);
+            spdlog::critical("Unhandled exception: {}", ex.what());
+            result = EXIT_FAILURE;
         }
-
-        application.runWhile([] { return g_running == 1; });
 
         if (g_running == 0)
         {
@@ -416,5 +425,5 @@ int main(const int argc, const char** const argv)
     }
     spdlog::info("OCVSMD daemon terminated.");
 
-    return EXIT_SUCCESS;
+    return result;
 }

@@ -69,12 +69,13 @@ public:
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
+                        // NOLINTNEXTLINE
                         logger_->info("C << 🔵 Ch Msg='{}'.", reinterpret_cast<const char*>(input.some_stuff.data()));
 
                         if (countdown_--)
                         {
                             logger_->info("C >> 🔵 Ch '{}' msg.",
-                                          reinterpret_cast<const char*>(input.some_stuff.data()));
+                                          reinterpret_cast<const char*>(input.some_stuff.data()));  // NOLINT
                             const int result = ipc_exec_cmd_ch_->send(input);
                             (void) result;
                         }
