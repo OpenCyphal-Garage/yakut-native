@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
-#include <iostream>
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>

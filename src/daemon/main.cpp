@@ -27,6 +27,7 @@
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syslog.h>
 #include <sys/types.h>
 #include <unistd.h>
 

@@ -73,6 +73,7 @@ cetl::optional<std::string> Application::init()
     ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto& request) {
         //
         logger_->info("D << 🆕 Ch created.");
+        // NOLINTNEXTLINE
         logger_->info("D << 🔵 Ch initial Msg='{}'.", reinterpret_cast<const char*>(request.some_stuff.data()));
 
         ipc_exec_cmd_ch_ = std::move(ch);
@@ -94,8 +95,10 @@ cetl::optional<std::string> Application::init()
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
+                        // NOLINTNEXTLINE
                         logger_->info("D << 🔵 Ch Msg='{}'.", reinterpret_cast<const char*>(input.some_stuff.data()));
 
+                        // NOLINTNEXTLINE
                         logger_->info("D >> 🔵 Ch '{}' msg.", reinterpret_cast<const char*>(input.some_stuff.data()));
                         const int result = ipc_exec_cmd_ch_->send(input);
                         (void) result;
