@@ -98,7 +98,7 @@ protected:
                     return bytes_read = ::read(input_fd, &msg_header, sizeof(msg_header));
                 }))
             {
-                logger_->error("Failed to read message header (fd={}): {}", input_fd, std::strerror(err));
+                logger_->error("Failed to read message header (fd={}): {}.", input_fd, std::strerror(err));
                 return err;
             }
 
@@ -127,7 +127,7 @@ protected:
                     return read = ::read(input_fd, buf_span.data(), buf_span.size());
                 }))
             {
-                logger_->error("Failed to read message payload (fd={}): {}", input_fd, std::strerror(err));
+                logger_->error("Failed to read message payload (fd={}): {}.", input_fd, std::strerror(err));
                 return err;
             }
             if (read != buf_span.size())

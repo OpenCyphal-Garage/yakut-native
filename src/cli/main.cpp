@@ -118,7 +118,7 @@ int main(const int argc, const char** const argv)
         const auto daemon = ocvsmd::sdk::Daemon::make(memory, executor);
         if (!daemon)
         {
-            spdlog::critical("Failed to create daemon.\n");
+            spdlog::critical("Failed to create daemon.");
             std::cerr << "Failed to create daemon.";
             return EXIT_FAILURE;
         }
@@ -150,7 +150,7 @@ int main(const int argc, const char** const argv)
         spdlog::critical("Unhandled exception: {}", ex.what());
         result = EXIT_FAILURE;
     }
-    spdlog::info("OCVSMD client terminated.\n");
+    spdlog::info("OCVSMD client terminated.");
 
     return result;
 }

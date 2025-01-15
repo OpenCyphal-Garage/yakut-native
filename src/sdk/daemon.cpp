@@ -45,7 +45,7 @@ public:
     {
         if (const int err = ipc_router_->start())
         {
-            logger_->error("Failed to start IPC router: {}", std::strerror(err));
+            logger_->error("Failed to start IPC router: {}.", std::strerror(err));
             return err;
         }
 

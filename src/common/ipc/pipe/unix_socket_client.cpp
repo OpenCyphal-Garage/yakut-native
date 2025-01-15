@@ -62,7 +62,7 @@ CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
             return client_fd_ = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
         }))
     {
-        logger().error("Failed to create socket: {}", std::strerror(err));
+        logger().error("Failed to create socket: {}.", std::strerror(err));
         return err;
     }
 
@@ -83,7 +83,7 @@ CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
                              offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
-        logger().error("Failed to connect to server: {}", std::strerror(err));
+        logger().error("Failed to connect to server: {}.", std::strerror(err));
         return err;
     }
 
@@ -111,7 +111,7 @@ void UnixSocketClient::handle_socket()
         }
         else
         {
-            logger().warn("Failed to handle server response - closing connection: {}", std::strerror(err));
+            logger().warn("Failed to handle server response - closing connection: {}.", std::strerror(err));
         }
 
         socket_callback_.reset();

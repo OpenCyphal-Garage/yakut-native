@@ -395,7 +395,7 @@ int main(const int argc, const char** const argv)
         Application application;
         if (const auto failure_str = application.init())
         {
-            spdlog::critical("Failed to init application: {}\n", failure_str.value());
+            spdlog::critical("Failed to init application: {}", failure_str.value());
 
             // Report the failure to the parent process (if daemonized; otherwise goes to stderr).
             writeString(pipe_write_fd, "Failed to init application: ");
@@ -414,7 +414,7 @@ int main(const int argc, const char** const argv)
             spdlog::debug("Received termination signal.");
         }
     }
-    spdlog::info("OCVSMD daemon terminated.\n");
+    spdlog::info("OCVSMD daemon terminated.");
 
     return EXIT_SUCCESS;
 }

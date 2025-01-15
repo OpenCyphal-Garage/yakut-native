@@ -111,7 +111,7 @@ CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
             return server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
         }))
     {
-        logger().error("Failed to create server socket: {}", std::strerror(err));
+        logger().error("Failed to create server socket: {}.", std::strerror(err));
         return err;
     }
 
@@ -132,7 +132,7 @@ CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
                           offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
-        logger().error("Failed to bind server socket: {}", std::strerror(err));
+        logger().error("Failed to bind server socket: {}.", std::strerror(err));
         return err;
     }
 
@@ -141,7 +141,7 @@ CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
             return ::listen(server_fd_, MaxConnections);
         }))
     {
-        logger().error("Failed to listen on server socket: {}", std::strerror(err));
+        logger().error("Failed to listen on server socket: {}.", std::strerror(err));
         return err;
     }
 
@@ -165,7 +165,7 @@ void UnixSocketServer::handleAccept()
             return client_fd = ::accept(server_fd_, nullptr, nullptr);
         }))
     {
-        logger().warn("Failed to accept client connection: {}", std::strerror(err));
+        logger().warn("Failed to accept client connection: {}.", std::strerror(err));
         return;
     }
 
@@ -201,7 +201,7 @@ void UnixSocketServer::handleClientRequest(const ClientId client_id, const int c
         }
         else
         {
-            logger().warn("Failed to handle client request - closing connection (id={}, fd={}): {}",
+            logger().warn("Failed to handle client request - closing connection (id={}, fd={}): {}.",
                           client_id,
                           client_fd,
                           std::strerror(err));
