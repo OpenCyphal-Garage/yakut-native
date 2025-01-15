@@ -13,6 +13,8 @@
 #include <libcyphal/application/node.hpp>
 #include <libcyphal/types.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <functional>
@@ -20,7 +22,6 @@
 #include <memory>
 #include <random>
 #include <string>
-#include <sys/syslog.h>
 #include <utility>
 
 namespace ocvsmd
@@ -71,8 +72,8 @@ cetl::optional<std::string> Application::init()
     using Ch = ExecCmdChannel;
     ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto& request) {
         //
-        ::syslog(LOG_DEBUG, "D << 🆕 Ch created.");                                       // NOLINT
-        ::syslog(LOG_DEBUG, "D << 🔵 Ch ininital Msg='%s'.", request.some_stuff.data());  // NOLINT
+        logger_->info("D << 🆕 Ch created.");
+        logger_->info("D << 🔵 Ch initial Msg='{}'.", reinterpret_cast<const char*>(request.some_stuff.data()));
 
         ipc_exec_cmd_ch_ = std::move(ch);
         ipc_exec_cmd_ch_->subscribe([this](const auto& event_var) {
@@ -81,9 +82,9 @@ cetl::optional<std::string> Application::init()
                 cetl::make_overloaded(
                     [this](const ExecCmdChannel::Connected&) {
                         //
-                        ::syslog(LOG_DEBUG, "D << 🟢 Ch connected.");  // NOLINT
+                        logger_->info("D << 🟢 Ch connected.");
 
-                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch 'SR' msg.");  // NOLINT
+                        logger_->info("D >> 🔵 Ch 'SR' msg.");
                         ExecCmd cmd{&memory_};
                         cmd.some_stuff.push_back('S');
                         cmd.some_stuff.push_back('R');
@@ -93,16 +94,15 @@ cetl::optional<std::string> Application::init()
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
-                        ::syslog(LOG_DEBUG, "D << 🔵 Ch Msg='%s'.", input.some_stuff.data());  // NOLINT
+                        logger_->info("D << 🔵 Ch Msg='{}'.", reinterpret_cast<const char*>(input.some_stuff.data()));
 
-                        ::syslog(LOG_DEBUG, "D >> 🔵 Ch '%s' msg.", input.some_stuff.data());  // NOLINT
+                        logger_->info("D >> 🔵 Ch '{}' msg.", reinterpret_cast<const char*>(input.some_stuff.data()));
                         const int result = ipc_exec_cmd_ch_->send(input);
                         (void) result;
                     },
                     [this](const ExecCmdChannel::Completed& completed) {
                         //
-                        // NOLINTNEXTLINE
-                        ::syslog(LOG_DEBUG, "D << 🔴 Ch Completed (err=%d).", static_cast<int>(completed.error_code));
+                        logger_->info("D << 🔴 Ch Completed (err={}).", static_cast<int>(completed.error_code));
                         ipc_exec_cmd_ch_.reset();
                     }),
                 event_var);
@@ -132,11 +132,10 @@ void Application::runWhile(const std::function<bool()>& loop_predicate)
             timeout = std::min(timeout, spin_result.next_exec_time.value() - executor_.now());
         }
 
-        // TODO: Don't ignore polling failures; come up with a strategy to handle them.
-        // Probably we should log it, break the loop,
-        // and exit with a failure code (b/c it is a critical and unexpected error).
-        auto maybe_poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout));
-        (void) maybe_poll_failure;
+        if (const auto maybe_poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+        {
+            spdlog::warn("Failed to poll awaitable resources.");
+        }
     }
 }
 

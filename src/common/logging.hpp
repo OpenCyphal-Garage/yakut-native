@@ -17,7 +17,8 @@ namespace ocvsmd
 namespace common
 {
 
-using LoggerPtr = std::shared_ptr<spdlog::logger>;
+using Logger    = spdlog::logger;
+using LoggerPtr = std::shared_ptr<Logger>;
 
 inline LoggerPtr getLogger(const std::string& name)
 {

@@ -5,9 +5,11 @@
 
 #include "client_router.hpp"
 
+#include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 #include "ipc_types.hpp"
+#include "logging.hpp"
 #include "pipe/client_pipe.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_0_1.hpp"
@@ -23,7 +25,6 @@
 #include <cerrno>
 #include <cstdint>
 #include <memory>
-#include <sys/syslog.h>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -43,6 +44,7 @@ public:
     ClientRouterImpl(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe)
         : memory_{memory}
         , client_pipe_{std::move(client_pipe)}
+        , logger_{getLogger("ipc")}
         , next_tag_{0}
         , is_connected_{false}
     {
@@ -104,7 +106,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            ::syslog(LOG_DEBUG, "Gateway(tag=%zu).", endpoint.tag);  // NOLINT
+            router_.logger_->trace("Gateway(tag={}).", endpoint.tag);
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
@@ -114,7 +116,7 @@ private:
 
         ~GatewayImpl()
         {
-            ::syslog(LOG_DEBUG, "~Gateway(tag=%zu, seq=%zu).", endpoint_.tag, next_sequence_);  // NOLINT
+            router_.logger_->trace("~Gateway(tag={}).", endpoint_.tag);
 
             performWithoutThrowing([this] {
                 //
@@ -264,7 +266,7 @@ private:
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
     {
-        ::syslog(LOG_DEBUG, "Pipe is connected.");  // NOLINT
+        logger_->debug("Pipe is connected.");
 
         // It's not enough to consider the server route connected by the pipe event.
         // We gonna initiate `RouteConnect` negotiation (see `handleRouteConnect`).
@@ -315,7 +317,7 @@ private:
 
     CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
     {
-        ::syslog(LOG_DEBUG, "Pipe is disconnected.");  // NOLINT
+        logger_->debug("Pipe is disconnected.");
 
         if (is_connected_)
         {
@@ -341,11 +343,10 @@ private:
 
     CETL_NODISCARD int handleRouteConnect(const RouteConnect_0_1& rt_conn)
     {
-        ::syslog(LOG_DEBUG,  // NOLINT
-                 "Route connect response (ver='%d.%d', err=%d).",
-                 static_cast<int>(rt_conn.version.major),
-                 static_cast<int>(rt_conn.version.minor),
-                 static_cast<int>(rt_conn.error_code));
+        logger_->debug("Route connect response (ver='{}.{}', err={}).",
+                       static_cast<int>(rt_conn.version.major),
+                       static_cast<int>(rt_conn.version.minor),
+                       static_cast<int>(rt_conn.error_code));
 
         if (!is_connected_)
         {
@@ -376,17 +377,24 @@ private:
         {
             if (const auto gateway = tag_to_gw->second.lock())
             {
+                logger_->trace("Route Ch Msg (tag={}, seq={}).", route_ch_msg.tag, route_ch_msg.sequence);
+
                 return gateway->event(detail::Gateway::Event::Message{route_ch_msg.sequence, msg_real_payload});
             }
         }
 
-        // Nothing to do here with unsolicited messages - just ignore them.
+        // Nothing to do here with unsolicited messages - just trace and ignore them.
+        //
+        logger_->debug("Route Ch Unsolicited Msg (tag={}, seq={}, srv=0x{:X}).",
+                       route_ch_msg.tag,
+                       route_ch_msg.sequence,
+                       route_ch_msg.service_id);
         return 0;
     }
 
     CETL_NODISCARD int handleRouteChannelEnd(const RouteChannelEnd_0_1& route_ch_end)
     {
-        ::syslog(LOG_DEBUG, "Route Ch End (tag=%zu, err=%d).", route_ch_end.tag, route_ch_end.error_code);  // NOLINT
+        logger_->debug("Route Ch End (tag={}, err={}).", route_ch_end.tag, route_ch_end.error_code);
 
         const Endpoint endpoint{route_ch_end.tag};
         const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
@@ -400,6 +408,7 @@ private:
 
     cetl::pmr::memory_resource& memory_;
     pipe::ClientPipe::Ptr       client_pipe_;
+    LoggerPtr                   logger_;
     Endpoint::Tag               next_tag_;
     bool                        is_connected_;
     MapOfWeakGateways           map_of_gateways_;

@@ -5,6 +5,7 @@
 
 #include "unix_socket_server.hpp"
 
+#include "logging.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 
@@ -18,7 +19,6 @@
 #include <memory>
 #include <string>
 #include <sys/socket.h>
-#include <sys/syslog.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <utility>
@@ -39,20 +39,19 @@ constexpr int MaxConnections = 5;
 class ClientContextImpl final : public detail::ClientContext
 {
 public:
-    ClientContextImpl(const UnixSocketServer::ClientId id, const int fd)
+    ClientContextImpl(const UnixSocketServer::ClientId id, const int fd, Logger& logger)
         : id_{id}
         , fd_{fd}
+        , logger_{logger}
     {
         CETL_DEBUG_ASSERT(fd_ != -1, "");
 
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_NOTICE, "New client connection on fd=%d (id=%zu).", fd, id);
+        logger_.trace("ClientContextImpl(fd={}, id={}).", fd_, id_);
     }
 
     ~ClientContextImpl() override
     {
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_NOTICE, "Closing client connection on fd=%d (id=%zu).", fd_, id_);
+        logger_.trace("~ClientContextImpl(fd={}, id={}).", fd_, id_);
 
         platform::posixSyscallError([this] {
             //
@@ -73,6 +72,7 @@ public:
 private:
     const UnixSocketServer::ClientId    id_;
     const int                           fd_;
+    Logger&                             logger_;
     libcyphal::IExecutor::Callback::Any fd_callback_;
 
 };  // ClientContextImpl
@@ -111,8 +111,7 @@ CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
             return server_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
         }))
     {
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_ERR, "Failed to create server socket: %s", std::strerror(err));
+        logger().error("Failed to create server socket: {}", std::strerror(err));
         return err;
     }
 
@@ -133,8 +132,7 @@ CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
                           offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
         }))
     {
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_ERR, "Failed to bind server socket: %s", std::strerror(err));
+        logger().error("Failed to bind server socket: {}", std::strerror(err));
         return err;
     }
 
@@ -143,8 +141,7 @@ CETL_NODISCARD int UnixSocketServer::start(EventHandler event_handler)
             return ::listen(server_fd_, MaxConnections);
         }))
     {
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_ERR, "Failed to listen on server socket: %s", std::strerror(err));
+        logger().error("Failed to listen on server socket: {}", std::strerror(err));
         return err;
     }
 
@@ -168,8 +165,7 @@ void UnixSocketServer::handleAccept()
             return client_fd = ::accept(server_fd_, nullptr, nullptr);
         }))
     {
-        // NOLINTNEXTLINE *-vararg
-        ::syslog(LOG_WARNING, "Failed to accept client connection: %s", std::strerror(err));
+        logger().warn("Failed to accept client connection: {}", std::strerror(err));
         return;
     }
 
@@ -177,7 +173,7 @@ void UnixSocketServer::handleAccept()
     CETL_DEBUG_ASSERT(client_fd_to_context_.find(client_fd) == client_fd_to_context_.end(), "");
 
     const ClientId new_client_id  = ++unique_client_id_counter_;
-    auto           client_context = std::make_unique<ClientContextImpl>(new_client_id, client_fd);
+    auto           client_context = std::make_unique<ClientContextImpl>(new_client_id, client_fd, logger());
     //
     client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
         [this, new_client_id, client_fd](const auto&) {
@@ -201,17 +197,14 @@ void UnixSocketServer::handleClientRequest(const ClientId client_id, const int c
     {
         if (err == -1)
         {
-            // NOLINTNEXTLINE *-vararg
-            ::syslog(LOG_DEBUG, "End of client stream - closing connection (id=%zu, fd=%d).", client_id, client_fd);
+            logger().debug("End of client stream - closing connection (id={}, fd={}).", client_id, client_fd);
         }
         else
         {
-            // NOLINTNEXTLINE *-vararg
-            ::syslog(LOG_WARNING,
-                     "Failed to handle client request - closing connection (id=%zu, fd=%d): %s",
-                     client_id,
-                     client_fd,
-                     std::strerror(err));
+            logger().warn("Failed to handle client request - closing connection (id={}, fd={}): {}",
+                          client_id,
+                          client_fd,
+                          std::strerror(err));
         }
 
         client_id_to_fd_.erase(client_id);

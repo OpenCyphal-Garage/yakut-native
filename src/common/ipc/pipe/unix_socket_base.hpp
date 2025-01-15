@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_BASE_HPP_INCLUDED
 
 #include "ipc/ipc_types.hpp"
+#include "logging.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 
 #include <cetl/cetl.hpp>
@@ -18,7 +19,6 @@
 #include <cstdint>
 #include <cstring>
 #include <numeric>
-#include <sys/syslog.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -42,6 +42,11 @@ public:
 protected:
     UnixSocketBase()  = default;
     ~UnixSocketBase() = default;
+
+    Logger& logger() const noexcept
+    {
+        return *logger_;
+    }
 
     CETL_NODISCARD static int send(const int output_fd, const Payloads payloads)
     {
@@ -80,7 +85,7 @@ protected:
     }
 
     template <typename Action>
-    CETL_NODISCARD static int receiveMessage(const int input_fd, Action&& action)
+    CETL_NODISCARD int receiveMessage(const int input_fd, Action&& action)
     {
         // 1. Receive and validate the message header.
         //
@@ -93,8 +98,7 @@ protected:
                     return bytes_read = ::read(input_fd, &msg_header, sizeof(msg_header));
                 }))
             {
-                // NOLINTNEXTLINE *-vararg
-                ::syslog(LOG_ERR, "Failed to read message header (fd=%d): %s", input_fd, std::strerror(err));
+                logger_->error("Failed to read message header (fd={}): {}", input_fd, std::strerror(err));
                 return err;
             }
 
@@ -114,16 +118,16 @@ protected:
 
         // 2. Read message payload.
         //
-        auto read_and_act = [input_fd, act = std::forward<Action>(action)](const cetl::span<std::uint8_t> buf_span) {
+        auto read_and_act = [this, input_fd, act = std::forward<Action>(action)](  //
+                                const cetl::span<std::uint8_t> buf_span) {
             //
             ssize_t read = 0;
-            if (const auto err = platform::posixSyscallError([input_fd, buf_span, &read] {
+            if (const auto err = platform::posixSyscallError([this, input_fd, buf_span, &read] {
                     //
                     return read = ::read(input_fd, buf_span.data(), buf_span.size());
                 }))
             {
-                // NOLINTNEXTLINE *-vararg
-                ::syslog(LOG_ERR, "Failed to read message payload (fd=%d): %s", input_fd, std::strerror(err));
+                logger_->error("Failed to read message payload (fd={}): {}", input_fd, std::strerror(err));
                 return err;
             }
             if (read != buf_span.size())
@@ -153,6 +157,8 @@ private:
     static constexpr std::size_t   MsgSmallPayloadSize = 256;
     static constexpr std::uint32_t MsgSignature        = 0x5356434F;     // 'OCVS'
     static constexpr std::size_t   MsgMaxSize          = 1ULL << 20ULL;  // 1 MB
+
+    LoggerPtr logger_{getLogger("ipc")};
 
 };  // UnixSocketBase
 

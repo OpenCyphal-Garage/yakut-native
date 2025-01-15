@@ -7,6 +7,7 @@
 #define OCVSMD_DAEMON_ENGINE_APPLICATION_HPP_INCLUDED
 
 #include "cyphal/udp_transport_bag.hpp"
+#include "logging.hpp"
 #include "ocvsmd/platform/defines.hpp"
 
 #include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
@@ -47,6 +48,7 @@ private:
 
     static UniqueId getUniqueId();
 
+    common::LoggerPtr                                     logger_{common::getLogger("engine")};
     ocvsmd::platform::SingleThreadedExecutor              executor_;
     cetl::pmr::memory_resource&                           memory_{*cetl::pmr::get_default_resource()};
     cyphal::UdpTransportBag                               udp_transport_bag_{memory_, executor_};

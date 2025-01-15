@@ -7,8 +7,8 @@
 
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
-#include "ipc/pipe/client_pipe.hpp"
 #include "ipc/pipe/unix_socket_client.hpp"
+#include "logging.hpp"
 
 #include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
 
@@ -17,6 +17,7 @@
 #include <cetl/visit_helpers.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <cstring>
 #include <memory>
 #include <utility>
 
@@ -32,6 +33,7 @@ class DaemonImpl final : public Daemon
 public:
     DaemonImpl(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor)
         : memory_{memory}
+        , logger_{common::getLogger("sdk")}
     {
         using ClientPipe = common::ipc::pipe::UnixSocketClient;
 
@@ -41,47 +43,45 @@ public:
 
     CETL_NODISCARD int start()
     {
-        const int result = ipc_router_->start();
-        if (result != 0)
+        if (const int err = ipc_router_->start())
         {
-            // NOLINTNEXTLINE *-vararg
-            ::syslog(LOG_ERR, "Failed to start IPC router: %d", result);
-            return result;
+            logger_->error("Failed to start IPC router: {}", std::strerror(err));
+            return err;
         }
 
         ipc_exec_cmd_ch_ = ipc_router_->makeChannel<ExecCmdChannel>("daemon");
-        ::syslog(LOG_DEBUG, "C << 🆕 Ch created.");  // NOLINT
+        logger_->debug("C << 🆕 Ch created.");
         ipc_exec_cmd_ch_->subscribe([this](const auto& event_var) {
             //
             cetl::visit(  //
                 cetl::make_overloaded(
                     [this](const ExecCmdChannel::Connected&) {
                         //
-                        ::syslog(LOG_DEBUG, "C << 🟢 Ch connected.");  // NOLINT
+                        logger_->info("C << 🟢 Ch connected.");
 
                         ExecCmd cmd{&memory_};
                         cmd.some_stuff.push_back('C');
                         cmd.some_stuff.push_back('L');
                         cmd.some_stuff.push_back('\0');
-                        ::syslog(LOG_DEBUG, "C >> 🔵 Ch 'CL' msg.");  // NOLINT
+                        logger_->info("C >> 🔵 Ch 'CL' msg.");
                         const int result = ipc_exec_cmd_ch_->send(cmd);
                         (void) result;
                     },
                     [this](const ExecCmdChannel::Input& input) {
                         //
-                        ::syslog(LOG_DEBUG, "C << 🔵 Ch Msg='%s'.", input.some_stuff.data());  // NOLINT
+                        logger_->info("C << 🔵 Ch Msg='{}'.", reinterpret_cast<const char*>(input.some_stuff.data()));
 
                         if (countdown_--)
                         {
-                            ::syslog(LOG_DEBUG, "C >> 🔵 Ch '%s' msg.", input.some_stuff.data());  // NOLINT
+                            logger_->info("C >> 🔵 Ch '{}' msg.",
+                                          reinterpret_cast<const char*>(input.some_stuff.data()));
                             const int result = ipc_exec_cmd_ch_->send(input);
                             (void) result;
                         }
                     },
                     [this](const ExecCmdChannel::Completed& completed) {
                         //
-                        // NOLINTNEXTLINE
-                        ::syslog(LOG_DEBUG, "C << 🔴 Ch Completed (err=%d).", static_cast<int>(completed.error_code));
+                        logger_->info("C << 🔴 Ch Completed (err={}).", static_cast<int>(completed.error_code));
                         ipc_exec_cmd_ch_.reset();
                     }),
                 event_var);
@@ -95,6 +95,7 @@ private:
     using ExecCmdChannel = common::ipc::Channel<ExecCmd, ExecCmd>;
 
     cetl::pmr::memory_resource&    memory_;
+    common::LoggerPtr              logger_;
     common::ipc::ClientRouter::Ptr ipc_router_;
     cetl::optional<ExecCmdChannel> ipc_exec_cmd_ch_;
 

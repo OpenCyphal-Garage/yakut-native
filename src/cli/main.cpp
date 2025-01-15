@@ -10,14 +10,19 @@
 #include <libcyphal/types.hpp>
 
 #include <spdlog/cfg/argv.h>
+#include <spdlog/common.h>
+#include <spdlog/logger.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
+#include <exception>
 #include <iostream>
+#include <memory>
 #include <signal.h>  // NOLINT
-#include <sys/syslog.h>
+#include <string>
 
 namespace
 {
@@ -25,7 +30,7 @@ namespace
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile sig_atomic_t g_running = 1;
 
-void signal_handler(const int sig)
+void signalHandler(const int sig)
 {
     switch (sig)
     {
@@ -38,26 +43,73 @@ void signal_handler(const int sig)
     }
 }
 
-void setup_signal_handlers()
+void setupSignalHandlers()
 {
     struct sigaction sigbreak
     {};
-    sigbreak.sa_handler = &signal_handler;
+    sigbreak.sa_handler = &signalHandler;
     ::sigaction(SIGINT, &sigbreak, nullptr);
     ::sigaction(SIGTERM, &sigbreak, nullptr);
 }
 
+/// Sets up the logging system.
+///
+/// File sink is used for all loggers (with Info default level).
+///
+void setupLogging(const int argc, const char** const argv)
+{
+    using spdlog::sinks::rotating_file_sink_st;
+
+    try
+    {
+        constexpr std::size_t log_max_files     = 4;
+        constexpr std::size_t log_file_max_size = 16UL * 1048576UL;  // 16 MB
+
+        const std::string log_prefix    = "ocvsmd-cli";
+        const std::string log_file_nm   = log_prefix + ".log";
+        const auto        log_file_path = "./" + log_file_nm;
+
+        // Drop all existing loggers, including the default one, so that we can reconfigure them.
+        spdlog::drop_all();
+
+        const auto file_sink = std::make_shared<rotating_file_sink_st>(  //
+            log_file_path,
+            log_file_max_size,
+            log_max_files);
+        file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%P] [%n] [%l] %v");
+
+        const auto default_logger = std::make_shared<spdlog::logger>("", file_sink);
+        default_logger->flush_on(spdlog::level::trace);
+        register_logger(default_logger);
+        set_default_logger(default_logger);
+
+        // Register specific subsystem loggers.
+        //
+        register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
+        register_logger(std::make_shared<spdlog::logger>("sdk", file_sink));
+
+        // Accept `SPDLOG_LEVEL` argument (like `SPDLOG_LEVEL=debug,ipc=trace`).
+        spdlog::cfg::load_argv_levels(argc, argv);
+
+    } catch (const std::exception& ex)
+    {
+        std::cerr << "Failed to setup logging: " << ex.what() << '\n';
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 }  // namespace
 
-int main(const int, const char** const)
+int main(const int argc, const char** const argv)
 {
     using std::chrono_literals::operator""s;
 
-    setup_signal_handlers();
+    setupSignalHandlers();
+    setupLogging(argc, argv);
 
     spdlog::info("ocvsmd cli started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
-    ::openlog("ocvsmd-cli", LOG_PID, LOG_USER);
-    ::syslog(LOG_NOTICE, "ocvsmd cli started.");  // NOLINT *-vararg
+    int result = EXIT_SUCCESS;
+    try
     {
         auto&                                    memory = *cetl::pmr::new_delete_resource();
         ocvsmd::platform::SingleThreadedExecutor executor;
@@ -68,7 +120,6 @@ int main(const int, const char** const)
             std::cerr << "Failed to create daemon.\n";
             return EXIT_FAILURE;
         }
-
         while (g_running != 0)
         {
             const auto spin_result = executor.spinOnce();
@@ -80,20 +131,23 @@ int main(const int, const char** const)
                 timeout = std::min(timeout, spin_result.next_exec_time.value() - executor.now());
             }
 
-            // TODO: Don't ignore polling failures; come up with a strategy to handle them.
-            // Probably we should log it, break the loop,
-            // and exit with a failure code (b/c it is a critical and unexpected error).
-            auto maybe_poll_failure = executor.pollAwaitableResourcesFor(cetl::make_optional(timeout));
-            (void) maybe_poll_failure;
+            if (const auto maybe_poll_failure = executor.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+            {
+                spdlog::warn("Failed to poll awaitable resources.");
+            }
         }
 
         if (g_running == 0)
         {
-            ::syslog(LOG_NOTICE, "Received termination signal.");  // NOLINT *-vararg
+            spdlog::debug("Received termination signal.");
         }
-    }
-    ::syslog(LOG_NOTICE, "ocvsmd cli terminated.");  // NOLINT *-vararg
-    ::closelog();
 
-    return 0;
+    } catch (const std::exception& ex)
+    {
+        spdlog::critical("Unhandled exception: {}", ex.what());
+        result = EXIT_FAILURE;
+    }
+    spdlog::info("OCVSMD cli terminated.");
+
+    return result;
 }

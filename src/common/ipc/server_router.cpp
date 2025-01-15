@@ -5,6 +5,7 @@
 
 #include "server_router.hpp"
 
+#include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 #include "ipc_types.hpp"
@@ -100,7 +101,7 @@ private:
             , endpoint_{endpoint}
             , next_sequence_{0}
         {
-            router.logger_->trace("Gateway(cl={}, tag={}).", endpoint.client_id, endpoint.tag);
+            router_.logger_->trace("Gateway(cl={}, tag={}).", endpoint.client_id, endpoint.tag);
         }
 
         GatewayImpl(const GatewayImpl&)                = delete;
