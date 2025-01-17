@@ -48,16 +48,16 @@ public:
     {
         CETL_DEBUG_ASSERT(handler, "");
 
-        const auto service_id = AnyChannel::getServiceId<typename Ch::Input>(service_name);
+        const auto svc_desc = AnyChannel::getServiceDesc<typename Ch::Input>(service_name);
 
         registerChannelFactory(  //
-            service_id,
-            [this, service_id, new_ch_handler = std::move(handler)](detail::Gateway::Ptr gateway,
-                                                                    const Payload        payload) {
+            svc_desc,
+            [this, svc_id = svc_desc.id, new_ch_handler = std::move(handler)](detail::Gateway::Ptr gateway,
+                                                                              const Payload        payload) {
                 typename Ch::Input input{&memory()};
                 if (tryDeserializePayload(payload, input))
                 {
-                    new_ch_handler(Ch{memory(), gateway, service_id}, input);
+                    new_ch_handler(Ch{memory(), gateway, svc_id}, input);
                 }
             });
     }
@@ -67,8 +67,8 @@ protected:
 
     ServerRouter() = default;
 
-    virtual void registerChannelFactory(const detail::ServiceId  service_id,
-                                        TypeErasedChannelFactory channel_factory) = 0;
+    virtual void registerChannelFactory(const detail::ServiceDesc service_desc,
+                                        TypeErasedChannelFactory  channel_factory) = 0;
 
 };  // ServerRouter
 

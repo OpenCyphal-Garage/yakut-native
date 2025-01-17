@@ -67,10 +67,11 @@ public:
         });
     }
 
-    void registerChannelFactory(const detail::ServiceId  service_id,  //
-                                TypeErasedChannelFactory channel_factory) override
+    void registerChannelFactory(const detail::ServiceDesc service_desc,  //
+                                TypeErasedChannelFactory  channel_factory) override
     {
-        service_id_to_channel_factory_[service_id] = std::move(channel_factory);
+        logger_->debug("Registering '{}' service (id=0x{:X}).", service_desc.name, service_desc.id);
+        service_id_to_channel_factory_[service_desc.id] = std::move(channel_factory);
     }
 
 private:
@@ -100,6 +101,7 @@ private:
             : router_{router}
             , endpoint_{endpoint}
             , next_sequence_{0}
+            , completion_error_code_{0}
         {
             router_.logger_->trace("Gateway(cl={}, tag={}).", endpoint.client_id, endpoint.tag);
         }
@@ -111,17 +113,20 @@ private:
 
         ~GatewayImpl()
         {
-            router_.logger_->trace("~Gateway(cl={}, tag={}).", endpoint_.client_id, endpoint_.tag);
+            router_.logger_->trace("~Gateway(cl={}, tag={}, err={}).",
+                                   endpoint_.client_id,
+                                   endpoint_.tag,
+                                   completion_error_code_);
 
             performWithoutThrowing([this] {
                 //
-                router_.onGatewayDisposal(endpoint_);
+                router_.onGatewayDisposal(endpoint_, completion_error_code_);
             });
         }
 
         // detail::Gateway
 
-        CETL_NODISCARD int send(const detail::ServiceId service_id, const Payload payload) override
+        CETL_NODISCARD int send(const detail::ServiceDesc::Id service_id, const Payload payload) override
         {
             if (!router_.isConnected(endpoint_))
             {
@@ -146,6 +151,11 @@ private:
             });
         }
 
+        void complete(const int error_code) override
+        {
+            completion_error_code_ = error_code;
+        }
+
         CETL_NODISCARD int event(const Event::Var& event) override
         {
             // It's fine to be not subscribed to events.
@@ -163,10 +173,11 @@ private:
         const Endpoint    endpoint_;
         std::uint64_t     next_sequence_;
         EventHandler      event_handler_;
+        int               completion_error_code_;
 
     };  // GatewayImpl
 
-    using ServiceIdToChannelFactory = std::unordered_map<detail::ServiceId, TypeErasedChannelFactory>;
+    using ServiceIdToChannelFactory = std::unordered_map<detail::ServiceDesc::Id, TypeErasedChannelFactory>;
     using MapOfWeakGateways         = std::unordered_map<Endpoint::Tag, detail::Gateway::WeakPtr>;
     using ClientIdToMapOfGateways   = std::unordered_map<Endpoint::ClientId, MapOfWeakGateways>;
 
@@ -227,7 +238,7 @@ private:
     /// The "dying" gateway wishes to notify the remote client router about its disposal.
     /// This local router fulfills the wish if the gateway was registered and the client router is connected.
     ///
-    void onGatewayDisposal(const Endpoint& endpoint)
+    void onGatewayDisposal(const Endpoint& endpoint, const int completion_err)
     {
         const auto cl_to_gws = client_id_to_map_of_gateways_.find(endpoint.client_id);
         if (cl_to_gws != client_id_to_map_of_gateways_.end())
@@ -243,7 +254,7 @@ private:
                 Route_0_1 route{&memory_};
                 auto&     channel_end  = route.set_channel_end();
                 channel_end.tag        = endpoint.tag;
-                channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
+                channel_end.error_code = completion_err;
 
                 const int error = tryPerformOnSerialized(route, [this, &endpoint](const auto payload) {
                     //

@@ -10,9 +10,6 @@
 #include "logging.hpp"
 #include "ocvsmd/platform/defines.hpp"
 
-#include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
-
-#include <ipc/channel.hpp>
 #include <ipc/server_router.hpp>
 
 #include <cetl/cetl.hpp>
@@ -39,11 +36,6 @@ public:
     void                                       runWhile(const std::function<bool()>& loop_predicate);
 
 private:
-    // TODO: temp stuff
-    using ExecCmd        = common::node_command::ExecCmd_0_1;
-    using ExecCmdChannel = common::ipc::Channel<ExecCmd, ExecCmd>;
-    cetl::optional<ExecCmdChannel> ipc_exec_cmd_ch_;
-
     using UniqueId = uavcan::node::GetInfo::Response_1_0::_traits_::TypeOf::unique_id;
 
     static UniqueId getUniqueId();

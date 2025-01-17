@@ -5,9 +5,9 @@
 
 #include "application.hpp"
 
-#include "ipc/channel.hpp"
 #include "ipc/pipe/unix_socket_server.hpp"
 #include "ipc/server_router.hpp"
+#include "svc/node/exec_cmd_service.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
@@ -69,48 +69,8 @@ cetl::optional<std::string> Application::init()
     auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
     ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
-    using Ch = ExecCmdChannel;
-    ipc_router_->registerChannel<ExecCmdChannel>("daemon", [this](ExecCmdChannel&& ch, const auto& request) {
-        //
-        logger_->info("D << 🆕 Ch created.");
-        // NOLINTNEXTLINE
-        logger_->info("D << 🔵 Ch initial Msg='{}'.", reinterpret_cast<const char*>(request.some_stuff.data()));
-
-        ipc_exec_cmd_ch_ = std::move(ch);
-        ipc_exec_cmd_ch_->subscribe([this](const auto& event_var) {
-            //
-            cetl::visit(  //
-                cetl::make_overloaded(
-                    [this](const ExecCmdChannel::Connected&) {
-                        //
-                        logger_->info("D << 🟢 Ch connected.");
-
-                        logger_->info("D >> 🔵 Ch 'SR' msg.");
-                        ExecCmd cmd{&memory_};
-                        cmd.some_stuff.push_back('S');
-                        cmd.some_stuff.push_back('R');
-                        cmd.some_stuff.push_back('\0');
-                        const int result = ipc_exec_cmd_ch_->send(cmd);
-                        (void) result;
-                    },
-                    [this](const ExecCmdChannel::Input& input) {
-                        //
-                        // NOLINTNEXTLINE
-                        logger_->info("D << 🔵 Ch Msg='{}'.", reinterpret_cast<const char*>(input.some_stuff.data()));
-
-                        // NOLINTNEXTLINE
-                        logger_->info("D >> 🔵 Ch '{}' msg.", reinterpret_cast<const char*>(input.some_stuff.data()));
-                        const int result = ipc_exec_cmd_ch_->send(input);
-                        (void) result;
-                    },
-                    [this](const ExecCmdChannel::Completed& completed) {
-                        //
-                        logger_->info("D << 🔴 Ch Completed (err={}).", static_cast<int>(completed.error_code));
-                        ipc_exec_cmd_ch_.reset();
-                    }),
-                event_var);
-        });
-    });
+    const svc::ScvContext svc_context{memory_, *ipc_router_, *presentation_};
+    svc::node::ExecCmdService::registerWithContext(svc_context);
 
     if (0 != ipc_router_->start())
     {

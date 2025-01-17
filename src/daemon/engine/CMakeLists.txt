@@ -35,6 +35,7 @@ add_library(ocvsmd_engine
         application.cpp
         config.cpp
         platform/udp/udp.c
+        svc/node/exec_cmd_service.cpp
 )
 target_link_libraries(ocvsmd_engine
         PUBLIC udpard

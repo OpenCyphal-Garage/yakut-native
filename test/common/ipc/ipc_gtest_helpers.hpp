@@ -181,7 +181,7 @@ auto PayloadOfRouteChannelMsg(const Msg&                  msg,
                               const std::uint64_t         seq,
                               const cetl::string_view     srv_name = "")
 {
-    RouteChannelMsg_0_1 route_ch_msg{tag, seq, AnyChannel::getServiceId<Msg>(srv_name), 0, &mr};
+    RouteChannelMsg_0_1 route_ch_msg{tag, seq, AnyChannel::getServiceDesc<Msg>(srv_name).id, 0, &mr};
     EXPECT_THAT(tryPerformOnSerialized(  //
                     msg,
                     [&route_ch_msg](const auto payload) {

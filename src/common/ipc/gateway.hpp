@@ -25,7 +25,15 @@ namespace ipc
 namespace detail
 {
 
-using ServiceId = std::uint64_t;
+struct ServiceDesc
+{
+    using Id   = std::uint64_t;
+    using Name = cetl::string_view;
+
+    const Id   id;
+    const Name name;
+
+};  // ServiceDesc
 
 class Gateway
 {
@@ -58,9 +66,10 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    CETL_NODISCARD virtual int send(const ServiceId service_id, const Payload payload) = 0;
-    CETL_NODISCARD virtual int event(const Event::Var& event)                          = 0;
-    virtual void               subscribe(EventHandler event_handler)                   = 0;
+    CETL_NODISCARD virtual int send(const ServiceDesc::Id service_id, const Payload payload) = 0;
+    virtual void               complete(int error_code)                                      = 0;
+    CETL_NODISCARD virtual int event(const Event::Var& event)                                = 0;
+    virtual void               subscribe(EventHandler event_handler)                         = 0;
 
 protected:
     Gateway()  = default;

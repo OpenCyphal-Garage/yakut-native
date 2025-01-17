@@ -10,6 +10,7 @@
 
 #include <cetl/cetl.hpp>
 
+#include <spdlog/fmt/fmt.h>
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 
@@ -49,5 +50,16 @@ inline LoggerPtr getLogger(const std::string& name) noexcept
 
 }  // namespace common
 }  // namespace ocvsmd
+
+#if (__cplusplus < CETL_CPP_STANDARD_17)
+template <>
+struct fmt::formatter<cetl::string_view> : formatter<string_view>
+{
+    auto format(cetl::string_view sv, format_context& ctx) const
+    {
+        return formatter<string_view>::format(string_view{sv.data(), sv.size()}, ctx);
+    }
+};
+#endif
 
 #endif  // OCVSMD_COMMON_LOGGING_HPP_INCLUDED

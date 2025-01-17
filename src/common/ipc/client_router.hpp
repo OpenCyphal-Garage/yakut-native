@@ -40,10 +40,10 @@ public:
     CETL_NODISCARD virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Ch>
-    CETL_NODISCARD Ch makeChannel(cetl::string_view service_name = "")
+    CETL_NODISCARD Ch makeChannel(const cetl::string_view service_name = "")
     {
-        const auto service_id = AnyChannel::getServiceId<typename Ch::Output>(service_name);
-        return Ch{memory(), makeGateway(), service_id};
+        const auto svc_desc = AnyChannel::getServiceDesc<typename Ch::Output>(service_name);
+        return Ch{memory(), makeGateway(), svc_desc.id};
     }
 
 protected:

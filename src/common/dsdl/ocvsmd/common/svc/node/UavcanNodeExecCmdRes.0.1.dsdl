@@ -1,0 +1,19 @@
+# This is copy/paste of the response part of the `uavcan/node/435.ExecuteCommand.1.3.dsdl` service definition.
+# In use by the `ExecCmdSvcResponse.0.1.dsdl` service message type.
+
+uint8 STATUS_SUCCESS        = 0     # Started or executed successfully
+uint8 STATUS_FAILURE        = 1     # Could not start or the desired outcome could not be reached
+uint8 STATUS_NOT_AUTHORIZED = 2     # Denied due to lack of authorization
+uint8 STATUS_BAD_COMMAND    = 3     # The requested command is not known or not supported
+uint8 STATUS_BAD_PARAMETER  = 4     # The supplied parameter cannot be used with the selected command
+uint8 STATUS_BAD_STATE      = 5     # The current state of the node does not permit execution of this command
+uint8 STATUS_INTERNAL_ERROR = 6     # The operation should have succeeded but an unexpected failure occurred
+uint8 status
+# The result of the request.
+
+uint8[<=46] output
+# Any output that could be useful that has the capability to convey detailed information.
+# Users can send commands and receive specific data, like device status or measurements back in a streamlined manner.
+# The standard commands should leave this field empty unless explicitly specified otherwise.
+
+@extent 48 * 8

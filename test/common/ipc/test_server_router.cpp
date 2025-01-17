@@ -13,7 +13,7 @@
 #include "tracking_memory_resource.hpp"
 
 #include "ocvsmd/common/ipc/Route_0_1.hpp"
-#include "ocvsmd/common/node_command/ExecCmd_0_1.hpp"
+#include "ocvsmd/common/svc/node/ExecCmdSvcRequest_0_1.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -96,7 +96,7 @@ protected:
         auto&     channel_msg  = route.set_channel_msg();
         channel_msg.tag        = tag;
         channel_msg.sequence   = seq++;
-        channel_msg.service_id = AnyChannel::getServiceId<Msg>(service_name);
+        channel_msg.service_id = AnyChannel::getServiceDesc<Msg>(service_name).id;
 
         const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
             //
@@ -151,7 +151,7 @@ TEST_F(TestServerRouter, start)
 
 TEST_F(TestServerRouter, registerChannel)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmdSvcRequest_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ServerPipeMock> server_pipe_mock;
@@ -172,7 +172,7 @@ TEST_F(TestServerRouter, registerChannel)
 
 TEST_F(TestServerRouter, channel_send)
 {
-    using Msg     = ocvsmd::common::node_command::ExecCmd_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmdSvcRequest_0_1;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ServerPipeMock> server_pipe_mock;

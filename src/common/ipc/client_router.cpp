@@ -105,6 +105,7 @@ private:
             : router_{router}
             , endpoint_{endpoint}
             , next_sequence_{0}
+            , completion_error_code_{0}
         {
             router_.logger_->trace("Gateway(tag={}).", endpoint.tag);
         }
@@ -116,19 +117,19 @@ private:
 
         ~GatewayImpl()
         {
-            router_.logger_->trace("~Gateway(tag={}).", endpoint_.tag);
+            router_.logger_->trace("~Gateway(tag={}, err={}).", endpoint_.tag, completion_error_code_);
 
             performWithoutThrowing([this] {
                 //
                 // `next_sequence_ == 0` means that this gateway was never used for sending messages,
                 // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
-                router_.onGatewayDisposal(endpoint_, next_sequence_ > 0);
+                router_.onGatewayDisposal(endpoint_, next_sequence_ > 0, completion_error_code_);
             });
         }
 
         // detail::Gateway
 
-        CETL_NODISCARD int send(const detail::ServiceId service_id, const Payload payload) override
+        CETL_NODISCARD int send(const detail::ServiceDesc::Id service_id, const Payload payload) override
         {
             if (!router_.isConnected(endpoint_))
             {
@@ -153,6 +154,11 @@ private:
             });
         }
 
+        void complete(const int error_code) override
+        {
+            completion_error_code_ = error_code;
+        }
+
         CETL_NODISCARD int event(const Event::Var& event) override
         {
             // It's fine to be not subscribed to events.
@@ -170,6 +176,7 @@ private:
         const Endpoint    endpoint_;
         std::uint64_t     next_sequence_;
         EventHandler      event_handler_;
+        int               completion_error_code_;
 
     };  // GatewayImpl
 
@@ -241,7 +248,7 @@ private:
     /// The "dying" gateway might wish to notify the remote router about its disposal.
     /// This local router fulfills the wish if the gateway was registered and the router is connected.
     ///
-    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end)
+    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end, const int completion_err)
     {
         const bool was_registered = (map_of_gateways_.erase(endpoint.tag) > 0);
 
@@ -253,7 +260,7 @@ private:
             Route_0_1 route{&memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint.tag;
-            channel_end.error_code = 0;  // No error b/c it's a normal channel completion.
+            channel_end.error_code = completion_err;
 
             const int error = tryPerformOnSerialized(route, [this](const auto payload) {
                 //

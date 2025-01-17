@@ -14,9 +14,12 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/common/crc.hpp>
 
+#include <spdlog/fmt/fmt.h>
+
 #include <cerrno>
 #include <cstddef>
 #include <functional>
+#include <string>
 #include <utility>
 
 namespace ocvsmd
@@ -41,14 +44,14 @@ public:
     /// Builds a service ID from either the service name (if not empty), or message type name.
     ///
     template <typename Message>
-    CETL_NODISCARD static detail::ServiceId getServiceId(const cetl::string_view service_name) noexcept
+    CETL_NODISCARD static detail::ServiceDesc getServiceDesc(cetl::string_view service_name) noexcept
     {
         const cetl::string_view srv_or_msg_name = !service_name.empty()  //
                                                       ? service_name
                                                       : Message::_traits_::FullNameAndVersion();
 
         const libcyphal::common::CRC64WE crc64{srv_or_msg_name.cbegin(), srv_or_msg_name.cend()};
-        return crc64.get();
+        return {crc64.get(), srv_or_msg_name};
     }
 
 protected:
@@ -84,6 +87,11 @@ public:
                 //
                 return gateway_->send(service_id_, payload);
             });
+    }
+
+    void complete(const int error_code)
+    {
+        return gateway_->complete(error_code);
     }
 
     void subscribe(EventHandler event_handler)
@@ -140,7 +148,7 @@ private:
 
     };  // Adapter
 
-    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, const detail::ServiceId service_id)
+    Channel(cetl::pmr::memory_resource& memory, detail::Gateway::Ptr gateway, const detail::ServiceDesc::Id service_id)
         : memory_{memory}
         , gateway_{std::move(gateway)}
         , service_id_{service_id}
@@ -152,12 +160,34 @@ private:
 
     std::reference_wrapper<cetl::pmr::memory_resource> memory_;
     detail::Gateway::Ptr                               gateway_;
-    detail::ServiceId                                  service_id_;
+    detail::ServiceDesc::Id                            service_id_;
 
 };  // Channel
 
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd
+
+// MARK: - Formatting
+
+// NOLINTBEGIN
+template <>
+struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Connected> : formatter<string_view>
+{
+    auto format(ocvsmd::common::ipc::AnyChannel::Connected, format_context& ctx) const
+    {
+        return formatter<string_view>::format("Connected", ctx);
+    }
+};
+
+template <>
+struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Completed> : formatter<std::string>
+{
+    auto format(ocvsmd::common::ipc::AnyChannel::Completed completed, format_context& ctx) const
+    {
+        return format_to(ctx.out(), "Completed(err={})", static_cast<int>(completed.error_code));
+    }
+};
+// NOLINTEND
 
 #endif  // OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
