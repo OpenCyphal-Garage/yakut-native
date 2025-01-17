@@ -41,9 +41,9 @@ public:
     // NodeCommandClient
 
     int sendCommand(const cetl::span<const std::uint16_t> /* node_ids */,
-                    const Command::NodeRequest&           /* node_request */,
-                    const std::chrono::microseconds       /* timeout */,
-                    Command::ResultHandler                /* result_handler */) override
+                    const Command::NodeRequest& /* node_request */,
+                    const std::chrono::microseconds /* timeout */,
+                    Command::ResultHandler /* result_handler */) override
     {
         // using ExecCmdRequest = ExecCmdSvcSpec::Request;
         // using RequestPayload = ExecCmdSvcSpec::Request::_traits_::TypeOf::payload;
