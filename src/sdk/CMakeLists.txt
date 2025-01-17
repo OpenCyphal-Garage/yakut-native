@@ -7,7 +7,8 @@ cmake_minimum_required(VERSION 3.27)
 
 add_cyphal_library(
         NAME sdk
-        DSDL_FILES ${submodules_dir}/nunavut/submodules/public_regulated_data_types/uavcan/node/435.ExecuteCommand.1.3.dsdl
+        DSDL_FILES
+            "uavcan/node/435.ExecuteCommand.1.3.dsdl"
         ALLOW_EXPERIMENTAL_LANGUAGES
         LANGUAGE cpp
         LANGUAGE_STANDARD ${CYPHAL_LANGUAGE_STANDARD}

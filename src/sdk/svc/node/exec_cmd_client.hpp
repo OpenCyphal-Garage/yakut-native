@@ -35,10 +35,10 @@ public:
     using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
     using Result       = std::unordered_map<std::uint16_t, NodeResponse>;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&     memory,
-                                   common::ipc::ClientRouter::Ptr  ipc_router,
-                                   Spec::Request&&                 request,
-                                   const std::chrono::microseconds timeout);
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
+                                   const common::ipc::ClientRouter::Ptr& ipc_router,
+                                   Spec::Request&&                       request,
+                                   const std::chrono::microseconds       timeout);
 
     ExecCmdClient(ExecCmdClient&&)                 = delete;
     ExecCmdClient(const ExecCmdClient&)            = delete;

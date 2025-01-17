@@ -12,6 +12,7 @@
 
 #include <uavcan/node/ExecuteCommand_1_3.hpp>
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>
@@ -34,10 +35,10 @@ namespace
 class ExecCmdClientImpl final : public ExecCmdClient
 {
 public:
-    ExecCmdClientImpl(cetl::pmr::memory_resource&     memory,
-                      common::ipc::ClientRouter::Ptr  ipc_router,
-                      Spec::Request&&                 request,
-                      const std::chrono::microseconds timeout)
+    ExecCmdClientImpl(cetl::pmr::memory_resource&           memory,
+                      const common::ipc::ClientRouter::Ptr& ipc_router,
+                      Spec::Request&&                       request,
+                      const std::chrono::microseconds       timeout)
         : memory_{memory}
         , logger_{common::getLogger("svc")}
         , request_{std::move(request)}
@@ -107,10 +108,10 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD ExecCmdClient::Ptr ExecCmdClient::make(cetl::pmr::memory_resource&     memory,
-                                                      common::ipc::ClientRouter::Ptr  ipc_router,
-                                                      Spec::Request&&                 request,
-                                                      const std::chrono::microseconds timeout)
+CETL_NODISCARD ExecCmdClient::Ptr ExecCmdClient::make(cetl::pmr::memory_resource&           memory,
+                                                      const common::ipc::ClientRouter::Ptr& ipc_router,
+                                                      Spec::Request&&                       request,
+                                                      const std::chrono::microseconds       timeout)
 {
     return std::make_shared<ExecCmdClientImpl>(memory, ipc_router, std::move(request), timeout);
 }
