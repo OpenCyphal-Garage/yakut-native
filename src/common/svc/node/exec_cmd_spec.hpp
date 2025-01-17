@@ -23,7 +23,10 @@ struct ExecCmdSpec
     using Request  = ExecCmdSvcRequest_0_1;
     using Response = ExecCmdSvcResponse_0_1;
 
-    constexpr auto static svc_full_name = "ocvsmd.svc.node.exec_cmd";
+    constexpr auto static svc_full_name()
+    {
+        return "ocvsmd.svc.node.exec_cmd";
+    }
 
     ExecCmdSpec() = delete;
 };

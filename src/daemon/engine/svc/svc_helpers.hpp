@@ -68,7 +68,6 @@ inline int errorToCode(const libcyphal::transport::PlatformError& platform_error
     return static_cast<int>(platform_error->code());
 }
 
-
 inline int errorToCode(const libcyphal::presentation::ResponsePromiseExpired) noexcept
 {
     return ETIMEDOUT;

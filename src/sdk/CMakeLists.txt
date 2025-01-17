@@ -5,10 +5,23 @@
 
 cmake_minimum_required(VERSION 3.27)
 
+add_cyphal_library(
+        NAME sdk
+        DSDL_FILES ${submodules_dir}/nunavut/submodules/public_regulated_data_types/uavcan/node/435.ExecuteCommand.1.3.dsdl
+        ALLOW_EXPERIMENTAL_LANGUAGES
+        LANGUAGE cpp
+        LANGUAGE_STANDARD ${CYPHAL_LANGUAGE_STANDARD}
+        OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dsdl_transpiled
+        OUT_LIBRARY_TARGET sdk_transpiled
+)
+
 add_library(ocvsmd_sdk
         daemon.cpp
+        node_command_client.cpp
+        svc/node/exec_cmd_client.cpp
 )
 target_link_libraries(ocvsmd_sdk
+        PUBLIC ${sdk_transpiled}
         PRIVATE ocvsmd_common
 )
 target_include_directories(ocvsmd_sdk

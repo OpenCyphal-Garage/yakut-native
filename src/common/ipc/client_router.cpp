@@ -427,7 +427,7 @@ private:
 CETL_NODISCARD ClientRouter::Ptr ClientRouter::make(cetl::pmr::memory_resource& memory,
                                                     pipe::ClientPipe::Ptr       client_pipe)
 {
-    return std::make_unique<ClientRouterImpl>(memory, std::move(client_pipe));
+    return std::make_shared<ClientRouterImpl>(memory, std::move(client_pipe));
 }
 
 }  // namespace ipc

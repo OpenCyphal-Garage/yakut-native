@@ -7,6 +7,7 @@
 
 #include "ipc/pipe/unix_socket_server.hpp"
 #include "ipc/server_router.hpp"
+#include "svc/svc_helpers.hpp"
 #include "svc/node/exec_cmd_service.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>

@@ -9,6 +9,8 @@
 #include "ipc/client_router.hpp"
 #include "ipc/pipe/unix_socket_client.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/node_command_client.hpp"
+#include "sdk_factory.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -36,6 +38,8 @@ public:
 
         auto client_pipe = std::make_unique<ClientPipe>(executor, "/var/run/ocvsmd/local.sock");
         ipc_router_      = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
+
+        node_command_client_ = Factory::makeNodeCommandClient(memory, ipc_router_);
     }
 
     CETL_NODISCARD int start() const
@@ -49,24 +53,33 @@ public:
         return 0;
     }
 
+    // Daemon
+
+    NodeCommandClient::Ptr getNodeCommandClient() override
+    {
+        return node_command_client_;
+    }
+
 private:
     cetl::pmr::memory_resource&    memory_;
     common::LoggerPtr              logger_;
     common::ipc::ClientRouter::Ptr ipc_router_;
+    NodeCommandClient::Ptr         node_command_client_;
 
 };  // DaemonImpl
 
 }  // namespace
 
-CETL_NODISCARD std::unique_ptr<Daemon> Daemon::make(  //
+CETL_NODISCARD Daemon::Ptr Daemon::make(  //
     cetl::pmr::memory_resource& memory,
     libcyphal::IExecutor&       executor)
 {
-    auto daemon = std::make_unique<DaemonImpl>(memory, executor);
+    auto daemon = std::make_shared<DaemonImpl>(memory, executor);
     if (0 != daemon->start())
     {
         return nullptr;
     }
+
     return daemon;
 }
 

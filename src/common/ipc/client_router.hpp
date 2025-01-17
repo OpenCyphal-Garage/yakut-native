@@ -25,7 +25,7 @@ namespace ipc
 class ClientRouter
 {
 public:
-    using Ptr = std::unique_ptr<ClientRouter>;
+    using Ptr = std::shared_ptr<ClientRouter>;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe);
 

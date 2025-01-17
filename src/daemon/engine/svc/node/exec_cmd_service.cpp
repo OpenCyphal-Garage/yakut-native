@@ -52,7 +52,7 @@ public:
     void operator()(Channel&& ch, const Spec::Request& request)
     {
         const auto fsm_id = next_fsm_id_++;
-        logger_->debug("New '{}' service channel (fsm={}).", Spec::svc_full_name, fsm_id);
+        logger_->debug("New '{}' service channel (fsm={}).", Spec::svc_full_name(), fsm_id);
 
         auto fsm           = std::make_shared<Fsm>(*this, fsm_id, std::move(ch));
         id_to_fsm_[fsm_id] = fsm;
@@ -251,7 +251,7 @@ private:
 void ExecCmdService::registerWithContext(const ScvContext& context)
 {
     using Impl = ExecCmdServiceImpl;
-    context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name, Impl(context));
+    context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl(context));
 }
 
 }  // namespace node

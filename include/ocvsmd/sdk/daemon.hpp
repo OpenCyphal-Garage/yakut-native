@@ -6,6 +6,8 @@
 #ifndef OCVSMD_SDK_DAEMON_HPP_INCLUDED
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
+#include "node_command_client.hpp"
+
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
@@ -22,9 +24,9 @@ namespace sdk
 class Daemon
 {
 public:
-    CETL_NODISCARD static std::unique_ptr<Daemon> make(  //
-        cetl::pmr::memory_resource& memory,
-        libcyphal::IExecutor&       executor);
+    using Ptr = std::shared_ptr<Daemon>;
+
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor);
 
     Daemon(Daemon&&)                 = delete;
     Daemon(const Daemon&)            = delete;
@@ -32,6 +34,8 @@ public:
     Daemon& operator=(const Daemon&) = delete;
 
     virtual ~Daemon() = default;
+
+    virtual NodeCommandClient::Ptr getNodeCommandClient() = 0;
 
 protected:
     Daemon() = default;
