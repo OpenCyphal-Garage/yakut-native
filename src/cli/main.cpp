@@ -129,11 +129,12 @@ int main(const int argc, const char** const argv)
 
         auto node_cmd_client = daemon->getNodeCommandClient();
         {
-            using Command = ocvsmd::sdk::NodeCommandClient::Command;
+            using Command      = ocvsmd::sdk::NodeCommandClient::Command;
+            using CommandParam = Command::NodeRequest::_traits_::TypeOf::parameter;
 
             constexpr auto                         cmd_id   = Command::NodeRequest::COMMAND_IDENTIFY;
             constexpr std::array<std::uint16_t, 1> node_ids = {42};
-            const Command::NodeRequest             node_request{cmd_id, {{}, &memory}, &memory};
+            const Command::NodeRequest             node_request{cmd_id, CommandParam{&memory}, &memory};
             auto                                   sender = node_cmd_client->sendCommand(node_ids, node_request, 1s);
 
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
