@@ -7,6 +7,7 @@
 
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
+#include "ipc/ipc_types.hpp"
 #include "logging.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 
@@ -17,6 +18,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -44,30 +46,18 @@ public:
         , request_{std::move(request)}
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
-        channel_.subscribe([this](const auto& event_var) {
-            //
-            cetl::visit([this](const auto& event) { handleEvent(event); }, event_var);
-        });
-
         // TODO: handle timeout
         (void) timeout;
     }
 
-    CETL_NODISCARD cetl::optional<int> completed() const override
+    void submitImpl(std::function<void(Result&&)>&& receiver) override
     {
-        return completion_error_code_;
-    }
+        receiver_ = std::move(receiver);
 
-    CETL_NODISCARD cetl::optional<Result> takeResult() override
-    {
-        if (!completion_error_code_.has_value())
-        {
-            return cetl::nullopt;
-        }
-
-        Result result;
-        std::swap(result, node_id_to_response_);
-        return result;
+        channel_.subscribe([this](const auto& event_var) {
+            //
+            cetl::visit([this](const auto& event) { handleEvent(event); }, event_var);
+        });
     }
 
 private:
@@ -79,7 +69,9 @@ private:
 
         if (const auto err = channel_.send(request_))
         {
-            completion_error_code_.emplace(err);
+            CETL_DEBUG_ASSERT(receiver_, "");
+
+            receiver_(Failure{err});
         }
     }
 
@@ -91,18 +83,26 @@ private:
         node_id_to_response_.emplace(input.node_id, std::move(node_response));
     }
 
-    void handleEvent(const Channel::Completed& completed)
+    void handleEvent(const Channel::Completed& completed) const
     {
+        CETL_DEBUG_ASSERT(receiver_, "");
+
         logger_->debug("ExecCmdClient::handleEvent({}).", completed);
-        completion_error_code_ = static_cast<int>(completed.error_code);
+
+        if (completed.error_code != common::ipc::ErrorCode::Success)
+        {
+            receiver_(static_cast<Failure>(completed.error_code));
+            return;
+        }
+        receiver_(Success{node_id_to_response_});
     }
 
     cetl::pmr::memory_resource&                     memory_;
     common::LoggerPtr                               logger_;
     Spec::Request                                   request_;
     Channel                                         channel_;
+    std::function<void(Result&&)>                   receiver_;
     std::unordered_map<std::uint16_t, NodeResponse> node_id_to_response_;
-    cetl::optional<int>                             completion_error_code_;
 
 };  // ExecCmdClientImpl
 

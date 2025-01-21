@@ -5,9 +5,10 @@
 
 #include <ocvsmd/platform/defines.hpp>
 #include <ocvsmd/sdk/daemon.hpp>
+#include <ocvsmd/sdk/execution.hpp>
+#include <ocvsmd/sdk/node_command_client.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/types.hpp>
 
 #include <spdlog/cfg/argv.h>
 #include <spdlog/common.h>
@@ -15,14 +16,17 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
+#include <array>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <iostream>
 #include <memory>
 #include <signal.h>  // NOLINT
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -123,20 +127,29 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-        while (g_running != 0)
+        auto node_cmd_client = daemon->getNodeCommandClient();
         {
-            const auto spin_result = executor.spinOnce();
+            using Command = ocvsmd::sdk::NodeCommandClient::Command;
 
-            // Poll awaitable resources but awake at least once per second.
-            libcyphal::Duration timeout{1s};
-            if (spin_result.next_exec_time.has_value())
+            constexpr auto                         cmd_id   = Command::NodeRequest::COMMAND_IDENTIFY;
+            constexpr std::array<std::uint16_t, 1> node_ids = {42};
+            const Command::NodeRequest             node_request{cmd_id, {{}, &memory}, &memory};
+            auto                                   sender = node_cmd_client->sendCommand(node_ids, node_request, 1s);
+
+            auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
             {
-                timeout = std::min(timeout, spin_result.next_exec_time.value() - executor.now());
+                spdlog::error("Failed to send command: {}", std::strerror(*err));
             }
-
-            if (const auto maybe_poll_failure = executor.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+            else
             {
-                spdlog::warn("Failed to poll awaitable resources.");
+                const auto responds = cetl::get<Command::Success>(std::move(cmd_result));
+                for (const auto& node_and_respond : responds)
+                {
+                    spdlog::info("Node {} responded with status: {}.",
+                                 node_and_respond.first,
+                                 node_and_respond.second.status);
+                }
             }
         }
 

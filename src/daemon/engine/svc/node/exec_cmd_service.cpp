@@ -106,10 +106,11 @@ private:
             // we just ignore duplicates, and work with unique ones.
             const SetOfNodeIds unique_node_ids{request.node_ids.begin(), request.node_ids.end()};
 
+            const auto deadline = service_.context_.executor.now() + std::chrono::microseconds{request.timeout_us};
             const CyphalExecCmdSvc::Request cy_request{request.payload.command, request.payload.parameter, &memory()};
             for (const auto node_id : unique_node_ids)
             {
-                if (const auto err = makeCyphalSvcCallFor(node_id, cy_request))
+                if (const auto err = makeCyphalSvcCallFor(deadline, node_id, cy_request))
                 {
                     complete(err);
                     return;
@@ -137,7 +138,7 @@ private:
 
         cetl::pmr::memory_resource& memory() const
         {
-            return service_.context_.memory_;
+            return service_.context_.memory;
         }
 
         // We are not interested in handling these events.
@@ -150,7 +151,9 @@ private:
             complete(ECANCELED);
         }
 
-        int makeCyphalSvcCallFor(const std::uint16_t node_id, const CyphalExecCmdSvc::Request& cy_request)
+        int makeCyphalSvcCallFor(const libcyphal::TimePoint       deadline,
+                                 const std::uint16_t              node_id,
+                                 const CyphalExecCmdSvc::Request& cy_request)
         {
             using CyphalMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
@@ -166,7 +169,7 @@ private:
             }
             auto cy_svc_client = cetl::get<CyphalSvcClient>(std::move(cy_make_result));
 
-            auto cy_req_result = cy_svc_client.request({}, cy_request);
+            auto cy_req_result = cy_svc_client.request(deadline, cy_request);
             if (const auto* cy_failure = cetl::get_if<CyphalSvcClient::Failure>(&cy_req_result))
             {
                 const auto err = failureToErrorCode(*cy_failure);
@@ -239,7 +242,7 @@ private:
         id_to_fsm_.erase(fsm_id);
     }
 
-    const ScvContext&                     context_;
+    const ScvContext                      context_;
     std::uint64_t                         next_fsm_id_{0};
     std::unordered_map<Fsm::Id, Fsm::Ptr> id_to_fsm_;
     common::LoggerPtr                     logger_{common::getLogger("engine")};
@@ -251,7 +254,7 @@ private:
 void ExecCmdService::registerWithContext(const ScvContext& context)
 {
     using Impl = ExecCmdServiceImpl;
-    context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl(context));
+    context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl{context});
 }
 
 }  // namespace node

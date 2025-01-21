@@ -6,6 +6,8 @@
 #ifndef OCVSMD_SDK_NODE_COMMAND_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_NODE_COMMAND_CLIENT_HPP_INCLUDED
 
+#include "execution.hpp"
+
 #include <uavcan/node/ExecuteCommand_1_3.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -13,7 +15,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <unordered_map>
 
@@ -39,25 +40,20 @@ public:
         using NodeRequest  = uavcan::node::ExecuteCommand_1_3::Request;
         using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
 
-        /// Empty option indicates that the corresponding node did not return a response on time.
-        using Success = std::unordered_map<std::uint16_t, cetl::optional<NodeResponse>>;
-
-        /// `errno`-like error code.
-        using Failure = int;
-
-        using Result        = cetl::variant<Success, Failure>;
-        using ResultHandler = std::function<void(Result result)>;
+        using Success = std::unordered_map<std::uint16_t, NodeResponse>;
+        using Failure = int;  // `errno`-like error code.
+        using Result  = cetl::variant<Success, Failure>;
 
     };  // Command
 
-    /// All requests are sent concurrently.
-    /// The callback is executed when the last response has arrived,
+    /// Request is sent concurrently to all nodes.
+    /// Duplicate node IDs are ignored.
+    /// Result will be available when the last response has arrived,
     /// or the timeout has expired.
     ///
-    virtual int sendCommand(const cetl::span<const std::uint16_t> node_ids,
-                            const Command::NodeRequest&           node_request,
-                            const std::chrono::microseconds       timeout,
-                            Command::ResultHandler                result_handler) = 0;
+    virtual SenderOf<Command::Result>::Ptr sendCommand(const cetl::span<const std::uint16_t> node_ids,
+                                                       const Command::NodeRequest&           node_request,
+                                                       const std::chrono::microseconds       timeout) = 0;
 
 protected:
     NodeCommandClient() = default;

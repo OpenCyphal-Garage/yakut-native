@@ -17,6 +17,7 @@
 #include <chrono>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 
 namespace ocvsmd
 {
@@ -33,7 +34,10 @@ public:
     using Ptr          = std::shared_ptr<ExecCmdClient>;
     using Spec         = common::svc::node::ExecCmdSpec;
     using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
-    using Result       = std::unordered_map<std::uint16_t, NodeResponse>;
+
+    using Success = std::unordered_map<std::uint16_t, NodeResponse>;
+    using Failure = int;  // `errno`-like error code
+    using Result  = cetl::variant<Success, Failure>;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
                                    const common::ipc::ClientRouter::Ptr& ipc_router,
@@ -47,11 +51,19 @@ public:
 
     virtual ~ExecCmdClient() = default;
 
-    CETL_NODISCARD virtual cetl::optional<int>    completed() const = 0;
-    CETL_NODISCARD virtual cetl::optional<Result> takeResult()      = 0;
+    template <typename Receiver>
+    void submit(Receiver&& receiver)
+    {
+        submitImpl([receive = std::forward<Receiver>(receiver)](Result&& result) mutable {
+            //
+            receive(std::move(result));
+        });
+    }
 
 protected:
     ExecCmdClient() = default;
+
+    virtual void submitImpl(std::function<void(Result&&)>&& receiver) = 0;
 
 };  // ExecCmdClient
 

@@ -6,11 +6,19 @@
 #ifndef OCVSMD_PLATFORM_DEFINES_HPP_INCLUDED
 #define OCVSMD_PLATFORM_DEFINES_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/types.hpp>
+
+#include <spdlog/spdlog.h>
+
 #ifdef PLATFORM_OS_TYPE_BSD
 #    include "bsd/kqueue_single_threaded_executor.hpp"
 #else
 #    include "linux/epoll_single_threaded_executor.hpp"
 #endif
+
+#include <algorithm>
+#include <chrono>
 
 namespace ocvsmd
 {
@@ -22,6 +30,39 @@ using SingleThreadedExecutor = bsd::KqueueSingleThreadedExecutor;
 #else
 using SingleThreadedExecutor = Linux::EpollSingleThreadedExecutor;
 #endif
+
+template <typename Executor, typename Predicate>
+void waitPollingUntil(Executor& executor, Predicate predicate)
+{
+    spdlog::trace("Waiting for predicate to be fulfilled...");
+
+    libcyphal::Duration worst_lateness{0};
+    while (!predicate())
+    {
+        const auto spin_result = executor.spinOnce();
+        worst_lateness         = std::max(worst_lateness, spin_result.worst_lateness);
+
+        // Above `spinOnce` might fulfill the predicate.
+        if (predicate())
+        {
+            break;
+        }
+
+        // Poll awaitable resources but awake at least once per second.
+        libcyphal::Duration timeout{std::chrono::seconds{1}};
+        if (spin_result.next_exec_time.has_value())
+        {
+            timeout = std::min(timeout, spin_result.next_exec_time.value() - executor.now());
+        }
+
+        if (const auto maybe_poll_failure = executor.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+        {
+            spdlog::warn("Failed to poll awaitable resources.");
+        }
+    }
+
+    spdlog::debug("Predicate is fulfilled (worst_lateness={}us).", worst_lateness.count());
+}
 
 }  // namespace platform
 }  // namespace ocvsmd

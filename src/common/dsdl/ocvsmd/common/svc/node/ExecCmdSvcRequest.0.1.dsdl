@@ -1,3 +1,4 @@
+uint64 timeout_us
 uint16[<=128] node_ids
 UavcanNodeExecCmdReq.0.1 payload
 

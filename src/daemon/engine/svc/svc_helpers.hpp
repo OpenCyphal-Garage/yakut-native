@@ -12,6 +12,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
@@ -30,7 +31,8 @@ namespace svc
 
 struct ScvContext
 {
-    cetl::pmr::memory_resource&            memory_;
+    cetl::pmr::memory_resource&            memory;
+    libcyphal::IExecutor&                  executor;
     common::ipc::ServerRouter&             ipc_router;
     libcyphal::presentation::Presentation& presentation;
 

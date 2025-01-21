@@ -70,7 +70,7 @@ cetl::optional<std::string> Application::init()
     auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
     ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
-    const svc::ScvContext svc_context{memory_, *ipc_router_, *presentation_};
+    const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
     svc::node::ExecCmdService::registerWithContext(svc_context);
 
     if (0 != ipc_router_->start())

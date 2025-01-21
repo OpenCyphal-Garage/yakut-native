@@ -8,16 +8,20 @@
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/execution.hpp"
 #include "sdk_factory.hpp"
+#include "svc/node/exec_cmd_client.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -40,36 +44,64 @@ public:
 
     // NodeCommandClient
 
-    int sendCommand(const cetl::span<const std::uint16_t> /* node_ids */,
-                    const Command::NodeRequest& /* node_request */,
-                    const std::chrono::microseconds /* timeout */,
-                    Command::ResultHandler /* result_handler */) override
+    SenderOf<Command::Result>::Ptr sendCommand(const cetl::span<const std::uint16_t> node_ids,
+                                               const Command::NodeRequest&           node_request,
+                                               const std::chrono::microseconds       timeout) override
     {
-        // using ExecCmdRequest = ExecCmdSvcSpec::Request;
-        // using RequestPayload = ExecCmdSvcSpec::Request::_traits_::TypeOf::payload;
-        //
-        // if (node_ids.size() > ExecCmdSvcSpec::Request::_traits_::ArrayCapacity::node_ids)
-        // {
-        //     logger_->error("Too many node IDs: {} (max {}).",
-        //                    node_ids.size(),
-        //                    ExecCmdSvcSpec::Request::_traits_::ArrayCapacity::node_ids);
-        //     return EINVAL;
-        // }
-        //
-        // auto exec_cmd_ch = ipc_router_->makeChannel<ExecCmdChannel>(ExecCmdSvcSpec::svc_full_name);
-        // exec_cmd_ch.subscribe([](const auto& event) {});
-        //
-        // const RequestPayload request_payload{node_request.command, node_request.parameter, &memory_};
-        // const ExecCmdRequest exec_cmd_req{{node_ids.begin(), node_ids.end()}, request_payload, &memory_};
-        //
-        // return exec_cmd_ch.send(exec_cmd_req);
+        common::svc::node::ExecCmdSpec::Request request{std::max<std::uint64_t>(0, timeout.count()),
+                                                        {node_ids.begin(), node_ids.end(), &memory_},
+                                                        {node_request.command, node_request.parameter, &memory_},
+                                                        &memory_};
 
-        return 0;
+        auto svc_client = ExecCmdClient::make(memory_, ipc_router_, std::move(request), timeout);
+
+        return std::make_unique<CommandSender>(std::move(svc_client));
     }
 
 private:
-    using ExecCmdSvcSpec = common::svc::node::ExecCmdSpec;
-    using ExecCmdChannel = common::ipc::Channel<ExecCmdSvcSpec::Response, ExecCmdSvcSpec::Request>;
+    using ExecCmdClient = svc::node::ExecCmdClient;
+
+    class CommandSender final : public SenderOf<Command::Result>
+    {
+    public:
+        explicit CommandSender(ExecCmdClient::Ptr svc_client)
+            : svc_client_{std::move(svc_client)}
+        {
+        }
+
+        void submitImpl(std::function<void(Command::Result&&)>&& receiver) override
+        {
+            svc_client_->submit([receiver = std::move(receiver)](ExecCmdClient::Result&& result) mutable {
+                //
+                receiver(cetl::visit(
+                    [](auto&& value) {
+                        //
+                        return transform(std::forward<decltype(value)>(value));
+                    },
+                    std::move(result)));
+            });
+        }
+
+    private:
+        static Command::Result transform(ExecCmdClient::Success&& svc_success)
+        {
+            Command::Success cmd_success{};
+            cmd_success.reserve(svc_success.size());
+            for (auto&& pair : std::move(svc_success))
+            {
+                cmd_success.emplace(pair.first, std::move(pair.second));
+            }
+            return cmd_success;
+        }
+
+        static Command::Result transform(ExecCmdClient::Failure failure)
+        {
+            return Command::Failure{failure};
+        }
+
+        ExecCmdClient::Ptr svc_client_;
+
+    };  // CommandSender
 
     cetl::pmr::memory_resource&    memory_;
     common::LoggerPtr              logger_;
