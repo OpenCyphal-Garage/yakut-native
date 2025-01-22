@@ -62,7 +62,32 @@ Then one of the two presets depending on your system:
   ```bash
   sudo /etc/init.d/ocvsmd stop
   ```
-- View logs:
-  ```bash
-  sudo grep -r "ocvsmd\[" /var/log/syslog
-  ```
+### Logging
+
+#### View logs:
+  - Syslog: 
+    ```bash
+    sudo grep -r "ocvsmd\[" /var/log/syslog
+    ```
+  - Log files:
+    ```bash
+    cat /var/log/ocvsmd.log
+    ```
+#### Manipulate log levels:
+
+  Append `SPDLOG_LEVEL` and/or `SPDLOG_FLUSH_LEVEL` to the daemon command in the init script
+  to enable more verbose logging level (`trace` or `debug`).
+  Default level is `info`. More severe levels are: `warn`, `error` and `critical`.
+  `off` level disables the logging.
+  
+By default, the log files are not immediately flushed to disk (at `off` level).
+To enable flushing, set `SPDLOG_FLUSH_LEVEL` to a required default (or per component) level.
+
+  - Example to set default level:
+      ```bash
+      sudo /etc/init.d/ocvsmd start SPDLOG_LEVEL=trace SPDLOG_FLUSH_LEVEL=trace
+      ```
+  - Example to set default and per component level (comma separated pairs):
+      ```bash
+      sudo /etc/init.d/ocvsmd restart SPDLOG_LEVEL=debug,ipc=off SPDLOG_FLUSH_LEVEL=warn,engine=debug
+      ```

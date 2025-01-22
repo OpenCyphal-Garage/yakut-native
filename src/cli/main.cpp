@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+#include "setup_logging.hpp"
+
 #include <ocvsmd/platform/defines.hpp>
 #include <ocvsmd/sdk/daemon.hpp>
 #include <ocvsmd/sdk/execution.hpp>
@@ -10,10 +12,6 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <spdlog/cfg/argv.h>
-#include <spdlog/common.h>
-#include <spdlog/logger.h>
-#include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/spdlog.h>
 
 #include <array>
@@ -23,9 +21,7 @@
 #include <cstring>
 #include <exception>
 #include <iostream>
-#include <memory>
 #include <signal.h>  // NOLINT
-#include <string>
 #include <utility>
 
 namespace
@@ -56,52 +52,6 @@ void setupSignalHandlers()
     ::sigaction(SIGTERM, &sigbreak, nullptr);
 }
 
-/// Sets up the logging system.
-///
-/// File sink is used for all loggers (with Info default level).
-///
-void setupLogging(const int argc, const char** const argv)
-{
-    using spdlog::sinks::rotating_file_sink_st;
-
-    try
-    {
-        constexpr std::size_t log_max_files     = 4;
-        constexpr std::size_t log_file_max_size = 16UL * 1048576UL;  // 16 MB
-
-        const std::string log_prefix    = "ocvsmd-cli";
-        const std::string log_file_nm   = log_prefix + ".log";
-        const auto        log_file_path = "./" + log_file_nm;
-
-        // Drop all existing loggers, including the default one, so that we can reconfigure them.
-        spdlog::drop_all();
-
-        const auto file_sink = std::make_shared<rotating_file_sink_st>(  //
-            log_file_path,
-            log_file_max_size,
-            log_max_files);
-        file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%P] [%n] [%l] %v");
-
-        const auto default_logger = std::make_shared<spdlog::logger>("", file_sink);
-        register_logger(default_logger);
-        set_default_logger(default_logger);
-
-        // Register specific subsystem loggers.
-        //
-        register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
-        register_logger(std::make_shared<spdlog::logger>("sdk", file_sink));
-        register_logger(std::make_shared<spdlog::logger>("svc", file_sink));
-
-        // Accept `SPDLOG_LEVEL` argument (like `SPDLOG_LEVEL=debug,ipc=trace`).
-        spdlog::cfg::load_argv_levels(argc, argv);
-
-    } catch (const std::exception& ex)
-    {
-        std::cerr << "Failed to setup logging: " << ex.what() << '\n';
-        std::exit(EXIT_FAILURE);
-    }
-}
-
 }  // namespace
 
 int main(const int argc, const char** const argv)
@@ -127,10 +77,12 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-        auto node_cmd_client = daemon->getNodeCommandClient();
+        // Demo of daemon's node command client, sending a command to node 42.
         {
             using Command      = ocvsmd::sdk::NodeCommandClient::Command;
             using CommandParam = Command::NodeRequest::_traits_::TypeOf::parameter;
+
+            auto node_cmd_client = daemon->getNodeCommandClient();
 
             constexpr auto                         cmd_id   = Command::NodeRequest::COMMAND_IDENTIFY;
             constexpr std::array<std::uint16_t, 1> node_ids = {42};
@@ -138,6 +90,7 @@ int main(const int argc, const char** const argv)
             auto                                   sender = node_cmd_client->sendCommand(node_ids, node_request, 1s);
 
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
+
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
             {
                 spdlog::error("Failed to send command: {}", std::strerror(*err));

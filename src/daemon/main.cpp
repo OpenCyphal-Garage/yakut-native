@@ -4,12 +4,8 @@
 //
 
 #include "engine/application.hpp"
+#include "setup_logging.hpp"
 
-#include <spdlog/cfg/argv.h>
-#include <spdlog/common.h>
-#include <spdlog/logger.h>
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/sinks/syslog_sink.h>
 #include <spdlog/spdlog.h>
 
 #include <array>
@@ -20,14 +16,11 @@
 #include <cstring>
 #include <exception>
 #include <fcntl.h>
-#include <initializer_list>
 #include <iostream>
-#include <memory>
 #include <signal.h>  // NOLINT
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/syslog.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -59,12 +52,6 @@ void setupSignalHandlers()
     sigbreak.sa_handler = &signalHandler;
     ::sigaction(SIGINT, &sigbreak, nullptr);
     ::sigaction(SIGTERM, &sigbreak, nullptr);
-}
-
-bool writeString(const int fd, const char* const str)
-{
-    const auto str_len = strlen(str);
-    return str_len == ::write(fd, str, str_len);
 }
 
 void exitWithFailure(const int fd, const char* const msg)
@@ -304,60 +291,6 @@ int daemonize()
 
     step_15_exit_org_process(pipe_read_fd);
     return -1;  // Unreachable actually b/c of `::exit` call.
-}
-
-/// Sets up the logging system.
-///
-/// Both syslog and file logging sinks are used.
-/// The syslog sink is used for the default logger only (with Info default level),
-/// while the file sink is used for all loggers (with Debug default level).
-///
-void setupLogging(const int err_fd, const bool is_daemonized, const int argc, const char** const argv)
-{
-    using spdlog::sinks::syslog_sink_st;
-    using spdlog::sinks::rotating_file_sink_st;
-
-    try
-    {
-        constexpr std::size_t log_files_max     = 4;
-        constexpr std::size_t log_file_max_size = 16UL * 1048576UL;  // 16 MB
-
-        const std::string log_prefix    = "ocvsmd";
-        const std::string log_file_nm   = log_prefix + ".log";
-        const std::string log_file_dir  = is_daemonized ? "/var/log/" : "./";
-        const auto        log_file_path = log_file_dir + log_file_nm;
-
-        // Drop all existing loggers, including the default one, so that we can reconfigure them.
-        spdlog::drop_all();
-
-        const auto file_sink = std::make_shared<rotating_file_sink_st>(log_file_path, log_file_max_size, log_files_max);
-        file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%P] [%n] [%l] %v");
-
-        const int  syslog_facility = is_daemonized ? LOG_DAEMON : LOG_USER;
-        const auto syslog_sink     = std::make_shared<syslog_sink_st>(log_prefix, LOG_PID, syslog_facility, true);
-        syslog_sink->set_pattern("[%l] '%n' | %v");
-
-        // The default logger goes to all sinks.
-        //
-        const std::initializer_list<spdlog::sink_ptr> sinks{syslog_sink, file_sink};
-        const auto                                    default_logger = std::make_shared<spdlog::logger>("", sinks);
-        register_logger(default_logger);
-        set_default_logger(default_logger);
-
-        // Register specific subsystem loggers - they go to the file sink only.
-        //
-        register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
-        register_logger(std::make_shared<spdlog::logger>("engine", file_sink));
-
-        // Accept `SPDLOG_LEVEL` argument (like `SPDLOG_LEVEL=debug,ipc=trace`).
-        spdlog::cfg::load_argv_levels(argc, argv);
-
-    } catch (const std::exception& ex)
-    {
-        writeString(err_fd, "Failed to setup logging: ");
-        writeString(err_fd, ex.what());
-        ::exit(EXIT_FAILURE);
-    }
 }
 
 }  // namespace
