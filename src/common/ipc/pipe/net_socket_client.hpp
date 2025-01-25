@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_PIPE_NET_SOCKET_CLIENT_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_PIPE_NET_SOCKET_CLIENT_HPP_INCLUDED
 
 #include "client_pipe.hpp"
 #include "ipc/ipc_types.hpp"
@@ -25,17 +25,17 @@ namespace ipc
 namespace pipe
 {
 
-class UnixSocketClient final : public SocketBase, public ClientPipe
+class NetSocketClient final : public SocketBase, public ClientPipe
 {
 public:
-    UnixSocketClient(libcyphal::IExecutor& executor, std::string socket_path);
+    NetSocketClient(libcyphal::IExecutor& executor, std::string server_ip, const int server_port);
 
-    UnixSocketClient(const UnixSocketClient&)                = delete;
-    UnixSocketClient(UnixSocketClient&&) noexcept            = delete;
-    UnixSocketClient& operator=(const UnixSocketClient&)     = delete;
-    UnixSocketClient& operator=(UnixSocketClient&&) noexcept = delete;
+    NetSocketClient(const NetSocketClient&)                = delete;
+    NetSocketClient(NetSocketClient&&) noexcept            = delete;
+    NetSocketClient& operator=(const NetSocketClient&)     = delete;
+    NetSocketClient& operator=(NetSocketClient&&) noexcept = delete;
 
-    ~UnixSocketClient() override;
+    ~NetSocketClient() override;
 
     // ClientPipe
 
@@ -47,19 +47,22 @@ public:
     }
 
 private:
-    void handle_socket();
+    void handle_connect();
+    void handle_receive();
+    void handle_disconnect();
 
-    const std::string                        socket_path_;
+    const std::string                        server_ip_;
+    const int                                server_port_;
     platform::IPosixExecutorExtension* const posix_executor_ext_;
     State                                    state_;
     libcyphal::IExecutor::Callback::Any      socket_callback_;
     EventHandler                             event_handler_;
 
-};  // UnixSocketClient
+};  // NetSocketClient
 
 }  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_PIPE_NET_SOCKET_CLIENT_HPP_INCLUDED

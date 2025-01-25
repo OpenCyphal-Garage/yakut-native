@@ -7,7 +7,8 @@
 
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
-#include "ipc/pipe/unix_socket_client.hpp"
+#include "ipc/pipe/net_socket_client.hpp"
+// #include "ipc/pipe/unix_socket_client.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/node_command_client.hpp"
 #include "sdk_factory.hpp"
@@ -34,10 +35,12 @@ public:
         : memory_{memory}
         , logger_{common::getLogger("sdk")}
     {
-        using ClientPipe = common::ipc::pipe::UnixSocketClient;
+        // using ClientPipe = common::ipc::pipe::UnixSocketClient;
+        // auto client_pipe = std::make_unique<ClientPipe>(executor, "/var/run/ocvsmd/local.sock");
+        using ClientPipe = common::ipc::pipe::NetSocketClient;
+        auto client_pipe = std::make_unique<ClientPipe>(executor, "127.0.0.1", 9875);  // NOLINT(*-magic-numbers)
 
-        auto client_pipe = std::make_unique<ClientPipe>(executor, "/var/run/ocvsmd/local.sock");
-        ipc_router_      = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
+        ipc_router_ = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
 
         node_command_client_ = Factory::makeNodeCommandClient(memory, ipc_router_);
     }

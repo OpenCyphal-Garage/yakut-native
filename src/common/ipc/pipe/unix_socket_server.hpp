@@ -6,18 +6,12 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_SERVER_HPP_INCLUDED
 
-#include "ipc/ipc_types.hpp"
-#include "ocvsmd/platform/posix_executor_extension.hpp"
-#include "server_pipe.hpp"
-#include "unix_socket_base.hpp"
+#include "socket_server_base.hpp"
 
 #include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
 
-#include <cerrno>
-#include <memory>
 #include <string>
-#include <unordered_map>
 
 namespace ocvsmd
 {
@@ -27,28 +21,8 @@ namespace ipc
 {
 namespace pipe
 {
-namespace detail
-{
 
-class ClientContext
-{
-public:
-    using Ptr = std::unique_ptr<ClientContext>;
-
-    ClientContext() = default;
-
-    ClientContext(const ClientContext&)                = delete;
-    ClientContext(ClientContext&&) noexcept            = delete;
-    ClientContext& operator=(const ClientContext&)     = delete;
-    ClientContext& operator=(ClientContext&&) noexcept = delete;
-
-    virtual ~ClientContext() = default;
-
-};  // ClientContext
-
-}  // namespace detail
-
-class UnixSocketServer final : public UnixSocketBase, public ServerPipe
+class UnixSocketServer final : public SocketServerBase
 {
 public:
     UnixSocketServer(libcyphal::IExecutor& executor, std::string socket_path);
@@ -58,32 +32,14 @@ public:
     UnixSocketServer& operator=(UnixSocketServer&&)      = delete;
     UnixSocketServer& operator=(const UnixSocketServer&) = delete;
 
-    ~UnixSocketServer() override;
-
-    CETL_NODISCARD int start(EventHandler event_handler) override;
-
-    CETL_NODISCARD int send(const ClientId client_id, const Payloads payloads) override
-    {
-        const auto id_and_fd = client_id_to_fd_.find(client_id);
-        if (id_and_fd == client_id_to_fd_.end())
-        {
-            return EINVAL;
-        }
-        return UnixSocketBase::send(id_and_fd->second, payloads);
-    }
+    ~UnixSocketServer() override = default;
 
 private:
-    void handleAccept();
-    void handleClientRequest(const ClientId client_id, const int client_fd);
+    using Base = SocketServerBase;
 
-    const std::string                                   socket_path_;
-    int                                                 server_fd_;
-    platform::IPosixExecutorExtension* const            posix_executor_ext_;
-    ClientId                                            unique_client_id_counter_;
-    EventHandler                                        event_handler_;
-    std::unordered_map<int, detail::ClientContext::Ptr> client_fd_to_context_;
-    std::unordered_map<ClientId, int>                   client_id_to_fd_;
-    libcyphal::IExecutor::Callback::Any                 accept_callback_;
+    CETL_NODISCARD int makeSocketHandle(int& out_fd) override;
+
+    const std::string socket_path_;
 
 };  // UnixSocketServer
 

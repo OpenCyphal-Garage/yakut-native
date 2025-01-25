@@ -32,7 +32,6 @@ namespace pipe
 
 UnixSocketClient::UnixSocketClient(libcyphal::IExecutor& executor, std::string socket_path)
     : socket_path_{std::move(socket_path)}
-    , client_fd_{-1}
     , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor)}
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
@@ -40,25 +39,25 @@ UnixSocketClient::UnixSocketClient(libcyphal::IExecutor& executor, std::string s
 
 UnixSocketClient::~UnixSocketClient()
 {
-    if (client_fd_ != -1)
+    if (state_.fd != -1)
     {
         platform::posixSyscallError([this] {
             //
-            return ::close(client_fd_);
+            return ::close(state_.fd);
         });
     }
 }
 
-CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
+int UnixSocketClient::start(EventHandler event_handler)
 {
-    CETL_DEBUG_ASSERT(client_fd_ == -1, "");
     CETL_DEBUG_ASSERT(event_handler, "");
+    CETL_DEBUG_ASSERT(state_.fd == -1, "");
 
     event_handler_ = std::move(event_handler);
 
     if (const auto err = platform::posixSyscallError([this] {
             //
-            return client_fd_ = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+            return state_.fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
         }))
     {
         logger().error("Failed to create socket: {}.", std::strerror(err));
@@ -76,7 +75,7 @@ CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
 
     if (const auto err = platform::posixSyscallError([this, &addr, &abstract_socket_path] {
             //
-            return ::connect(client_fd_,
+            return ::connect(state_.fd,
                              // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                              reinterpret_cast<const sockaddr*>(&addr),
                              offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
@@ -91,7 +90,7 @@ CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
             //
             handle_socket();
         },
-        platform::IPosixExecutorExtension::Trigger::Readable{client_fd_});
+        platform::IPosixExecutorExtension::Trigger::Readable{state_.fd});
 
     event_handler_(Event::Connected{});
     return 0;
@@ -99,7 +98,7 @@ CETL_NODISCARD int UnixSocketClient::start(EventHandler event_handler)
 
 void UnixSocketClient::handle_socket()
 {
-    if (const auto err = receiveMessage(client_fd_, [this](const auto payload) {
+    if (const auto err = receiveMessage(state_, [this](const auto payload) {
             //
             return event_handler_(Event::Message{payload});
         }))
@@ -114,8 +113,8 @@ void UnixSocketClient::handle_socket()
         }
 
         socket_callback_.reset();
-        ::close(client_fd_);
-        client_fd_ = -1;
+        ::close(state_.fd);
+        state_.fd = -1;
 
         event_handler_(Event::Disconnected{});
     }

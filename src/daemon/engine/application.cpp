@@ -5,7 +5,8 @@
 
 #include "application.hpp"
 
-#include "ipc/pipe/unix_socket_server.hpp"
+#include "ipc/pipe/net_socket_server.hpp"
+// #include "ipc/pipe/unix_socket_server.hpp"
 #include "ipc/server_router.hpp"
 #include "svc/node/exec_cmd_service.hpp"
 #include "svc/svc_helpers.hpp"
@@ -65,10 +66,12 @@ cetl::optional<std::string> Application::init()
         .setSoftwareVcsRevisionId(VCS_REVISION_ID)
         .setUniqueId(getUniqueId());
 
-    using ServerPipe = common::ipc::pipe::UnixSocketServer;
+    // using ServerPipe = common::ipc::pipe::UnixSocketServer;
+    // auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
+    using ServerPipe = common::ipc::pipe::NetSocketServer;
+    auto server_pipe = std::make_unique<ServerPipe>(executor_, 9875);  // NOLINT(*-magic-numbers)
 
-    auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
-    ipc_router_      = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
+    ipc_router_ = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
 
     const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
     svc::node::ExecCmdService::registerWithContext(svc_context);

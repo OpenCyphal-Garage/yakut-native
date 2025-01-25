@@ -9,6 +9,7 @@
 #include "common_helpers.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/logger.h>
