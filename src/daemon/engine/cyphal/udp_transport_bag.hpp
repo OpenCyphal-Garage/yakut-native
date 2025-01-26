@@ -6,8 +6,10 @@
 #ifndef OCVSMD_DAEMON_ENGINE_CYPHAL_UDP_TRANSPORT_BAG_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_CYPHAL_UDP_TRANSPORT_BAG_HPP_INCLUDED
 
+#include "config.hpp"
 #include "platform/udp/udp_media.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -18,6 +20,7 @@
 
 #include <cstddef>
 #include <utility>
+#include <spdlog/spdlog.h>
 
 namespace ocvsmd
 {
@@ -39,13 +42,11 @@ struct UdpTransportBag final
     {
     }
 
-    libcyphal::transport::udp::IUdpTransport* create()
+    libcyphal::transport::udp::IUdpTransport* create(const Config::Ptr& config)
     {
-        // TODO: Make it configurable.
-        const libcyphal::transport::NodeId node_id{7};
-        const auto* const                  udp_iface = "127.0.0.1";
+        CETL_DEBUG_ASSERT(config, "");
 
-        media_collection_.parse(udp_iface);
+        media_collection_.parse(config->getCyphalUdpIface());
         auto maybe_udp_transport = makeTransport({memory_}, executor_, media_collection_.span(), TxQueueCapacity);
         if (const auto* failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_udp_transport))
         {
@@ -55,8 +56,11 @@ struct UdpTransportBag final
         transport_ = cetl::get<libcyphal::UniquePtr<libcyphal::transport::udp::IUdpTransport>>(  //
             std::move(maybe_udp_transport));
 
-        // TODO: Uncomment!
-        transport_->setLocalNodeId(node_id);
+        if (const auto node_id = config->getCyphalNodeId())
+        {
+            transport_->setLocalNodeId(node_id.value());
+        }
+
         // transport_->setTransientErrorHandler(platform::CommonHelpers::Udp::transientErrorReporter);
 
         return transport_.get();

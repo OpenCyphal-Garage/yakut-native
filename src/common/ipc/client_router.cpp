@@ -424,8 +424,7 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD ClientRouter::Ptr ClientRouter::make(cetl::pmr::memory_resource& memory,
-                                                    pipe::ClientPipe::Ptr       client_pipe)
+ClientRouter::Ptr ClientRouter::make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe)
 {
     return std::make_shared<ClientRouterImpl>(memory, std::move(client_pipe));
 }

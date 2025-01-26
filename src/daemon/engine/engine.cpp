@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "application.hpp"
+#include "engine.hpp"
 
+#include "config.hpp"
 #include "ipc/pipe/net_socket_server.hpp"
-// #include "ipc/pipe/unix_socket_server.hpp"
+#include "ipc/pipe/unix_socket_server.hpp"
 #include "ipc/server_router.hpp"
 #include "svc/node/exec_cmd_service.hpp"
 #include "svc/svc_helpers.hpp"
@@ -33,11 +34,16 @@ namespace daemon
 namespace engine
 {
 
-cetl::optional<std::string> Application::init()
+Engine::Engine(Config::Ptr config)
+    : config_{std::move(config)}
+{
+}
+
+cetl::optional<std::string> Engine::init()
 {
     // 1. Create the transport layer object.
     //
-    auto* const transport_iface = udp_transport_bag_.create();
+    auto* const transport_iface = udp_transport_bag_.create(config_);
     if (transport_iface == nullptr)
     {
         return "Failed to create cyphal UDP transport.";
@@ -84,7 +90,7 @@ cetl::optional<std::string> Application::init()
     return cetl::nullopt;
 }
 
-void Application::runWhile(const std::function<bool()>& loop_predicate)
+void Engine::runWhile(const std::function<bool()>& loop_predicate)
 {
     using std::chrono_literals::operator""s;
 
@@ -106,11 +112,14 @@ void Application::runWhile(const std::function<bool()>& loop_predicate)
     }
 }
 
-Application::UniqueId Application::getUniqueId()
+Engine::UniqueId Engine::getUniqueId() const
 {
-    UniqueId out_unique_id = {};
+    if (const auto unique_id = config_->getCyphalNodeUniqueId())
+    {
+        return unique_id.value();
+    }
 
-    // TODO: add storage for the unique ID
+    UniqueId out_unique_id = {};
 
     std::random_device                          rd;         // Seed for the random number engine
     std::mt19937                                gen{rd()};  // Mersenne Twister engine
@@ -122,6 +131,9 @@ Application::UniqueId Application::getUniqueId()
     {
         b = dis(gen);
     }
+
+    config_->setCyphalNodeUniqueId(out_unique_id);
+    config_->save();
 
     return out_unique_id;
 }

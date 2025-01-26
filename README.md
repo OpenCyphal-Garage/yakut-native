@@ -33,10 +33,12 @@ Then one of the two presets depending on your system:
   sudo cp build/bin/Release/ocvsmd /usr/local/bin/ocvsmd
   sudo cp build/bin/Release/ocvsmd-cli /usr/local/bin/ocvsmd-cli
   ```
-- Installing the Init Script:
+- Installing the Init Script and Config file:
   ```bash
   sudo cp init.d/ocvsmd /etc/init.d/ocvsmd
   sudo chmod +x /etc/init.d/ocvsmd
+  sudo mkdir -p /etc/ocvsmd
+  sudo cp init.d/ocvsmd.toml /etc/ocvsmd/ocvsmd.toml
   ```
 
 - Enabling at Startup if needed (on SysV-based systems):

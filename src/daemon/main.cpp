@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "engine/application.hpp"
+#include "engine/config.hpp"
+#include "engine/engine.hpp"
 #include "setup_logging.hpp"
 
 #include <spdlog/spdlog.h>
@@ -280,7 +281,7 @@ int daemonize()
         step_13_drop_privileges();
 
         // `step_14_notify_init_complete(pipe_write_fd);` will be called by the main
-        // when the application has been successfully initialized.
+        // when the engine has been successfully initialized.
         return pipe_write_fd;
     }
 
@@ -293,12 +294,25 @@ int daemonize()
     return -1;  // Unreachable actually b/c of `::exit` call.
 }
 
+ocvsmd::daemon::engine::Config::Ptr loadConfig(const int err_fd, const bool is_daemonized)
+{
+    const std::string cfg_file_nm   = "ocvsmd.toml";
+    const std::string cfg_file_dir  = is_daemonized ? "/etc/ocvsmd/" : "./";
+    const auto        cfg_file_path = cfg_file_dir + cfg_file_nm;
+
+    if (auto config = ocvsmd::daemon::engine::Config::make(cfg_file_path))
+    {
+        return config;
+    }
+
+    writeString(err_fd, "Failed to load configuration file.");
+    ::exit(EXIT_FAILURE);
+}
+
 }  // namespace
 
 int main(const int argc, const char** const argv)
 {
-    using ocvsmd::daemon::engine::Application;
-
     bool should_daemonize = true;
     for (int i = 1; i < argc; ++i)
     {
@@ -328,13 +342,15 @@ int main(const int argc, const char** const argv)
     {
         try
         {
-            Application application;
-            if (const auto failure_str = application.init())
+            const auto config = loadConfig(pipe_write_fd, should_daemonize);
+
+            ocvsmd::daemon::engine::Engine engine{config};
+            if (const auto failure_str = engine.init())
             {
-                spdlog::critical("Failed to init application: {}", failure_str.value());
+                spdlog::critical("Failed to init engine: {}", failure_str.value());
 
                 // Report the failure to the parent process (if daemonized; otherwise goes to stderr).
-                writeString(pipe_write_fd, "Failed to init application: ");
+                writeString(pipe_write_fd, "Failed to init engine: ");
                 writeString(pipe_write_fd, failure_str.value().c_str());
                 ::exit(EXIT_FAILURE);
             }
@@ -343,7 +359,9 @@ int main(const int argc, const char** const argv)
                 step_14_notify_init_complete(pipe_write_fd);
             }
 
-            application.runWhile([] { return g_running == 1; });
+            engine.runWhile([] { return g_running == 1; });
+
+            config->save();
 
         } catch (const std::exception& ex)
         {

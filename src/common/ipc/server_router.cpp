@@ -457,8 +457,7 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD ServerRouter::Ptr ServerRouter::make(cetl::pmr::memory_resource& memory,
-                                                    pipe::ServerPipe::Ptr       server_pipe)
+ServerRouter::Ptr ServerRouter::make(cetl::pmr::memory_resource& memory, pipe::ServerPipe::Ptr server_pipe)
 {
     return std::make_unique<ServerRouterImpl>(memory, std::move(server_pipe));
 }

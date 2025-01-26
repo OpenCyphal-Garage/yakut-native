@@ -32,8 +32,8 @@ target_include_directories(udpard
 )
 
 add_library(ocvsmd_engine
-        application.cpp
         config.cpp
+        engine.cpp
         platform/udp/udp.c
         svc/node/exec_cmd_service.cpp
 )

@@ -1,0 +1,16 @@
+[cyphal.node]
+# The ID assigned to OCVSMD Cyphal node. Must be unique in the Cyphal network.
+id = 0
+# The Unique-ID (16 bytes) of the Cyphal node. Automatically generated on the first run.
+unique_id = []
+
+[cyphal.udp]
+iface = '127.0.0.1'
+
+# Metadata of the configuration file.
+[__meta__]
+# The version of the configuration file.
+version = 1
+# The last modified date of the configuration file.
+last_modified = 1970-01-01T00:00:00Z
+

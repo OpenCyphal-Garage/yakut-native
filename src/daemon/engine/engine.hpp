@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_APPLICATION_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_APPLICATION_HPP_INCLUDED
+#ifndef OCVSMD_DAEMON_ENGINE_HPP_INCLUDED
+#define OCVSMD_DAEMON_ENGINE_HPP_INCLUDED
 
+#include "config.hpp"
 #include "cyphal/udp_transport_bag.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/defines.hpp"
@@ -17,8 +18,6 @@
 #include <libcyphal/application/node.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 
-#include <uavcan/node/GetInfo_1_0.hpp>
-
 #include <functional>
 #include <string>
 
@@ -29,17 +28,20 @@ namespace daemon
 namespace engine
 {
 
-class Application
+class Engine
 {
 public:
+    explicit Engine(Config::Ptr config);
+
     CETL_NODISCARD cetl::optional<std::string> init();
     void                                       runWhile(const std::function<bool()>& loop_predicate);
 
 private:
-    using UniqueId = uavcan::node::GetInfo::Response_1_0::_traits_::TypeOf::unique_id;
+    using UniqueId = Config::CyphalNodeUniqueId;
 
-    static UniqueId getUniqueId();
+    UniqueId getUniqueId() const;
 
+    Config::Ptr                                           config_;
     common::LoggerPtr                                     logger_{common::getLogger("engine")};
     ocvsmd::platform::SingleThreadedExecutor              executor_;
     cetl::pmr::memory_resource&                           memory_{*cetl::pmr::get_default_resource()};
@@ -48,10 +50,10 @@ private:
     cetl::optional<libcyphal::application::Node>          node_;
     common::ipc::ServerRouter::Ptr                        ipc_router_;
 
-};  // Application
+};  // Engine
 
 }  // namespace engine
 }  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_APPLICATION_HPP_INCLUDED
+#endif  // OCVSMD_DAEMON_ENGINE_HPP_INCLUDED
