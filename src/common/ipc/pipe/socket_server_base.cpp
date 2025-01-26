@@ -100,6 +100,19 @@ int SocketServerBase::send(const ClientId client_id, const Payloads payloads)
     return EINVAL;
 }
 
+int SocketServerBase::bindSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const
+{
+    if (const auto err = platform::posixSyscallError([fd, addr_ptr, addr_size] {
+            //
+            return ::bind(fd, static_cast<const sockaddr*>(addr_ptr), addr_size);
+        }))
+    {
+        logger().error("Failed to bind server socket: {}.", std::strerror(err));
+        return err;
+    }
+    return 0;
+}
+
 void SocketServerBase::handleAccept()
 {
     CETL_DEBUG_ASSERT(server_fd_ != -1, "");

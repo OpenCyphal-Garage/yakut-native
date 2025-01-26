@@ -48,18 +48,7 @@ int NetSocketServer::makeSocketHandle(int& out_fd)
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port        = htons(server_port_);
 
-    if (const auto err = platform::posixSyscallError([&out_fd, &addr] {
-            //
-            return ::bind(out_fd,
-                          reinterpret_cast<const sockaddr*>(&addr),  // NOLINT(*-reinterpret-cast)
-                          sizeof(addr));
-        }))
-    {
-        logger().error("Failed to bind server socket: {}.", std::strerror(err));
-        return err;
-    }
-
-    return 0;
+    return bindSocket(out_fd, &addr, sizeof(addr));
 }
 
 }  // namespace pipe

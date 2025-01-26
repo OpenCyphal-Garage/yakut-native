@@ -7,9 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_UNIX_SOCKET_CLIENT_HPP_INCLUDED
 
 #include "client_pipe.hpp"
-#include "ipc/ipc_types.hpp"
-#include "ocvsmd/platform/posix_executor_extension.hpp"
-#include "socket_base.hpp"
+#include "socket_client_base.hpp"
 
 #include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
@@ -25,7 +23,7 @@ namespace ipc
 namespace pipe
 {
 
-class UnixSocketClient final : public SocketBase, public ClientPipe
+class UnixSocketClient final : public SocketClientBase
 {
 public:
     UnixSocketClient(libcyphal::IExecutor& executor, std::string socket_path);
@@ -35,25 +33,14 @@ public:
     UnixSocketClient& operator=(const UnixSocketClient&)     = delete;
     UnixSocketClient& operator=(UnixSocketClient&&) noexcept = delete;
 
-    ~UnixSocketClient() override;
-
-    // ClientPipe
-
-    CETL_NODISCARD int start(EventHandler event_handler) override;
-
-    CETL_NODISCARD int send(const Payloads payloads) override
-    {
-        return SocketBase::send(state_, payloads);
-    }
+    ~UnixSocketClient() override = default;
 
 private:
-    void handle_socket();
+    using Base = SocketClientBase;
 
-    const std::string                        socket_path_;
-    platform::IPosixExecutorExtension* const posix_executor_ext_;
-    State                                    state_;
-    libcyphal::IExecutor::Callback::Any      socket_callback_;
-    EventHandler                             event_handler_;
+    CETL_NODISCARD int makeSocketHandle(int& out_fd) override;
+
+    const std::string socket_path_;
 
 };  // UnixSocketClient
 

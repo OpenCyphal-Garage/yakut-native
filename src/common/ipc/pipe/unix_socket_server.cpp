@@ -56,18 +56,7 @@ int UnixSocketServer::makeSocketHandle(int& out_fd)
                 abstract_socket_path.c_str(),
                 std::min(sizeof(addr.sun_path), abstract_socket_path.size()));
 
-    if (const auto err = platform::posixSyscallError([&out_fd, &addr, &abstract_socket_path] {
-            //
-            return ::bind(out_fd,
-                          reinterpret_cast<const sockaddr*>(&addr),  // NOLINT(*-reinterpret-cast)
-                          offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
-        }))
-    {
-        logger().error("Failed to bind server socket: {}.", std::strerror(err));
-        return err;
-    }
-
-    return 0;
+    return bindSocket(out_fd, &addr, offsetof(struct sockaddr_un, sun_path) + abstract_socket_path.size());
 }
 
 }  // namespace pipe

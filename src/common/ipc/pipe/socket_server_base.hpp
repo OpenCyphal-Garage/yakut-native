@@ -15,6 +15,7 @@
 #include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <cstddef>
 #include <unordered_map>
 
 namespace ocvsmd
@@ -34,9 +35,10 @@ public:
     SocketServerBase& operator=(const SocketServerBase&)     = delete;
     SocketServerBase& operator=(SocketServerBase&&) noexcept = delete;
 
+    ~SocketServerBase() override;
+
 protected:
     explicit SocketServerBase(libcyphal::IExecutor& executor);
-    ~SocketServerBase() override;
 
     // ServerPipe
     //
@@ -44,6 +46,8 @@ protected:
     CETL_NODISCARD int send(const ClientId client_id, const Payloads payloads) override;
 
     CETL_NODISCARD virtual int makeSocketHandle(int& out_fd) = 0;
+
+    CETL_NODISCARD int bindSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const;
 
 private:
     void           handleAccept();

@@ -24,6 +24,7 @@ add_library(ocvsmd_common
         ipc/pipe/net_socket_client.cpp
         ipc/pipe/net_socket_server.cpp
         ipc/pipe/socket_base.cpp
+        ipc/pipe/socket_client_base.cpp
         ipc/pipe/socket_server_base.cpp
         ipc/pipe/unix_socket_client.cpp
         ipc/pipe/unix_socket_server.cpp
