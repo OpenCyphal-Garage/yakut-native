@@ -10,6 +10,8 @@
 #include <spdlog/spdlog.h>
 #include <toml.hpp>
 
+#include <chrono>
+#include <exception>
 #include <fstream>
 #include <ios>
 #include <memory>
@@ -58,6 +60,8 @@ public:
         {
             try
             {
+                root_["__meta__"]["last_modified"] = std::chrono::system_clock::now();
+
                 const auto    cfg_str = format(root_);
                 std::ofstream file{file_path_, std::ios_base::out | std::ios_base::binary};
                 file << cfg_str;

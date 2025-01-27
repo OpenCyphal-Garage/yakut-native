@@ -1,11 +1,29 @@
-[cyphal.node]
-# The ID assigned to OCVSMD Cyphal node. Must be unique in the Cyphal network.
-id = 0
+# Cyphal application layer settings.
+[cyphal.application]
+# The ID assigned to OCVSMD Cyphal node.
+# Must be unique in the Cyphal network.
+# Supported values: 0-65534 (for UDP)
+node_id = 0
 # The Unique-ID (16 bytes) of the Cyphal node. Automatically generated on the first run.
 unique_id = []
 
-[cyphal.udp]
-iface = '127.0.0.1'
+# Cyphal transport layer settings.
+[cyphal.transport]
+# List of redundant interfaces for the Cyphal network.
+# Currently, only one interface is supported.
+# Supported formats:
+# - 'udp:<ip>'
+interfaces = ['udp:127.0.0.1']
+
+# IPC server settings.
+[ipc]
+# Connection strings for the IPC server.
+# Currently, only one connection is supported.
+# Supported formats:
+# - 'tcp://<ip>:<port>'
+# - 'unix:<file_path>'
+# - 'unix-abstract:<reverse-dns>' (linux only)
+connections = ['unix-abstract:org.opencyphal.ocvsmd.ipc']
 
 # Metadata of the configuration file.
 [__meta__]
