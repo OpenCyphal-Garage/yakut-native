@@ -6,6 +6,8 @@
 #ifndef OCVSMD_DAEMON_SETUP_LOGGING_HPP_INCLUDED
 #define OCVSMD_DAEMON_SETUP_LOGGING_HPP_INCLUDED
 
+#include "config.hpp"
+
 #include <spdlog/cfg/argv.h>
 #include <spdlog/cfg/helpers.h>  // NOLINT
 #include <spdlog/common.h>
@@ -95,7 +97,11 @@ inline bool writeString(const int fd, const char* const str)
 /// The syslog sink is used for the default logger only (with Info default level),
 /// while the file sink is used for all loggers (with Debug default level).
 ///
-inline void setupLogging(const int err_fd, const bool is_daemonized, const int argc, const char** const argv)
+inline void setupLogging(const int                                  err_fd,
+                         const bool                                 is_daemonized,
+                         const int                                  argc,
+                         const char** const                         argv,
+                         const ocvsmd::daemon::engine::Config::Ptr& config)
 {
     using spdlog::sinks::syslog_sink_st;
     using spdlog::sinks::rotating_file_sink_st;
@@ -108,7 +114,11 @@ inline void setupLogging(const int err_fd, const bool is_daemonized, const int a
         const std::string log_prefix    = "ocvsmd";
         const std::string log_file_nm   = log_prefix + ".log";
         const std::string log_file_dir  = is_daemonized ? "/var/log/" : "./";
-        const auto        log_file_path = log_file_dir + log_file_nm;
+        auto              log_file_path = log_file_dir + log_file_nm;
+        if (const auto logging_file = config->getLoggingFile())
+        {
+            log_file_path = logging_file.value();
+        }
 
         // Drop all existing loggers, including the default one, so that we can reconfigure them.
         spdlog::drop_all();
@@ -132,8 +142,17 @@ inline void setupLogging(const int err_fd, const bool is_daemonized, const int a
         register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
         register_logger(std::make_shared<spdlog::logger>("engine", file_sink));
 
-        // Accept `SPDLOG_LEVEL` & `SPDLOG_FLUSH_LEVEL` arguments (like `SPDLOG_LEVEL=debug,ipc=trace`).
+        // Setup log levels from the configuration file.
+        // Also accept `SPDLOG_LEVEL` & `SPDLOG_FLUSH_LEVEL` arguments if any (like `SPDLOG_LEVEL=debug,ipc=trace`).
         //
+        if (const auto logging_level = config->getLoggingLevel())
+        {
+            spdlog::cfg::helpers::load_levels(logging_level.value());
+        }
+        if (const auto logging_flush_level = config->getLoggingFlushLevel())
+        {
+            detail::loadFlushLevels(logging_flush_level.value());
+        }
         spdlog::cfg::load_argv_levels(argc, argv);
         detail::loadArgvFlushLevels(argc, argv);
 

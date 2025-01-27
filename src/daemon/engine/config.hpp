@@ -46,7 +46,12 @@ public:
     CETL_NODISCARD virtual auto getCyphalAppNodeId() const -> cetl::optional<CyphalApp::NodeId>     = 0;
     CETL_NODISCARD virtual auto getCyphalAppUniqueId() const -> cetl::optional<CyphalApp::UniqueId> = 0;
     virtual void                setCyphalAppUniqueId(const CyphalApp::UniqueId& unique_id)          = 0;
-    CETL_NODISCARD virtual auto getCyphalUdpIface() const -> std::string                            = 0;
+
+    CETL_NODISCARD virtual auto getCyphalUdpIface() const -> std::string = 0;
+
+    CETL_NODISCARD virtual auto getLoggingFile() const -> cetl::optional<std::string>       = 0;
+    CETL_NODISCARD virtual auto getLoggingLevel() const -> cetl::optional<std::string>      = 0;
+    CETL_NODISCARD virtual auto getLoggingFlushLevel() const -> cetl::optional<std::string> = 0;
 
 protected:
     Config() = default;

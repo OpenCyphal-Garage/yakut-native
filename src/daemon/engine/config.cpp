@@ -103,6 +103,21 @@ public:
         return find_or(root_, "cyphal", "udp", "iface", Default::Cyphal::Udp::Iface);
     }
 
+    auto getLoggingFile() const -> cetl::optional<std::string> override
+    {
+        return findImpl<std::string>("logging", "file");
+    }
+
+    auto getLoggingLevel() const -> cetl::optional<std::string> override
+    {
+        return findImpl<std::string>("logging", "level");
+    }
+
+    auto getLoggingFlushLevel() const -> cetl::optional<std::string> override
+    {
+        return findImpl<std::string>("logging", "flush_level");
+    }
+
 private:
     template <typename T, typename... Keys>
     cetl::optional<T> findImpl(Keys&&... keys) const
@@ -127,14 +142,8 @@ private:
 
 Config::Ptr Config::make(std::string file_path)
 {
-    auto maybe_root = toml::try_parse<ConfigImpl::TomlConf>(file_path);
-    if (maybe_root.is_err())
-    {
-        const auto err_str = format_error(maybe_root.unwrap_err().at(0));
-        spdlog::error("Failed to load config. Error:\n{}", err_str);
-        return nullptr;
-    }
-    return std::make_shared<ConfigImpl>(std::move(file_path), std::move(maybe_root.unwrap()));
+    auto root = toml::parse<ConfigImpl::TomlConf>(file_path);
+    return std::make_shared<ConfigImpl>(std::move(file_path), std::move(root));
 }
 
 }  // namespace engine

@@ -25,6 +25,16 @@ interfaces = ['udp:127.0.0.1']
 # - 'unix-abstract:<reverse-dns>' (linux only)
 connections = ['unix-abstract:org.opencyphal.ocvsmd.ipc']
 
+# Logging related settings.
+# See also README documentation for more details.
+[logging]
+# The path to the log file.
+file = '/etc/var/ocvsmd.log'
+# Supported log levels: 'trace', 'debug', 'info', 'warning', 'error', 'critical', 'off'.
+level = 'info'
+# By default, the log file is not immediately flushed to disk (at `off` level).
+flush_level = 'off'
+
 # Metadata of the configuration file.
 [__meta__]
 # The version of the configuration file.

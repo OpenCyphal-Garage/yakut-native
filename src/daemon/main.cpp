@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <signal.h>  // NOLINT
+#include <sstream>
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -235,7 +236,7 @@ void step_15_exit_org_process(int& pipe_read_fd)
     // Call exit() in the original process. The process that invoked the daemon must be able to rely on that this exit()
     // happens after initialization is complete and all external communication channels are established and accessible.
 
-    constexpr std::size_t      buf_size = 256;
+    constexpr std::size_t      buf_size = 1024;
     std::array<char, buf_size> msg_from_child{};
     const auto                 res = ::read(pipe_read_fd, msg_from_child.data(), msg_from_child.size() - 1);
     if (res == -1)
@@ -244,6 +245,7 @@ void step_15_exit_org_process(int& pipe_read_fd)
         std::cerr << "Failed to read pipe: " << err_txt << "\n";
         ::exit(EXIT_FAILURE);
     }
+    msg_from_child[res] = '\0';  // NOLINT
 
     if (::strcmp(msg_from_child.data(), s_init_complete) != 0)
     {
@@ -294,18 +296,39 @@ int daemonize()
     return -1;  // Unreachable actually b/c of `::exit` call.
 }
 
-ocvsmd::daemon::engine::Config::Ptr loadConfig(const int err_fd, const bool is_daemonized)
+ocvsmd::daemon::engine::Config::Ptr loadConfig(const int          err_fd,
+                                               const bool         is_daemonized,
+                                               const int          argc,
+                                               const char** const argv)
 {
     const std::string cfg_file_nm   = "ocvsmd.toml";
     const std::string cfg_file_dir  = is_daemonized ? "/etc/ocvsmd/" : "./";
-    const auto        cfg_file_path = cfg_file_dir + cfg_file_nm;
-
-    if (auto config = ocvsmd::daemon::engine::Config::make(cfg_file_path))
+    auto              cfg_file_path = cfg_file_dir + cfg_file_nm;
+    //
+    const std::string config_file_prefix = "CONFIG_FILE=";
+    for (int i = 1; i < argc; i++)
     {
-        return config;
+        const std::string arg_str = argv[i];  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        if (arg_str.find(config_file_prefix) == 0)
+        {
+            cfg_file_path = arg_str.substr(config_file_prefix.size());
+        }
     }
 
-    writeString(err_fd, "Failed to load configuration file.");
+    try
+    {
+        return ocvsmd::daemon::engine::Config::make(cfg_file_path);
+
+    } catch (const std::exception& ex)
+    {
+        std::stringstream ss;
+        ss << "Failed to load configuration file (path='" << cfg_file_path << "').\n" << ex.what();
+        writeString(err_fd, ss.str().c_str());
+
+    } catch (...)
+    {
+        writeString(err_fd, "Failed to load configuration file.");
+    }
     ::exit(EXIT_FAILURE);
 }
 
@@ -335,15 +358,14 @@ int main(const int argc, const char** const argv)
         setupSignalHandlers();
     }
 
-    setupLogging(pipe_write_fd, should_daemonize, argc, argv);
+    const auto config = loadConfig(pipe_write_fd, should_daemonize, argc, argv);
+    setupLogging(pipe_write_fd, should_daemonize, argc, argv, config);
 
     spdlog::info("OCVSMD started (ver='{}.{}').", VERSION_MAJOR, VERSION_MINOR);
     int result = EXIT_SUCCESS;
     {
         try
         {
-            const auto config = loadConfig(pipe_write_fd, should_daemonize);
-
             ocvsmd::daemon::engine::Engine engine{config};
             if (const auto failure_str = engine.init())
             {
