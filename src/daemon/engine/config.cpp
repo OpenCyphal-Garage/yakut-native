@@ -75,24 +75,26 @@ public:
         }
     }
 
-    auto getCyphalNodeId() const -> cetl::optional<CyphalNodeId> override
+    auto getCyphalAppNodeId() const -> cetl::optional<CyphalApp::NodeId> override
     {
-        return findImpl<CyphalNodeId>("cyphal", "node", "id");
+        return findImpl<CyphalApp::NodeId>("cyphal", "application", "node_id");
     }
 
-    auto getCyphalNodeUniqueId() const -> cetl::optional<CyphalNodeUniqueId> override
+    auto getCyphalAppUniqueId() const -> cetl::optional<CyphalApp::UniqueId> override
     {
-        return findImpl<CyphalNodeUniqueId>("cyphal", "node", "unique_id");
+        return findImpl<CyphalApp::UniqueId>("cyphal", "application", "unique_id");
     }
 
-    void setCyphalNodeUniqueId(const CyphalNodeUniqueId& unique_id) override
+    void setCyphalAppUniqueId(const CyphalApp::UniqueId& unique_id) override
     {
-        auto& toml_unique_id = root_["cyphal"]["node"]["unique_id"];
+        auto& toml_unique_id = root_["cyphal"]["application"]["unique_id"];
         toml_unique_id       = unique_id;
         for (auto& item : toml_unique_id.as_array())
         {
             item.as_integer_fmt().fmt = toml::integer_format::hex;
         }
+        toml_unique_id.as_array_fmt().fmt = toml::array_format::oneline;
+
         is_dirty_ = true;
     }
 

@@ -37,7 +37,7 @@ public:
     void                                       runWhile(const std::function<bool()>& loop_predicate);
 
 private:
-    using UniqueId = Config::CyphalNodeUniqueId;
+    using UniqueId = Config::CyphalApp::UniqueId;
 
     UniqueId getUniqueId() const;
 

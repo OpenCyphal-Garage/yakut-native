@@ -114,7 +114,7 @@ void Engine::runWhile(const std::function<bool()>& loop_predicate)
 
 Engine::UniqueId Engine::getUniqueId() const
 {
-    if (const auto unique_id = config_->getCyphalNodeUniqueId())
+    if (const auto unique_id = config_->getCyphalAppUniqueId())
     {
         return unique_id.value();
     }
@@ -132,7 +132,7 @@ Engine::UniqueId Engine::getUniqueId() const
         b = dis(gen);
     }
 
-    config_->setCyphalNodeUniqueId(out_unique_id);
+    config_->setCyphalAppUniqueId(out_unique_id);
     config_->save();
 
     return out_unique_id;

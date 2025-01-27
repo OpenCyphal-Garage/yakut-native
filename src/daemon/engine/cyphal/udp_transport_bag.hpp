@@ -13,7 +13,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
@@ -56,7 +55,7 @@ struct UdpTransportBag final
         transport_ = cetl::get<libcyphal::UniquePtr<libcyphal::transport::udp::IUdpTransport>>(  //
             std::move(maybe_udp_transport));
 
-        if (const auto node_id = config->getCyphalNodeId())
+        if (const auto node_id = config->getCyphalAppNodeId())
         {
             transport_->setLocalNodeId(node_id.value());
         }

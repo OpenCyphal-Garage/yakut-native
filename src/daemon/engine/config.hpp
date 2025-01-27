@@ -26,8 +26,11 @@ class Config
 public:
     using Ptr = std::shared_ptr<Config>;
 
-    using CyphalNodeId       = std::uint16_t;
-    using CyphalNodeUniqueId = std::array<std::uint8_t, 16>;  // NOLINT(*-magic-numbers)
+    struct CyphalApp
+    {
+        using NodeId   = std::uint16_t;
+        using UniqueId = std::array<std::uint8_t, 16>;  // NOLINT(*-magic-numbers)
+    };
 
     CETL_NODISCARD static Ptr make(std::string file_path);
 
@@ -40,9 +43,9 @@ public:
 
     virtual void save() = 0;
 
-    CETL_NODISCARD virtual auto getCyphalNodeId() const -> cetl::optional<CyphalNodeId>             = 0;
-    CETL_NODISCARD virtual auto getCyphalNodeUniqueId() const -> cetl::optional<CyphalNodeUniqueId> = 0;
-    virtual void                setCyphalNodeUniqueId(const CyphalNodeUniqueId& unique_id)          = 0;
+    CETL_NODISCARD virtual auto getCyphalAppNodeId() const -> cetl::optional<CyphalApp::NodeId>     = 0;
+    CETL_NODISCARD virtual auto getCyphalAppUniqueId() const -> cetl::optional<CyphalApp::UniqueId> = 0;
+    virtual void                setCyphalAppUniqueId(const CyphalApp::UniqueId& unique_id)          = 0;
     CETL_NODISCARD virtual auto getCyphalUdpIface() const -> std::string                            = 0;
 
 protected:
