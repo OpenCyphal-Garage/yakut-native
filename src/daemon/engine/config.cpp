@@ -125,7 +125,7 @@ private:
     {
         try
         {
-            return toml::find<T>(root_, std::forward<Keys>(keys)...);
+            return cetl::make_optional(toml::find<T>(root_, std::forward<Keys>(keys)...));
 
         } catch (...)
         {

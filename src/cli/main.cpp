@@ -89,7 +89,7 @@ int main(const int argc, const char** const argv)
             const std::vector<std::uint16_t> node_ids = {42, 143, 44};
             const Command::NodeRequest       node_request{cmd_id, CommandParam{&memory}, &memory};
 
-            auto sender     = node_cmd_client->sendCommand(node_ids, node_request, 1s);
+            auto sender     = node_cmd_client->sendCommand({node_ids.data(), node_ids.size()}, node_request, 1s);
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
 
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
