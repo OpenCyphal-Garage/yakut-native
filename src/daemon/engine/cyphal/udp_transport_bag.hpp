@@ -18,8 +18,8 @@
 #include <libcyphal/types.hpp>
 
 #include <cstddef>
+#include <string>
 #include <utility>
-#include <spdlog/spdlog.h>
 
 namespace ocvsmd
 {
@@ -45,7 +45,18 @@ struct UdpTransportBag final
     {
         CETL_DEBUG_ASSERT(config, "");
 
-        media_collection_.parse(config->getCyphalUdpIface());
+        std::string udp_ifaces;
+        for (const auto& iface : config->getCyphalTransportInterfaces())
+        {
+            constexpr static std::string udp_prefix = "udp:";
+            if (0 == iface.find(udp_prefix))
+            {
+                udp_ifaces += iface.substr(udp_prefix.size());
+                udp_ifaces += ",";
+            }
+        }
+
+        media_collection_.parse(udp_ifaces);
         auto maybe_udp_transport = makeTransport({memory_}, executor_, media_collection_.span(), TxQueueCapacity);
         if (const auto* failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_udp_transport))
         {

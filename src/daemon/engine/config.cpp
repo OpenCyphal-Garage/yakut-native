@@ -17,6 +17,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace ocvsmd
 {
@@ -98,9 +99,9 @@ public:
         is_dirty_ = true;
     }
 
-    auto getCyphalUdpIface() const -> std::string override
+    auto getCyphalTransportInterfaces() const -> std::vector<std::string> override
     {
-        return find_or(root_, "cyphal", "udp", "iface", Default::Cyphal::Udp::Iface);
+        return find_or(root_, "cyphal", "transport", "interfaces", std::vector<std::string>{});
     }
 
     auto getLoggingFile() const -> cetl::optional<std::string> override

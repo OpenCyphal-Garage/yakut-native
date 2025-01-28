@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ocvsmd
 {
@@ -47,7 +48,7 @@ public:
     CETL_NODISCARD virtual auto getCyphalAppUniqueId() const -> cetl::optional<CyphalApp::UniqueId> = 0;
     virtual void                setCyphalAppUniqueId(const CyphalApp::UniqueId& unique_id)          = 0;
 
-    CETL_NODISCARD virtual auto getCyphalUdpIface() const -> std::string = 0;
+    CETL_NODISCARD virtual auto getCyphalTransportInterfaces() const -> std::vector<std::string> = 0;
 
     CETL_NODISCARD virtual auto getLoggingFile() const -> cetl::optional<std::string>       = 0;
     CETL_NODISCARD virtual auto getLoggingLevel() const -> cetl::optional<std::string>      = 0;

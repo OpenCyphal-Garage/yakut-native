@@ -8,6 +8,8 @@
 
 #include "config.hpp"
 
+#include <cetl/cetl.hpp>
+
 #include <spdlog/cfg/argv.h>
 #include <spdlog/cfg/helpers.h>  // NOLINT
 #include <spdlog/common.h>
@@ -103,6 +105,8 @@ inline void setupLogging(const int                                  err_fd,
                          const char** const                         argv,
                          const ocvsmd::daemon::engine::Config::Ptr& config)
 {
+    CETL_DEBUG_ASSERT(config, "");
+
     using spdlog::sinks::syslog_sink_st;
     using spdlog::sinks::rotating_file_sink_st;
 

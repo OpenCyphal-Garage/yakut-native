@@ -13,7 +13,9 @@ unique_id = []
 # Currently, only one interface is supported.
 # Supported formats:
 # - 'udp:<ip>'
-interfaces = ['udp:127.0.0.1']
+interfaces = [
+    'udp:127.0.0.1',
+]
 
 # IPC server settings.
 [ipc]

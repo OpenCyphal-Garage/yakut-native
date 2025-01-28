@@ -111,7 +111,7 @@ struct UdpMediaCollection
         std::size_t curr  = 0;
         while ((curr != cetl::string_view::npos) && (index < MaxUdpMedia))
         {
-            const auto next          = iface_addresses.find(' ', curr);
+            const auto next          = iface_addresses.find(',', curr);
             const auto iface_address = iface_addresses.substr(curr, next - curr);
             if (!iface_address.empty())
             {
