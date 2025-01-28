@@ -11,12 +11,12 @@ Then one of the two presets depending on your system:
 - `Demo-BSD` – BSD based like MacOS.
   ###### Debug
   ```bash
-  cmake --preset OCVSMD-Linux
+  cmake --preset OCVSMD-Linux && \
   cmake --build --preset OCVSMD-Linux-Debug
   ```
   ###### Release
   ```bash
-  cmake --preset OCVSMD-Linux
+  cmake --preset OCVSMD-Linux && \
   cmake --build --preset OCVSMD-Linux-Release
   ```
 
@@ -25,19 +25,19 @@ Then one of the two presets depending on your system:
 - Installing the Daemon Binary:
   ###### Debug
   ```bash
-  sudo cp build/bin/Debug/ocvsmd /usr/local/bin/ocvsmd
+  sudo cp build/bin/Debug/ocvsmd /usr/local/bin/ocvsmd && \
   sudo cp build/bin/Debug/ocvsmd-cli /usr/local/bin/ocvsmd-cli
   ```
   ###### Release
   ```bash
-  sudo cp build/bin/Release/ocvsmd /usr/local/bin/ocvsmd
+  sudo cp build/bin/Release/ocvsmd /usr/local/bin/ocvsmd && \
   sudo cp build/bin/Release/ocvsmd-cli /usr/local/bin/ocvsmd-cli
   ```
 - Installing the Init Script and Config file:
   ```bash
-  sudo cp init.d/ocvsmd /etc/init.d/ocvsmd
-  sudo chmod +x /etc/init.d/ocvsmd
-  sudo mkdir -p /etc/ocvsmd
+  sudo cp init.d/ocvsmd /etc/init.d/ocvsmd && \
+  sudo chmod +x /etc/init.d/ocvsmd && \
+  sudo mkdir -p /etc/ocvsmd && \
   sudo cp init.d/ocvsmd.toml /etc/ocvsmd/ocvsmd.toml
   ```
 

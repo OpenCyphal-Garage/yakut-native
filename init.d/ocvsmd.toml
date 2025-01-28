@@ -25,7 +25,9 @@ interfaces = [
 # - 'tcp://<ip>:<port>'
 # - 'unix:<file_path>'
 # - 'unix-abstract:<reverse-dns>' (linux only)
-connections = ['unix-abstract:org.opencyphal.ocvsmd.ipc']
+connections = [
+    'unix-abstract:org.opencyphal.ocvsmd.ipc',
+]
 
 # Logging related settings.
 # See also README documentation for more details.

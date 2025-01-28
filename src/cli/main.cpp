@@ -23,6 +23,7 @@
 #include <iostream>
 #include <signal.h>  // NOLINT
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -45,8 +46,7 @@ void signalHandler(const int sig)
 
 void setupSignalHandlers()
 {
-    struct sigaction sigbreak
-    {};
+    struct sigaction sigbreak{};
     sigbreak.sa_handler = &signalHandler;
     ::sigaction(SIGINT, &sigbreak, nullptr);
     ::sigaction(SIGTERM, &sigbreak, nullptr);
@@ -84,11 +84,11 @@ int main(const int argc, const char** const argv)
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            constexpr auto                         cmd_id   = Command::NodeRequest::COMMAND_RESTART;
-            constexpr std::array<std::uint16_t, 3> node_ids = {42, 43, 44};
-            const Command::NodeRequest             node_request{cmd_id, CommandParam{&memory}, &memory};
-            auto                                   sender = node_cmd_client->sendCommand(node_ids, node_request, 1s);
+            constexpr auto                   cmd_id   = Command::NodeRequest::COMMAND_IDENTIFY;
+            const std::vector<std::uint16_t> node_ids = {42, 143, 44};
+            const Command::NodeRequest       node_request{cmd_id, CommandParam{&memory}, &memory};
 
+            auto sender     = node_cmd_client->sendCommand(node_ids, node_request, 1s);
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
 
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))

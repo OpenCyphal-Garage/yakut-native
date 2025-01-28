@@ -48,7 +48,7 @@ struct UdpTransportBag final
         std::string udp_ifaces;
         for (const auto& iface : config->getCyphalTransportInterfaces())
         {
-            constexpr static std::string udp_prefix = "udp:";
+            const static std::string udp_prefix = "udp:";
             if (0 == iface.find(udp_prefix))
             {
                 udp_ifaces += iface.substr(udp_prefix.size());

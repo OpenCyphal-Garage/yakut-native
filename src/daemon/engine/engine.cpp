@@ -7,7 +7,7 @@
 
 #include "config.hpp"
 #include "ipc/pipe/net_socket_server.hpp"
-#include "ipc/pipe/unix_socket_server.hpp"
+// #include "ipc/pipe/unix_socket_server.hpp"
 #include "ipc/server_router.hpp"
 #include "svc/node/exec_cmd_service.hpp"
 #include "svc/svc_helpers.hpp"
