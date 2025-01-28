@@ -308,8 +308,8 @@ ocvsmd::daemon::engine::Config::Ptr loadConfig(const int          err_fd,
     const std::string config_file_prefix = "CONFIG_FILE=";
     for (int i = 1; i < argc; i++)
     {
-        const std::string arg_str = argv[i];  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        if (arg_str.find(config_file_prefix) == 0)
+        const std::string arg_str = argv[i];        // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        if (arg_str.find(config_file_prefix) == 0)  // NOLINT(modernize-use-starts-ends-with)
         {
             cfg_file_path = arg_str.substr(config_file_prefix.size());
         }

@@ -14,7 +14,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
