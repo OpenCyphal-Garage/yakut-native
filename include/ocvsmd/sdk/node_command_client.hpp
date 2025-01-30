@@ -55,7 +55,7 @@ public:
                                                        const Command::NodeRequest&           node_request,
                                                        const std::chrono::microseconds       timeout) = 0;
 
-``    /// A convenience method for invoking `sendCommand` with COMMAND_RESTART.
+    /// A convenience method for invoking `sendCommand` with COMMAND_RESTART.
     ///
     SenderOf<Command::Result>::Ptr restart(  //
         const cetl::span<const std::uint16_t> node_ids,
