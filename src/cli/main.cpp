@@ -85,7 +85,7 @@ int main(const int argc, const char** const argv)
             auto node_cmd_client = daemon->getNodeCommandClient();
 
             constexpr auto                   cmd_id   = Command::NodeRequest::COMMAND_IDENTIFY;
-            const std::vector<std::uint16_t> node_ids = {42, 143, 44};
+            const std::vector<std::uint16_t> node_ids = {42, 43, 44};
             const Command::NodeRequest       node_request{cmd_id, CommandParam{&memory}, &memory};
 
             auto sender     = node_cmd_client->sendCommand({node_ids.data(), node_ids.size()}, node_request, 1s);

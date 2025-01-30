@@ -52,6 +52,7 @@ cetl::optional<std::string> Engine::init()
     // 2. Create the presentation layer object.
     //
     presentation_.emplace(memory_, executor_, *transport_iface);
+    presentation_->setTransferIdMap(&transfer_id_map_);
 
     // 3. Create the node object with name.
     //
