@@ -141,10 +141,7 @@ SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::beginSoftwa
 
     auto&           memory  = getMemoryResource();
     constexpr auto  command = Command::NodeRequest::COMMAND_BEGIN_SOFTWARE_UPDATE;
-    const Parameter param{file_path.begin(),
-                          file_path.end(),
-                          Command::NodeRequest::_traits_::ArrayCapacity::parameter,
-                          &memory};
+    const Parameter param{file_path.begin(), file_path.end(), &memory};
 
     const Command::NodeRequest node_request{command, param, {&memory}};
 
