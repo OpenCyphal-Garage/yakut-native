@@ -45,7 +45,8 @@ void signalHandler(const int sig)
 
 void setupSignalHandlers()
 {
-    struct sigaction sigbreak{};
+    struct sigaction sigbreak
+    {};
     sigbreak.sa_handler = &signalHandler;
     ::sigaction(SIGINT, &sigbreak, nullptr);
     ::sigaction(SIGTERM, &sigbreak, nullptr);
