@@ -45,8 +45,7 @@ void signalHandler(const int sig)
 
 void setupSignalHandlers()
 {
-    struct sigaction sigbreak
-    {};
+    struct sigaction sigbreak{};
     sigbreak.sa_handler = &signalHandler;
     ::sigaction(SIGINT, &sigbreak, nullptr);
     ::sigaction(SIGTERM, &sigbreak, nullptr);
@@ -77,18 +76,15 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-        // Demo of daemon's node command client, sending a command to node 42.
+        // Demo of daemon's node command client, sending a command to node 42, 43 & 44.
         {
-            using Command      = ocvsmd::sdk::NodeCommandClient::Command;
-            using CommandParam = Command::NodeRequest::_traits_::TypeOf::parameter;
+            using Command = ocvsmd::sdk::NodeCommandClient::Command;
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            constexpr auto                   cmd_id   = Command::NodeRequest::COMMAND_IDENTIFY;
             const std::vector<std::uint16_t> node_ids = {42, 43, 44};
-            const Command::NodeRequest       node_request{cmd_id, CommandParam{&memory}, &memory};
-
-            auto sender     = node_cmd_client->sendCommand({node_ids.data(), node_ids.size()}, node_request, 1s);
+            // auto sender     = node_cmd_client->restart({node_ids.data(), node_ids.size()});
+            auto sender     = node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
 
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))

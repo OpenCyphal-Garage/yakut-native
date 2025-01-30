@@ -55,8 +55,24 @@ public:
                                                        const Command::NodeRequest&           node_request,
                                                        const std::chrono::microseconds       timeout) = 0;
 
+``    /// A convenience method for invoking `sendCommand` with COMMAND_RESTART.
+    ///
+    SenderOf<Command::Result>::Ptr restart(  //
+        const cetl::span<const std::uint16_t> node_ids,
+        const std::chrono::microseconds       timeout = std::chrono::seconds{1});
+
+    /// A convenience method for invoking `sendCommand` with COMMAND_BEGIN_SOFTWARE_UPDATE.
+    /// The file_path is relative to one of the roots configured in the file server.
+    ///
+    SenderOf<Command::Result>::Ptr beginSoftwareUpdate(  //
+        const cetl::span<const std::uint16_t> node_ids,
+        const cetl::string_view               file_path,
+        const std::chrono::microseconds       timeout = std::chrono::seconds{1});
+
 protected:
     NodeCommandClient() = default;
+
+    virtual cetl::pmr::memory_resource& getMemoryResource() const noexcept = 0;
 
 };  // NodeCommandClient
 

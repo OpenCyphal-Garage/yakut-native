@@ -44,6 +44,11 @@ public:
 
     // NodeCommandClient
 
+    cetl::pmr::memory_resource& getMemoryResource() const noexcept override
+    {
+        return memory_;
+    }
+
     SenderOf<Command::Result>::Ptr sendCommand(const cetl::span<const std::uint16_t> node_ids,
                                                const Command::NodeRequest&           node_request,
                                                const std::chrono::microseconds       timeout) override
@@ -110,6 +115,41 @@ private:
 };  // NodeCommandClientImpl
 
 }  // namespace
+
+SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::restart(  //
+    const cetl::span<const std::uint16_t> node_ids,
+    const std::chrono::microseconds       timeout)
+{
+    auto& memory = getMemoryResource();
+
+    constexpr auto                                          command = Command::NodeRequest::COMMAND_RESTART;
+    const Command::NodeRequest::_traits_::TypeOf::parameter no_param{&memory};
+    const Command::NodeRequest                              node_request{command, no_param, {&memory}};
+
+    return sendCommand(node_ids, node_request, timeout);
+}
+
+/// A convenience method for invoking `sendCommand` with COMMAND_BEGIN_SOFTWARE_UPDATE.
+/// The file_path is relative to one of the roots configured in the file server.
+///
+SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::beginSoftwareUpdate(  //
+    const cetl::span<const std::uint16_t> node_ids,
+    const cetl::string_view               file_path,
+    const std::chrono::microseconds       timeout)
+{
+    using Parameter = Command::NodeRequest::_traits_::TypeOf::parameter;
+
+    auto&           memory  = getMemoryResource();
+    constexpr auto  command = Command::NodeRequest::COMMAND_BEGIN_SOFTWARE_UPDATE;
+    const Parameter param{file_path.begin(),
+                          file_path.end(),
+                          Command::NodeRequest::_traits_::ArrayCapacity::parameter,
+                          &memory};
+
+    const Command::NodeRequest node_request{command, param, {&memory}};
+
+    return sendCommand(node_ids, node_request, timeout);
+}
 
 CETL_NODISCARD NodeCommandClient::Ptr Factory::makeNodeCommandClient(cetl::pmr::memory_resource&    memory,
                                                                      common::ipc::ClientRouter::Ptr ipc_router)
