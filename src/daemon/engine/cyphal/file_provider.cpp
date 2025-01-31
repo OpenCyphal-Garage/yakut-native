@@ -23,7 +23,14 @@
 
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
+#include <exception>
+#include <fstream>
+#include <ios>
 #include <memory>
+#include <stdlib.h>
+#include <string>
+#include <sys/stat.h>
 #include <utility>
 
 namespace ocvsmd
@@ -139,42 +146,76 @@ private:
         });
     }
 
-    static cetl::string_view stringViewFrom(const uavcan::file::Path_2_0& file_path)
+    static std::string stringFrom(const uavcan::file::Path_2_0& file_path)
     {
         const auto* const path_data = reinterpret_cast<const char*>(file_path.path.data());  // NOLINT
-        return cetl::string_view{path_data, file_path.path.size()};
+        return std::string{path_data, file_path.path.size()};
     }
 
-    static constexpr std::size_t TestFileSize = 1000000000;
-
-    Svc::GetInfo::Response serveGetInfoRequest(const Svc::GetInfo::CallbackArg& arg)
+    static cetl::optional<std::string> canonicalizePath(const std::string& path)
     {
-        const auto request_path = stringViewFrom(arg.request.path);
+        char* const resolved_path = ::realpath(path.c_str(), nullptr);
+        if (resolved_path == nullptr)
+        {
+            return cetl::nullopt;
+        }
+
+        std::string result{resolved_path};
+        ::free(resolved_path);  // NOLINT
+
+        return result;
+    }
+
+    Svc::GetInfo::Response serveGetInfoRequest(const Svc::GetInfo::CallbackArg& arg) const
+    {
+        const auto request_path = stringFrom(arg.request.path);
         logger_->trace("'GetInfo' request (from={}, path='{}').", arg.metadata.remote_node_id, request_path);
 
         Svc::GetInfo::Response response{&memory_};
-        response._error.value          = uavcan::file::Error_1_0::OK;
-        response.size                  = TestFileSize;
-        response.is_file_not_directory = true;
-        response.is_readable           = true;
+        response._error.value = uavcan::file::Error_1_0::NOT_FOUND;
+
+        if (const auto real_path = canonicalizePath(request_path))
+        {
+            struct stat file_stat{};
+            if (::stat(real_path->c_str(), &file_stat) == 0)
+            {
+                response.size                  = file_stat.st_size;
+                response.is_file_not_directory = true;
+                response.is_readable           = true;
+                response._error.value          = uavcan::file::Error_1_0::OK;
+            }
+        }
+
         return response;
     }
 
-    Svc::Read::Response serveReadRequest(const Svc::Read::CallbackArg& arg)
+    Svc::Read::Response serveReadRequest(const Svc::Read::CallbackArg& arg) const
     {
-        // const auto request_path = stringViewFrom(arg.request.path);
-        // logger_->trace("'Read' request (from={}, offset={}, path='{}').",
-        //                arg.metadata.remote_node_id,
-        //                arg.request.offset,
-        //                request_path);
+        const auto request_path = stringFrom(arg.request.path);
+        const auto real_path = canonicalizePath(request_path);
 
         Svc::Read::Response response{&memory_};
-        response._error.value = uavcan::file::Error_1_0::OK;
-        response.data.value.resize(std::min<std::size_t>(TestFileSize - arg.request.offset, 256U));  // NOLINT
+        auto&               buffer = response.data.value;
+
+        constexpr std::size_t BufferSize = 256U;
+        buffer.resize(BufferSize);
+
+        try
+        {
+            std::ifstream file{request_path.data(), std::ios::binary};
+            file.seekg(static_cast<std::streamoff>(arg.request.offset));
+            file.read(reinterpret_cast<char*>(buffer.data()), BufferSize);  // NOLINT
+            buffer.resize(file.gcount());
+            response._error.value = uavcan::file::Error_1_0::OK;
+
+        } catch (std::exception& ex)
+        {
+            buffer.clear();
+            logger_->error("Failed to read file '{}': {}.", request_path, ex.what());
+            response._error.value = uavcan::file::Error_1_0::UNKNOWN_ERROR;
+        }
         return response;
     }
-
-    static constexpr libcyphal::Duration Timeout = std::chrono::seconds{1};
 
     cetl::pmr::memory_resource& memory_;
     Svc::List::Server           list_srv_;
