@@ -7,7 +7,6 @@ cmake_minimum_required(VERSION 3.27)
 
 add_executable(engine_tests
         main.cpp
-        test_xxx.cpp
 )
 target_link_libraries(engine_tests
         ocvsmd_engine

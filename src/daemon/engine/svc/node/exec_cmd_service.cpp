@@ -5,6 +5,7 @@
 
 #include "exec_cmd_service.hpp"
 
+#include "engine_helpers.hpp"
 #include "ipc/channel.hpp"
 #include "ipc/server_router.hpp"
 #include "logging.hpp"

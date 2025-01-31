@@ -8,6 +8,7 @@
 
 #include "channel.hpp"
 #include "gateway.hpp"
+#include "ipc_types.hpp"
 #include "pipe/server_pipe.hpp"
 
 #include <cetl/cetl.hpp>

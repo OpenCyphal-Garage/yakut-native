@@ -8,6 +8,11 @@ cmake_minimum_required(VERSION 3.27)
 # Define type generation and header library all in one go.
 #
 set(dsdl_types_in_engine # List all the DSDL types used in the engine
+        uavcan/file/405.GetInfo.0.2.dsdl
+        uavcan/file/406.List.0.2.dsdl
+        uavcan/file/407.Modify.1.1.dsdl
+        uavcan/file/408.Read.1.1.dsdl
+        uavcan/file/409.Write.1.1.dsdl
         uavcan/node/430.GetInfo.1.0.dsdl
         uavcan/node/435.ExecuteCommand.1.3.dsdl
         uavcan/node/7509.Heartbeat.1.0.dsdl
@@ -33,6 +38,7 @@ target_include_directories(udpard
 
 add_library(ocvsmd_engine
         config.cpp
+        cyphal/file_provider.cpp
         engine.cpp
         platform/udp/udp.c
         svc/node/exec_cmd_service.cpp
