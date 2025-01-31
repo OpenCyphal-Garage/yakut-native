@@ -122,8 +122,8 @@ private:
     using Presentation = libcyphal::presentation::Presentation;
 
     template <typename Service>
-    static auto makeServer(const cetl::string_view role, Presentation& presentation)
-        -> cetl::optional<typename Service::Server>
+    static auto makeServer(const cetl::string_view role,
+                           Presentation&           presentation) -> cetl::optional<typename Service::Server>
     {
         auto maybe_server = presentation.makeServer<Service>();
         if (const auto* const failure = cetl::get_if<Presentation::MakeFailure>(&maybe_server))
@@ -175,7 +175,8 @@ private:
 
         if (const auto real_path = canonicalizePath(request_path))
         {
-            struct stat file_stat{};
+            struct stat file_stat
+            {};
             if (::stat(real_path->c_str(), &file_stat) == 0)
             {
                 response.size                  = file_stat.st_size;
@@ -191,7 +192,7 @@ private:
     Svc::Read::Response serveReadRequest(const Svc::Read::CallbackArg& arg) const
     {
         const auto request_path = stringFrom(arg.request.path);
-        const auto real_path = canonicalizePath(request_path);
+        const auto real_path    = canonicalizePath(request_path);
 
         Svc::Read::Response response{&memory_};
         auto&               buffer = response.data.value;
