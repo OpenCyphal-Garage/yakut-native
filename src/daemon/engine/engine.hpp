@@ -46,6 +46,7 @@ private:
     class TransferIdMap final : public libcyphal::transport::ITransferIdMap
     {
         using TransferId = libcyphal::transport::TransferId;
+        using Map        = std::unordered_map<SessionSpec, TransferId>;
 
         // ITransferIdMap
 
@@ -60,7 +61,7 @@ private:
             session_spec_to_transfer_id_[session_spec] = transfer_id;
         }
 
-        std::unordered_map<SessionSpec, TransferId> session_spec_to_transfer_id_;
+        Map session_spec_to_transfer_id_;
 
     };  // TransferIdMap
 

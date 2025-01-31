@@ -11,7 +11,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/server.hpp>
-#include <libcyphal/types.hpp>
 
 #include <uavcan/file/Error_1_0.hpp>
 #include <uavcan/file/GetInfo_0_2.hpp>
@@ -24,11 +23,11 @@
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <fstream>
 #include <ios>
 #include <memory>
-#include <stdlib.h>
 #include <string>
 #include <sys/stat.h>
 #include <utility>
