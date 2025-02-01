@@ -23,11 +23,11 @@
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
-#include <cstdlib>
 #include <exception>
 #include <fstream>
 #include <ios>
 #include <memory>
+#include <stdlib.h>  // ::realpath
 #include <string>
 #include <sys/stat.h>
 #include <utility>
