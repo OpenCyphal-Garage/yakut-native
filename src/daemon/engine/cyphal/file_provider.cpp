@@ -27,7 +27,7 @@
 #include <fstream>
 #include <ios>
 #include <memory>
-#include <stdlib.h>  // ::realpath
+#include <stdlib.h>  // NOLINT ::realpath
 #include <string>
 #include <sys/stat.h>
 #include <utility>
