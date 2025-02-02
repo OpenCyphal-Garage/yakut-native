@@ -20,6 +20,8 @@ add_cyphal_library(
 )
 
 add_library(ocvsmd_common
+        io/io.cpp
+        io/socket_address.cpp
         ipc/client_router.cpp
         ipc/pipe/net_socket_client.cpp
         ipc/pipe/net_socket_server.cpp

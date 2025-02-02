@@ -143,6 +143,7 @@ inline void setupLogging(const int                                  err_fd,
 
         // Register specific subsystem loggers - they go to the file sink only.
         //
+        register_logger(std::make_shared<spdlog::logger>("io", file_sink));
         register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
         register_logger(std::make_shared<spdlog::logger>("engine", file_sink));
 

@@ -111,6 +111,7 @@ inline void setupLogging(const int argc, const char** const argv)
 
         // Register specific subsystem loggers.
         //
+        register_logger(std::make_shared<spdlog::logger>("io", file_sink));
         register_logger(std::make_shared<spdlog::logger>("ipc", file_sink));
         register_logger(std::make_shared<spdlog::logger>("sdk", file_sink));
         register_logger(std::make_shared<spdlog::logger>("svc", file_sink));

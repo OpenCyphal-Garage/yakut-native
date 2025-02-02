@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_BASE_HPP_INCLUDED
 
 #include "client_context.hpp"
+#include "io/io.hpp"
 #include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "server_pipe.hpp"
