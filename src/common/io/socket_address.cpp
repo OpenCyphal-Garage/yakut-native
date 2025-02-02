@@ -71,7 +71,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
         auto& result_inet6       = reinterpret_cast<sockaddr_in6&>(result.addr_storage_);  // NOLINT
         result.addr_len_         = sizeof(result_inet6);
         result_inet6.sin6_family = AF_INET6;
-        result_inet6.sin6_port   = ::htons(port);
+        result_inet6.sin6_port   = htons(port);
         addr_target              = &result_inet6.sin6_addr;
     }
     else
@@ -79,7 +79,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
         auto& result_inet4      = reinterpret_cast<sockaddr_in&>(result.addr_storage_);  // NOLINT
         result.addr_len_        = sizeof(result_inet4);
         result_inet4.sin_family = AF_INET;
-        result_inet4.sin_port   = ::htons(port);
+        result_inet4.sin_port   = htons(port);
         addr_target             = &result_inet4.sin_addr;
     }
     const int convert_result = ::inet_pton(family, host.c_str(), addr_target);
@@ -234,7 +234,7 @@ cetl::optional<SocketAddress::ParseResult::Success> SocketAddress::tryParseAsWil
     SocketAddress result{};
     result.is_wildcard_    = true;
     auto& result_inet6     = reinterpret_cast<sockaddr_in6&>(result.addr_storage_);  // NOLINT
-    result_inet6.sin6_port = ::htons(port);
+    result_inet6.sin6_port = htons(port);
     result.addr_len_       = sizeof(result_inet6);
 
     // IPv4 will be also enabled by IPV6_V6ONLY=0 (at `bind` method).
