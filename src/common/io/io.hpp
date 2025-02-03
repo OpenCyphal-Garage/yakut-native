@@ -52,7 +52,7 @@ public:
     OwnFd(const OwnFd&)            = delete;
     OwnFd& operator=(const OwnFd&) = delete;
 
-    explicit operator int() const
+    int get() const
     {
         return fd_;
     }

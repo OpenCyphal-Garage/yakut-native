@@ -37,15 +37,15 @@ public:
         : id_{id}
         , logger_{logger}
     {
-        CETL_DEBUG_ASSERT(static_cast<int>(fd) != -1, "");
+        CETL_DEBUG_ASSERT(fd.get() != -1, "");
 
-        logger_.trace("ClientContext(fd={}, id={}).", static_cast<int>(fd), id_);
+        logger_.trace("ClientContext(fd={}, id={}).", fd.get(), id_);
         state_.fd = std::move(fd);
     }
 
     ~ClientContext()
     {
-        logger_.trace("~ClientContext(fd={}, id={}).", static_cast<int>(state_.fd), id_);
+        logger_.trace("~ClientContext(fd={}, id={}).", state_.fd.get(), id_);
     }
 
     ClientContext(const ClientContext&)                = delete;

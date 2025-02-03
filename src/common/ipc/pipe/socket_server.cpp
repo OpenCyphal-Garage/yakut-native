@@ -49,7 +49,7 @@ SocketServer::SocketServer(libcyphal::IExecutor& executor, const io::SocketAddre
 int SocketServer::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(event_handler, "");
-    CETL_DEBUG_ASSERT(static_cast<int>(server_fd_) == -1, "");
+    CETL_DEBUG_ASSERT(server_fd_.get() == -1, "");
 
     event_handler_ = std::move(event_handler);
 
@@ -61,7 +61,7 @@ int SocketServer::start(EventHandler event_handler)
 
     if (const auto err = platform::posixSyscallError([this] {
             //
-            return ::listen(static_cast<int>(server_fd_), MaxConnections);
+            return ::listen(server_fd_.get(), MaxConnections);
         }))
     {
         logger().error("Failed to listen on server socket: {}.", std::strerror(err));
@@ -73,7 +73,7 @@ int SocketServer::start(EventHandler event_handler)
             //
             handleAccept();
         },
-        platform::IPosixExecutorExtension::Trigger::Readable{static_cast<int>(server_fd_)});
+        platform::IPosixExecutorExtension::Trigger::Readable{server_fd_.get()});
 
     return 0;
 }
@@ -89,7 +89,7 @@ int SocketServer::makeSocketHandle()
         return *err;
     }
     auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
-    CETL_DEBUG_ASSERT(static_cast<int>(socket_fd) != -1, "");
+    CETL_DEBUG_ASSERT(socket_fd.get() != -1, "");
 
     const int err = socket_address_.bind(socket_fd);
     if (err != 0)
@@ -115,19 +115,19 @@ int SocketServer::send(const ClientId client_id, const Payloads payloads)
 
 void SocketServer::handleAccept()
 {
-    CETL_DEBUG_ASSERT(static_cast<int>(server_fd_) != -1, "");
+    CETL_DEBUG_ASSERT(server_fd_.get() != -1, "");
 
     io::OwnFd client_fd;
     if (const auto err = platform::posixSyscallError([this, &client_fd] {
             //
-            client_fd = io::OwnFd{::accept(static_cast<int>(server_fd_), nullptr, nullptr)};
-            return static_cast<int>(client_fd);
+            client_fd = io::OwnFd{::accept(server_fd_.get(), nullptr, nullptr)};
+            return client_fd.get();
         }))
     {
         logger().warn("Failed to accept client connection: {}.", std::strerror(err));
         return;
     }
-    const int raw_fd = static_cast<int>(client_fd);
+    const int raw_fd = client_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
 
     const ClientId new_client_id  = ++unique_client_id_counter_;
@@ -158,15 +158,13 @@ void SocketServer::handleClientRequest(const ClientId client_id)
     {
         if (err == -1)
         {
-            logger().debug("End of client stream - closing connection (id={}, fd={}).",
-                           client_id,
-                           static_cast<int>(state.fd));
+            logger().debug("End of client stream - closing connection (id={}, fd={}).", client_id, state.fd.get());
         }
         else
         {
             logger().warn("Failed to handle client request - closing connection (id={}, fd={}): {}.",
                           client_id,
-                          static_cast<int>(state.fd),
+                          state.fd.get(),
                           std::strerror(err));
         }
 

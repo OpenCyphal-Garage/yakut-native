@@ -79,7 +79,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
                 //
                 // TODO: Enable!
                 constexpr int enable = 0;
-                return ::setsockopt(static_cast<int>(out_fd), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+                return ::setsockopt(out_fd.get(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
             }))
         {
             getLogger("io")->error("Failed to set TCP_NODELAY=1: {}.", std::strerror(err));
@@ -92,7 +92,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
 
 int SocketAddress::bind(const OwnFd& socket_fd) const
 {
-    const int raw_fd = static_cast<int>(socket_fd);
+    const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
 
     // Disable IPv6-only mode for dual-stack sockets (aka wildcard).
@@ -122,7 +122,7 @@ int SocketAddress::bind(const OwnFd& socket_fd) const
 
 int SocketAddress::connect(const OwnFd& socket_fd) const
 {
-    const int raw_fd = static_cast<int>(socket_fd);
+    const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
 
     const auto err = platform::posixSyscallError([this, raw_fd] {

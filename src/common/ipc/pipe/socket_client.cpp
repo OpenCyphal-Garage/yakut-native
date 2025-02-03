@@ -40,7 +40,7 @@ SocketClient::SocketClient(libcyphal::IExecutor& executor, const io::SocketAddre
 int SocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(event_handler, "");
-    CETL_DEBUG_ASSERT(static_cast<int>(state_.fd) == -1, "");
+    CETL_DEBUG_ASSERT(state_.fd.get() == -1, "");
 
     event_handler_ = std::move(event_handler);
 
@@ -55,7 +55,7 @@ int SocketClient::start(EventHandler event_handler)
             //
             handle_connect();
         },
-        platform::IPosixExecutorExtension::Trigger::Writable{static_cast<int>(state_.fd)});
+        platform::IPosixExecutorExtension::Trigger::Writable{state_.fd.get()});
 
     return 0;
 }
@@ -71,7 +71,7 @@ int SocketClient::makeSocketHandle()
         return *err;
     }
     auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
-    CETL_DEBUG_ASSERT(static_cast<int>(socket_fd) != -1, "");
+    CETL_DEBUG_ASSERT(socket_fd.get() != -1, "");
 
     const int err = socket_address_.connect(socket_fd);
     if (err != 0)
@@ -116,7 +116,7 @@ void SocketClient::handle_connect()
     if (const auto err = platform::posixSyscallError([this, &so_error] {
             //
             socklen_t len = sizeof(so_error);
-            return ::getsockopt(static_cast<int>(state_.fd), SOL_SOCKET, SO_ERROR, &so_error, &len);
+            return ::getsockopt(state_.fd.get(), SOL_SOCKET, SO_ERROR, &so_error, &len);
         }))
     {
         logger().warn("Failed to query socket error: {}.", std::strerror(err));
@@ -134,7 +134,7 @@ void SocketClient::handle_connect()
             //
             handle_receive();
         },
-        platform::IPosixExecutorExtension::Trigger::Readable{static_cast<int>(state_.fd)});
+        platform::IPosixExecutorExtension::Trigger::Readable{state_.fd.get()});
 
     state_.read_phase = State::ReadPhase::Header;
     event_handler_(Event::Connected{});
