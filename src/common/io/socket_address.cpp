@@ -5,7 +5,9 @@
 
 #include "socket_address.hpp"
 
+#include "io.hpp"
 #include "logging.hpp"
+#include "ocvsmd/platform/posix_utils.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -17,6 +19,7 @@
 #include <cstring>
 #include <limits>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -37,10 +40,82 @@ SocketAddress::SocketAddress() noexcept
 {
 }
 
-std::pair<const sockaddr*, socklen_t> SocketAddress::getRaw() const
+std::pair<const sockaddr*, socklen_t> SocketAddress::getRaw() const noexcept
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return {reinterpret_cast<const sockaddr*>(&addr_storage_), addr_len_};
+    return {&asGenericAddr(), addr_len_};
+}
+
+SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
+{
+    const bool is_stream   = (SOCK_STREAM == type);
+    uint       socket_type = type;
+#if __linux__
+    socket_type |= static_cast<uint>(SOCK_NONBLOCK);
+    socket_type |= static_cast<uint>(SOCK_CLOEXEC);
+#endif
+
+    OwnFd out_fd;
+
+    const auto& addr_generic = asGenericAddr();
+    if (auto err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
+            //
+            const int fd = ::socket(addr_generic.sa_family, static_cast<int>(socket_type), 0);
+            if (fd != -1)
+            {
+                out_fd = OwnFd{fd};
+            }
+            return fd;
+        }))
+    {
+        getLogger("io")->error("Failed to create socket: {}.", std::strerror(err));
+        return err;
+    }
+
+    // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
+    //
+    if (is_stream && ((addr_generic.sa_family == AF_INET) || (addr_generic.sa_family == AF_INET6)))
+    {
+        if (auto err = platform::posixSyscallError([&out_fd] {
+                //
+                constexpr int enable = 1;
+                return ::setsockopt(static_cast<int>(out_fd), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+            }))
+        {
+            getLogger("io")->error("Failed to set TCP_NODELAY=1: {}.", std::strerror(err));
+            return err;
+        }
+    }
+
+    return out_fd;
+}
+
+int SocketAddress::bind(const OwnFd& socket_fd) const
+{
+    const int raw_fd = static_cast<int>(socket_fd);
+
+    // Disable IPv6-only mode for dual-stack sockets (aka wildcard).
+    if (is_wildcard_)
+    {
+        if (auto err = platform::posixSyscallError([raw_fd] {
+                //
+                constexpr int disable = 0;
+                return ::setsockopt(raw_fd, IPPROTO_TCP, IPV6_V6ONLY, &disable, sizeof(disable));
+            }))
+        {
+            getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
+            return err;
+        }
+    }
+
+    const auto err = platform::posixSyscallError([this, raw_fd] {
+        //
+        return ::bind(raw_fd, &asGenericAddr(), addr_len_);
+    });
+    if (err != 0)
+    {
+        getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
+    }
+    return err;
 }
 
 SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, const std::uint16_t port_hint)
@@ -76,7 +151,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
     void*         addr_target = nullptr;
     if (family == AF_INET6)
     {
-        auto& result_inet6       = reinterpret_cast<sockaddr_in6&>(result.addr_storage_);  // NOLINT
+        auto& result_inet6       = result.asInet6Addr();
         result.addr_len_         = sizeof(result_inet6);
         result_inet6.sin6_family = AF_INET6;
         result_inet6.sin6_port   = htons(port);
@@ -84,7 +159,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
     }
     else
     {
-        auto& result_inet4      = reinterpret_cast<sockaddr_in&>(result.addr_storage_);  // NOLINT
+        auto& result_inet4      = result.asInetAddr();
         result.addr_len_        = sizeof(result_inet4);
         result_inet4.sin_family = AF_INET;
         result_inet4.sin_port   = htons(port);
@@ -117,7 +192,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
     const auto path = str.substr(std::strlen("unix:"));
 
     SocketAddress result{};
-    auto&         result_un = reinterpret_cast<sockaddr_un&>(result.addr_storage_);  // NOLINT
+    auto&         result_un = result.asUnixAddr();
     result_un.sun_family    = AF_UNIX;
 
     // Reserve one byte for the null terminator.
@@ -143,7 +218,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstrac
     const auto path = str.substr(std::strlen("unix-abstract:"));
 
     SocketAddress result{};
-    auto&         result_un = reinterpret_cast<sockaddr_un&>(result.addr_storage_);  // NOLINT
+    auto&         result_un = result.asUnixAddr();
     result_un.sun_family    = AF_UNIX;
 
     // Reserve +1 byte for the null terminator. Not required for abstract domain but it is harmless.
@@ -248,7 +323,7 @@ cetl::optional<SocketAddress::ParseResult::Success> SocketAddress::tryParseAsWil
 
     SocketAddress result{};
     result.is_wildcard_    = true;
-    auto& result_inet6     = reinterpret_cast<sockaddr_in6&>(result.addr_storage_);  // NOLINT
+    auto& result_inet6     = result.asInet6Addr();
     result_inet6.sin6_port = htons(port);
     result.addr_len_       = sizeof(result_inet6);
 
