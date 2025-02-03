@@ -7,8 +7,8 @@
 
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
-#include "ipc/pipe/net_socket_client.hpp"
-// #include "ipc/pipe/unix_socket_client.hpp"
+#include "ipc/pipe/client_pipe.hpp"
+#include "ipc/pipe/socket_client.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/node_command_client.hpp"
 #include "sdk_factory.hpp"
@@ -19,6 +19,7 @@
 
 #include <cstring>
 #include <memory>
+#include <string>
 #include <utility>
 
 namespace ocvsmd
@@ -33,26 +34,40 @@ class DaemonImpl final : public Daemon
 public:
     DaemonImpl(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor)
         : memory_{memory}
+        , executor_{executor}
         , logger_{common::getLogger("sdk")}
     {
-        // using ClientPipe = common::ipc::pipe::UnixSocketClient;
-        // auto client_pipe = std::make_unique<ClientPipe>(executor, "/var/run/ocvsmd/local.sock");
-        using ClientPipe = common::ipc::pipe::NetSocketClient;
-        auto client_pipe = std::make_unique<ClientPipe>(executor, "127.0.0.1", 9875);  // NOLINT(*-magic-numbers)
-
-        ipc_router_ = common::ipc::ClientRouter::make(memory, std::move(client_pipe));
-
-        node_command_client_ = Factory::makeNodeCommandClient(memory, ipc_router_);
     }
 
-    CETL_NODISCARD int start() const
+    CETL_NODISCARD int start(const std::string& connection)
     {
+        logger_->info("Starting with IPC connection '{}'...", connection);
+
+        common::ipc::pipe::ClientPipe::Ptr client_pipe;
+        {
+            using ParseResult = common::io::SocketAddress::ParseResult;
+
+            auto maybe_socket_address = common::io::SocketAddress::parse(connection, 0);
+            if (const auto* const err = cetl::get_if<ParseResult::Failure>(&maybe_socket_address))
+            {
+                logger_->error("Failed to parse IPC connection string ('{}'): {}.", connection, std::strerror(*err));
+                return *err;
+            }
+            const auto socket_address = cetl::get<ParseResult::Success>(maybe_socket_address);
+            client_pipe               = std::make_unique<common::ipc::pipe::SocketClient>(executor_, socket_address);
+        }
+
+        ipc_router_ = common::ipc::ClientRouter::make(memory_, std::move(client_pipe));
+
+        node_command_client_ = Factory::makeNodeCommandClient(memory_, ipc_router_);
+
         if (const int err = ipc_router_->start())
         {
             logger_->error("Failed to start IPC router: {}.", std::strerror(err));
             return err;
         }
 
+        logger_->debug("Started IPC connection.");
         return 0;
     }
 
@@ -65,6 +80,7 @@ public:
 
 private:
     cetl::pmr::memory_resource&    memory_;
+    libcyphal::IExecutor&          executor_;
     common::LoggerPtr              logger_;
     common::ipc::ClientRouter::Ptr ipc_router_;
     NodeCommandClient::Ptr         node_command_client_;
@@ -73,12 +89,12 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD Daemon::Ptr Daemon::make(  //
-    cetl::pmr::memory_resource& memory,
-    libcyphal::IExecutor&       executor)
+CETL_NODISCARD Daemon::Ptr Daemon::make(cetl::pmr::memory_resource& memory,
+                                        libcyphal::IExecutor&       executor,
+                                        const std::string&          connection)
 {
     auto daemon = std::make_shared<DaemonImpl>(memory, executor);
-    if (0 != daemon->start())
+    if (0 != daemon->start(connection))
     {
         return nullptr;
     }

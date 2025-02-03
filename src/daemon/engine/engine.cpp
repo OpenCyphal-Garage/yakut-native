@@ -7,8 +7,9 @@
 
 #include "config.hpp"
 #include "cyphal/file_provider.hpp"
-#include "ipc/pipe/net_socket_server.hpp"
-// #include "ipc/pipe/unix_socket_server.hpp"
+#include "io/socket_address.hpp"
+#include "ipc/pipe/server_pipe.hpp"
+#include "ipc/pipe/socket_server.hpp"
 #include "ipc/server_router.hpp"
 #include "svc/node/exec_cmd_service.hpp"
 #include "svc/svc_helpers.hpp"
@@ -42,12 +43,16 @@ Engine::Engine(Config::Ptr config)
 
 cetl::optional<std::string> Engine::init()
 {
+    logger_->trace("Initializing engine...");
+
     // 1. Create the transport layer object.
     //
     auto* const transport_iface = udp_transport_bag_.create(config_);
     if (transport_iface == nullptr)
     {
-        return "Failed to create cyphal UDP transport.";
+        std::string msg = "Failed to create cyphal UDP transport.";
+        logger_->error(msg);
+        return msg;
     }
 
     // 2. Create the presentation layer object.
@@ -61,7 +66,9 @@ cetl::optional<std::string> Engine::init()
     if (const auto* failure = cetl::get_if<libcyphal::application::Node::MakeFailure>(&maybe_node))
     {
         (void) failure;
-        return "Failed to create cyphal node.";
+        std::string msg = "Failed to create cyphal node.";
+        logger_->error(msg);
+        return msg;
     }
     node_.emplace(cetl::get<libcyphal::application::Node>(std::move(maybe_node)));
 
@@ -79,15 +86,37 @@ cetl::optional<std::string> Engine::init()
     file_provider_ = cyphal::FileProvider::make(memory_, *presentation_);
     if (file_provider_ == nullptr)
     {
-        return "Failed to create cyphal file provider.";
+        std::string msg = "Failed to create cyphal file provider.";
+        logger_->error(msg);
+        return msg;
     }
 
     // 6. Bring up the IPC router and its services.
     //
-    // using ServerPipe = common::ipc::pipe::UnixSocketServer;
-    // auto server_pipe = std::make_unique<ServerPipe>(executor_, "/var/run/ocvsmd/local.sock");
-    using ServerPipe = common::ipc::pipe::NetSocketServer;
-    auto server_pipe = std::make_unique<ServerPipe>(executor_, 9875);  // NOLINT(*-magic-numbers)
+    common::ipc::pipe::ServerPipe::Ptr server_pipe;
+    {
+        using ParseResult = common::io::SocketAddress::ParseResult;
+
+        auto ipc_connections = config_->getIpcConnections();
+        if (ipc_connections.empty())
+        {
+            std::string msg = "No IPC connections configured.";
+            logger_->error(msg);
+            return msg;
+        }
+
+        logger_->debug("Starting with IPC connection '{}'...", ipc_connections.front());
+        auto maybe_socket_address = common::io::SocketAddress::parse(ipc_connections.front(), 0);
+        if (const auto* const failure = cetl::get_if<ParseResult::Failure>(&maybe_socket_address))
+        {
+            (void) failure;
+            std::string msg = "Failed to parse IPC connection.";
+            logger_->error(msg);
+            return msg;
+        }
+        const auto socket_address = cetl::get<ParseResult::Success>(maybe_socket_address);
+        server_pipe               = std::make_unique<common::ipc::pipe::SocketServer>(executor_, socket_address);
+    }
     //
     ipc_router_ = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
     //
@@ -96,9 +125,12 @@ cetl::optional<std::string> Engine::init()
     //
     if (0 != ipc_router_->start())
     {
-        return "Failed to start IPC router.";
+        std::string msg = "Failed to start IPC router.";
+        logger_->error(msg);
+        return msg;
     }
 
+    logger_->debug("Engine is initialized.");
     return cetl::nullopt;
 }
 

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "socket_client_base.hpp"
+#include "socket_client.hpp"
 
 #include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
@@ -30,31 +30,21 @@ namespace ipc
 namespace pipe
 {
 
-SocketClientBase::SocketClientBase(libcyphal::IExecutor& executor)
-    : posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor)}
+SocketClient::SocketClient(libcyphal::IExecutor& executor, const io::SocketAddress& address)
+    : socket_address_{address}
+    , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor)}
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
 
-SocketClientBase::~SocketClientBase()
-{
-    if (state_.fd != -1)
-    {
-        platform::posixSyscallError([this] {
-            //
-            return ::close(state_.fd);
-        });
-    }
-}
-
-int SocketClientBase::start(EventHandler event_handler)
+int SocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(event_handler, "");
-    CETL_DEBUG_ASSERT(state_.fd == -1, "");
+    CETL_DEBUG_ASSERT(static_cast<int>(state_.fd) == -1, "");
 
     event_handler_ = std::move(event_handler);
 
-    if (const auto err = makeSocketHandle(state_.fd))
+    if (const auto err = makeSocketHandle())
     {
         logger().error("Failed to make socket handle: {}.", std::strerror(err));
         return err;
@@ -65,17 +55,44 @@ int SocketClientBase::start(EventHandler event_handler)
             //
             handle_connect();
         },
-        platform::IPosixExecutorExtension::Trigger::Writable{state_.fd});
+        platform::IPosixExecutorExtension::Trigger::Writable{static_cast<int>(state_.fd)});
 
     return 0;
 }
 
-int SocketClientBase::send(const Payloads payloads)
+int SocketClient::makeSocketHandle()
+{
+    using SocketResult = io::SocketAddress::SocketResult;
+
+    auto maybe_socket = socket_address_.socket(SOCK_STREAM);
+    if (auto* const err = cetl::get_if<SocketResult::Failure>(&maybe_socket))
+    {
+        logger().error("Failed to create client socket: {}.", std::strerror(*err));
+        return *err;
+    }
+    auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
+    CETL_DEBUG_ASSERT(static_cast<int>(socket_fd) != -1, "");
+
+    const int err = socket_address_.connect(socket_fd);
+    if (err != 0)
+    {
+        if (err != EINPROGRESS)
+        {
+            logger().error("Failed to connect to server: {}.", std::strerror(err));
+            return err;
+        }
+    }
+
+    state_.fd = std::move(socket_fd);
+    return 0;
+}
+
+int SocketClient::send(const Payloads payloads)
 {
     return SocketBase::send(state_, payloads);
 }
 
-int SocketClientBase::connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const
+int SocketClient::connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const
 {
     if (const auto err = platform::posixSyscallError([fd, addr_ptr, addr_size] {
             //
@@ -91,7 +108,7 @@ int SocketClientBase::connectSocket(const int fd, const void* const addr_ptr, co
     return 0;
 }
 
-void SocketClientBase::handle_connect()
+void SocketClient::handle_connect()
 {
     socket_callback_.reset();
 
@@ -99,7 +116,7 @@ void SocketClientBase::handle_connect()
     if (const auto err = platform::posixSyscallError([this, &so_error] {
             //
             socklen_t len = sizeof(so_error);
-            return ::getsockopt(state_.fd, SOL_SOCKET, SO_ERROR, &so_error, &len);  // NOLINT(misc-include-cleaner)
+            return ::getsockopt(static_cast<int>(state_.fd), SOL_SOCKET, SO_ERROR, &so_error, &len);
         }))
     {
         logger().warn("Failed to query socket error: {}.", std::strerror(err));
@@ -117,13 +134,13 @@ void SocketClientBase::handle_connect()
             //
             handle_receive();
         },
-        platform::IPosixExecutorExtension::Trigger::Readable{state_.fd});
+        platform::IPosixExecutorExtension::Trigger::Readable{static_cast<int>(state_.fd)});
 
     state_.read_phase = State::ReadPhase::Header;
     event_handler_(Event::Connected{});
 }
 
-void SocketClientBase::handle_receive()
+void SocketClient::handle_receive()
 {
     if (const auto err = receiveMessage(state_, [this](const auto payload) {
             //
@@ -143,12 +160,11 @@ void SocketClientBase::handle_receive()
     }
 }
 
-void SocketClientBase::handle_disconnect()
+void SocketClient::handle_disconnect()
 {
     socket_callback_.reset();
 
-    ::close(state_.fd);
-    state_.fd         = -1;
+    state_.fd.reset();
     state_.read_phase = State::ReadPhase::Header;
 
     event_handler_(Event::Disconnected{});

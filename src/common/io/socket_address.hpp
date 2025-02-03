@@ -24,11 +24,9 @@ namespace common
 namespace io
 {
 
-class SocketAddress
+class SocketAddress final
 {
 public:
-    OwnFd socket() const;
-
     struct ParseResult
     {
         using Failure = int;  // aka errno
@@ -39,6 +37,11 @@ public:
 
     std::pair<const sockaddr*, socklen_t> getRaw() const noexcept;
 
+    bool isUnix() const noexcept
+    {
+        return asGenericAddr().sa_family == AF_UNIX;
+    }
+
     struct SocketResult
     {
         using Failure = int;  // aka errno
@@ -48,6 +51,7 @@ public:
     SocketResult::Var socket(const int type) const;
 
     int bind(const OwnFd& socket_fd) const;
+    int connect(const OwnFd& socket_fd) const;
 
 private:
     SocketAddress() noexcept;

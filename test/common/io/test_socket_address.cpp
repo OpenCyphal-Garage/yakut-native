@@ -43,6 +43,7 @@ TEST_F(TestSocketAddress, parse_unix_domain)
         auto raw_address_and_len = socket_address.getRaw();
 
         const auto* const addr_un = reinterpret_cast<const sockaddr_un*>(raw_address_and_len.first);  // NOLINT
+        EXPECT_TRUE(socket_address.isUnix());
         EXPECT_THAT(addr_un->sun_family, AF_UNIX);
         EXPECT_THAT(addr_un->sun_path, test_path);
     }
@@ -79,6 +80,7 @@ TEST_F(TestSocketAddress, parse_abstract_unix_domain)
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
         auto              raw_address_and_len = socket_address.getRaw();
         const auto* const addr_un = reinterpret_cast<const sockaddr_un*>(raw_address_and_len.first);  // NOLINT
+        EXPECT_TRUE(socket_address.isUnix());
         EXPECT_THAT(addr_un->sun_family, AF_UNIX);
         EXPECT_THAT(addr_un->sun_path[0], '\0');
         EXPECT_THAT(addr_un->sun_path + 1, test_path);  // NOLINT
@@ -94,7 +96,7 @@ TEST_F(TestSocketAddress, parse_abstract_unix_domain)
         const auto* const addr_un = reinterpret_cast<const sockaddr_un*>(raw_address_and_len.first);  // NOLINT
         EXPECT_THAT(addr_un->sun_family, AF_UNIX);
         EXPECT_THAT(addr_un->sun_path[0], '\0');
-        EXPECT_TRUE(0 == std::memcmp(addr_un->sun_path + 1, test_path.data(), test_path.size() + 1));  // NOLINT
+        EXPECT_TRUE(0 == memcmp(addr_un->sun_path + 1, test_path.data(), test_path.size() + 1));  // NOLINT
     }
 
     // try max possible path length
@@ -130,6 +132,7 @@ TEST_F(TestSocketAddress, parse_ipv4)
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
         auto              raw_address_and_len = socket_address.getRaw();
         const auto* const addr_in = reinterpret_cast<const sockaddr_in*>(raw_address_and_len.first);  // NOLINT
+        EXPECT_FALSE(socket_address.isUnix());
         EXPECT_THAT(addr_in->sin_family, AF_INET);
         EXPECT_THAT(ntohs(addr_in->sin_port), 0x1234);
         EXPECT_THAT(ntohl(addr_in->sin_addr.s_addr), 0x7F000001);
@@ -174,6 +177,7 @@ TEST_F(TestSocketAddress, parse_ipv6)
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
         auto              raw_address_and_len = socket_address.getRaw();
         const auto* const addr_in6 = reinterpret_cast<const sockaddr_in6*>(raw_address_and_len.first);  // NOLINT
+        EXPECT_FALSE(socket_address.isUnix());
         EXPECT_THAT(addr_in6->sin6_family, AF_INET6);
         EXPECT_THAT(ntohs(addr_in6->sin6_port), 0x1234);
         EXPECT_THAT(addr_in6->sin6_addr.s6_addr,  //
@@ -221,6 +225,7 @@ TEST_F(TestSocketAddress, parse_wildcard)
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
         auto              raw_address_and_len = socket_address.getRaw();
         const auto* const addr_in6 = reinterpret_cast<const sockaddr_in6*>(raw_address_and_len.first);  // NOLINT
+        EXPECT_FALSE(socket_address.isUnix());
         EXPECT_THAT(addr_in6->sin6_family, AF_INET6);
         EXPECT_THAT(ntohs(addr_in6->sin6_port), 0x1234);
         EXPECT_THAT(addr_in6->sin6_addr.s6_addr,  //

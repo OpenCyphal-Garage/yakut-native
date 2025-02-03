@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "socket_server_base.hpp"
+#include "socket_server.hpp"
 
 #include "client_context.hpp"
 #include "ipc/ipc_types.hpp"
@@ -38,33 +38,22 @@ constexpr int MaxConnections = 5;
 
 }  // namespace
 
-SocketServerBase::SocketServerBase(libcyphal::IExecutor& executor)
-    : server_fd_{-1}
+SocketServer::SocketServer(libcyphal::IExecutor& executor, const io::SocketAddress& address)
+    : socket_address_{address}
     , posix_executor_ext_{cetl::rtti_cast<platform::IPosixExecutorExtension*>(&executor)}
     , unique_client_id_counter_{0}
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
 
-SocketServerBase::~SocketServerBase()
+int SocketServer::start(EventHandler event_handler)
 {
-    if (server_fd_ != -1)
-    {
-        platform::posixSyscallError([this] {
-            //
-            return ::close(server_fd_);
-        });
-    }
-}
-
-int SocketServerBase::start(EventHandler event_handler)
-{
-    CETL_DEBUG_ASSERT(server_fd_ == -1, "");
     CETL_DEBUG_ASSERT(event_handler, "");
+    CETL_DEBUG_ASSERT(static_cast<int>(server_fd_) == -1, "");
 
     event_handler_ = std::move(event_handler);
 
-    if (const auto err = makeSocketHandle(server_fd_))
+    if (const auto err = makeSocketHandle())
     {
         logger().error("Failed to make socket handle: {}.", std::strerror(err));
         return err;
@@ -72,7 +61,7 @@ int SocketServerBase::start(EventHandler event_handler)
 
     if (const auto err = platform::posixSyscallError([this] {
             //
-            return ::listen(server_fd_, MaxConnections);
+            return ::listen(static_cast<int>(server_fd_), MaxConnections);
         }))
     {
         logger().error("Failed to listen on server socket: {}.", std::strerror(err));
@@ -84,12 +73,36 @@ int SocketServerBase::start(EventHandler event_handler)
             //
             handleAccept();
         },
-        platform::IPosixExecutorExtension::Trigger::Readable{server_fd_});
+        platform::IPosixExecutorExtension::Trigger::Readable{static_cast<int>(server_fd_)});
 
     return 0;
 }
 
-int SocketServerBase::send(const ClientId client_id, const Payloads payloads)
+int SocketServer::makeSocketHandle()
+{
+    using SocketResult = io::SocketAddress::SocketResult;
+
+    auto maybe_socket = socket_address_.socket(SOCK_STREAM);
+    if (auto* const err = cetl::get_if<SocketResult::Failure>(&maybe_socket))
+    {
+        logger().error("Failed to create server socket: {}.", std::strerror(*err));
+        return *err;
+    }
+    auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
+    CETL_DEBUG_ASSERT(static_cast<int>(socket_fd) != -1, "");
+
+    const int err = socket_address_.bind(socket_fd);
+    if (err != 0)
+    {
+        logger().error("Failed to bind server socket: {}.", std::strerror(err));
+        return err;
+    }
+
+    server_fd_ = std::move(socket_fd);
+    return 0;
+}
+
+int SocketServer::send(const ClientId client_id, const Payloads payloads)
 {
     if (auto* const client_context = tryFindClientContext(client_id))
     {
@@ -100,50 +113,39 @@ int SocketServerBase::send(const ClientId client_id, const Payloads payloads)
     return EINVAL;
 }
 
-int SocketServerBase::bindSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const
+void SocketServer::handleAccept()
 {
-    if (const auto err = platform::posixSyscallError([fd, addr_ptr, addr_size] {
-            //
-            return ::bind(fd, static_cast<const sockaddr*>(addr_ptr), addr_size);
-        }))
-    {
-        logger().error("Failed to bind server socket: {}.", std::strerror(err));
-        return err;
-    }
-    return 0;
-}
+    CETL_DEBUG_ASSERT(static_cast<int>(server_fd_) != -1, "");
 
-void SocketServerBase::handleAccept()
-{
-    CETL_DEBUG_ASSERT(server_fd_ != -1, "");
-
-    int client_fd = -1;
+    io::OwnFd client_fd;
     if (const auto err = platform::posixSyscallError([this, &client_fd] {
             //
-            return client_fd = ::accept(server_fd_, nullptr, nullptr);
+            client_fd = io::OwnFd{::accept(static_cast<int>(server_fd_), nullptr, nullptr)};
+            return static_cast<int>(client_fd);
         }))
     {
         logger().warn("Failed to accept client connection: {}.", std::strerror(err));
         return;
     }
-    CETL_DEBUG_ASSERT(client_fd != -1, "");
+    const int raw_fd = static_cast<int>(client_fd);
+    CETL_DEBUG_ASSERT(raw_fd != -1, "");
 
     const ClientId new_client_id  = ++unique_client_id_counter_;
-    auto           client_context = std::make_unique<ClientContext>(new_client_id, client_fd, logger());
+    auto           client_context = std::make_unique<ClientContext>(new_client_id, std::move(client_fd), logger());
     //
     client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
         [this, new_client_id](const auto&) {
             //
             handleClientRequest(new_client_id);
         },
-        platform::IPosixExecutorExtension::Trigger::Readable{client_fd}));
+        platform::IPosixExecutorExtension::Trigger::Readable{raw_fd}));
 
     client_id_to_context_.emplace(new_client_id, std::move(client_context));
 
     event_handler_(Event::Connected{new_client_id});
 }
 
-void SocketServerBase::handleClientRequest(const ClientId client_id)
+void SocketServer::handleClientRequest(const ClientId client_id)
 {
     auto* const client_context = tryFindClientContext(client_id);
     CETL_DEBUG_ASSERT(client_context, "");
@@ -156,13 +158,15 @@ void SocketServerBase::handleClientRequest(const ClientId client_id)
     {
         if (err == -1)
         {
-            logger().debug("End of client stream - closing connection (id={}, fd={}).", client_id, state.fd);
+            logger().debug("End of client stream - closing connection (id={}, fd={}).",
+                           client_id,
+                           static_cast<int>(state.fd));
         }
         else
         {
             logger().warn("Failed to handle client request - closing connection (id={}, fd={}): {}.",
                           client_id,
-                          state.fd,
+                          static_cast<int>(state.fd),
                           std::strerror(err));
         }
 
@@ -171,7 +175,7 @@ void SocketServerBase::handleClientRequest(const ClientId client_id)
     }
 }
 
-ClientContext* SocketServerBase::tryFindClientContext(const ClientId client_id)
+ClientContext* SocketServer::tryFindClientContext(const ClientId client_id)
 {
     const auto id_and_context = client_id_to_context_.find(client_id);
     if (id_and_context != client_id_to_context_.end())

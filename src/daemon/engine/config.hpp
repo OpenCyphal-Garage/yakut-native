@@ -50,6 +50,8 @@ public:
 
     CETL_NODISCARD virtual auto getCyphalTransportInterfaces() const -> std::vector<std::string> = 0;
 
+    CETL_NODISCARD virtual auto getIpcConnections() const -> std::vector<std::string> = 0;
+
     CETL_NODISCARD virtual auto getLoggingFile() const -> cetl::optional<std::string>       = 0;
     CETL_NODISCARD virtual auto getLoggingLevel() const -> cetl::optional<std::string>      = 0;
     CETL_NODISCARD virtual auto getLoggingFlushLevel() const -> cetl::optional<std::string> = 0;

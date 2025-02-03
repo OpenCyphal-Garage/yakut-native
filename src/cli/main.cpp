@@ -69,7 +69,13 @@ int main(const int argc, const char** const argv)
         auto&    memory = *cetl::pmr::new_delete_resource();
         Executor executor;
 
-        const auto daemon = ocvsmd::sdk::Daemon::make(memory, executor);
+        std::string ipc_connection = "unix-abstract:org.opencyphal.ocvsmd.ipc";
+        if (const auto* const env_connection_str = std::getenv("OCVSMD_CONNECTION"))
+        {
+            ipc_connection = env_connection_str;
+        }
+
+        const auto daemon = ocvsmd::sdk::Daemon::make(memory, executor, ipc_connection);
         if (!daemon)
         {
             spdlog::critical("Failed to create daemon.");

@@ -77,7 +77,8 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
     {
         if (auto err = platform::posixSyscallError([&out_fd] {
                 //
-                constexpr int enable = 1;
+                // TODO: Enable!
+                constexpr int enable = 0;
                 return ::setsockopt(static_cast<int>(out_fd), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
             }))
         {
@@ -92,14 +93,15 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
 int SocketAddress::bind(const OwnFd& socket_fd) const
 {
     const int raw_fd = static_cast<int>(socket_fd);
+    CETL_DEBUG_ASSERT(raw_fd != -1, "");
 
     // Disable IPv6-only mode for dual-stack sockets (aka wildcard).
     if (is_wildcard_)
     {
         if (auto err = platform::posixSyscallError([raw_fd] {
                 //
-                constexpr int disable = 0;
-                return ::setsockopt(raw_fd, IPPROTO_TCP, IPV6_V6ONLY, &disable, sizeof(disable));
+                int disable = 0;
+                return ::setsockopt(raw_fd, IPPROTO_IPV6, IPV6_V6ONLY, &disable, sizeof(disable));
             }))
         {
             getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
@@ -116,6 +118,28 @@ int SocketAddress::bind(const OwnFd& socket_fd) const
         getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
     }
     return err;
+}
+
+int SocketAddress::connect(const OwnFd& socket_fd) const
+{
+    const int raw_fd = static_cast<int>(socket_fd);
+    CETL_DEBUG_ASSERT(raw_fd != -1, "");
+
+    const auto err = platform::posixSyscallError([this, raw_fd] {
+        //
+        return ::connect(raw_fd, &asGenericAddr(), addr_len_);
+    });
+    switch (err)
+    {
+    case 0:
+    case EINPROGRESS: {
+        return 0;
+    }
+    default: {
+        getLogger("io")->error("Failed to connect to server: {}.", std::strerror(err));
+        return err;
+    }
+    }
 }
 
 SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, const std::uint16_t port_hint)

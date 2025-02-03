@@ -60,7 +60,7 @@ int SocketBase::send(const State& state, const Payloads payloads)
     if (const int err = platform::posixSyscallError([total_size, &state] {
             //
             const MsgHeader msg_header{MsgSignature, static_cast<std::uint32_t>(total_size)};
-            return ::write(state.fd, &msg_header, sizeof(msg_header));
+            return ::write(static_cast<int>(state.fd), &msg_header, sizeof(msg_header));
         }))
     {
         return err;
@@ -72,7 +72,7 @@ int SocketBase::send(const State& state, const Payloads payloads)
     {
         if (const int err = platform::posixSyscallError([payload, &state] {
                 //
-                return ::write(state.fd, payload.data(), payload.size());
+                return ::write(static_cast<int>(state.fd), payload.data(), payload.size());
             }))
         {
             return err;
@@ -91,14 +91,16 @@ int SocketBase::receiveMessage(State& state, std::function<int(Payload)>&& actio
         ssize_t   bytes_read = 0;
         if (const auto err = platform::posixSyscallError([&state, &msg_header, &bytes_read] {
                 //
-                return bytes_read = ::read(state.fd, &msg_header, sizeof(msg_header));
+                return bytes_read = ::read(static_cast<int>(state.fd), &msg_header, sizeof(msg_header));
             }))
         {
             if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
             {
                 return 0;  // no data available yet
             }
-            logger_->error("Failed to read message header (fd={}): {}.", state.fd, std::strerror(err));
+            logger_->error("Failed to read message header (fd={}): {}.",
+                           static_cast<int>(state.fd),
+                           std::strerror(err));
             return err;
         }
 
@@ -127,14 +129,16 @@ int SocketBase::receiveMessage(State& state, std::function<int(Payload)>&& actio
             ssize_t read = 0;
             if (const auto err = platform::posixSyscallError([this, &state, buf_span, &read] {
                     //
-                    return read = ::read(state.fd, buf_span.data(), buf_span.size());
+                    return read = ::read(static_cast<int>(state.fd), buf_span.data(), buf_span.size());
                 }))
             {
                 if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
                 {
                     return 0;  // no data available
                 }
-                logger_->error("Failed to read message payload (fd={}): {}.", state.fd, std::strerror(err));
+                logger_->error("Failed to read message payload (fd={}): {}.",
+                               static_cast<int>(state.fd),
+                               std::strerror(err));
                 return err;
             }
             if (read != buf_span.size())

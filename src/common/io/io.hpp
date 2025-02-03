@@ -57,6 +57,8 @@ public:
         return fd_;
     }
 
+    void reset() noexcept;
+
     ~OwnFd();
 
 private:

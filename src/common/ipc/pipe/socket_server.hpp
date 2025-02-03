@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_BASE_HPP_INCLUDED
-#define OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_BASE_HPP_INCLUDED
+#ifndef OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_HPP_INCLUDED
+#define OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_HPP_INCLUDED
 
 #include "client_context.hpp"
 #include "io/io.hpp"
@@ -28,45 +28,42 @@ namespace ipc
 namespace pipe
 {
 
-class SocketServerBase : public SocketBase, public ServerPipe
+class SocketServer final : public SocketBase, public ServerPipe
 {
 public:
-    SocketServerBase(const SocketServerBase&)                = delete;
-    SocketServerBase(SocketServerBase&&) noexcept            = delete;
-    SocketServerBase& operator=(const SocketServerBase&)     = delete;
-    SocketServerBase& operator=(SocketServerBase&&) noexcept = delete;
+    SocketServer(libcyphal::IExecutor& executor, const io::SocketAddress& address);
 
-    ~SocketServerBase() override;
+    SocketServer(const SocketServer&)                = delete;
+    SocketServer(SocketServer&&) noexcept            = delete;
+    SocketServer& operator=(const SocketServer&)     = delete;
+    SocketServer& operator=(SocketServer&&) noexcept = delete;
 
-protected:
-    explicit SocketServerBase(libcyphal::IExecutor& executor);
+    ~SocketServer() override = default;
+
+private:
+    int            makeSocketHandle();
+    void           handleAccept();
+    void           handleClientRequest(const ClientId client_id);
+    ClientContext* tryFindClientContext(const ClientId client_id);
 
     // ServerPipe
     //
     CETL_NODISCARD int start(EventHandler event_handler) override;
     CETL_NODISCARD int send(const ClientId client_id, const Payloads payloads) override;
 
-    CETL_NODISCARD virtual int makeSocketHandle(int& out_fd) = 0;
-
-    CETL_NODISCARD int bindSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const;
-
-private:
-    void           handleAccept();
-    void           handleClientRequest(const ClientId client_id);
-    ClientContext* tryFindClientContext(const ClientId client_id);
-
-    int                                              server_fd_;
+    io::OwnFd                                        server_fd_;
+    io::SocketAddress                                socket_address_;
     platform::IPosixExecutorExtension* const         posix_executor_ext_;
     ClientId                                         unique_client_id_counter_;
     EventHandler                                     event_handler_;
     libcyphal::IExecutor::Callback::Any              accept_callback_;
     std::unordered_map<ClientId, ClientContext::Ptr> client_id_to_context_;
 
-};  // SocketServerBase
+};  // SocketServer
 
 }  // namespace pipe
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_BASE_HPP_INCLUDED
+#endif  // OCVSMD_COMMON_IPC_PIPE_SOCKET_SERVER_HPP_INCLUDED

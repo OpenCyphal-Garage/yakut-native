@@ -104,6 +104,11 @@ public:
         return find_or(root_, "cyphal", "transport", "interfaces", std::vector<std::string>{});
     }
 
+    auto getIpcConnections() const -> std::vector<std::string> override
+    {
+        return find_or(root_, "ipc", "connections", std::vector<std::string>{});
+    }
+
     auto getLoggingFile() const -> cetl::optional<std::string> override
     {
         return findImpl<std::string>("logging", "file");

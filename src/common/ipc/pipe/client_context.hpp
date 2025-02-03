@@ -6,6 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_CLIENT_CONTEXT_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_CLIENT_CONTEXT_HPP_INCLUDED
 
+#include "io/io.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 #include "server_pipe.hpp"
@@ -32,24 +33,19 @@ class ClientContext final
 public:
     using Ptr = std::unique_ptr<ClientContext>;
 
-    ClientContext(const ServerPipe::ClientId id, const int fd, Logger& logger)
+    ClientContext(const ServerPipe::ClientId id, io::OwnFd&& fd, Logger& logger)
         : id_{id}
         , logger_{logger}
     {
-        CETL_DEBUG_ASSERT(fd != -1, "");
+        CETL_DEBUG_ASSERT(static_cast<int>(fd) != -1, "");
 
-        state_.fd = fd;
-        logger_.trace("ClientContext(fd={}, id={}).", fd, id_);
+        logger_.trace("ClientContext(fd={}, id={}).", static_cast<int>(fd), id_);
+        state_.fd = std::move(fd);
     }
 
     ~ClientContext()
     {
-        logger_.trace("~ClientContext(fd={}, id={}).", state_.fd, id_);
-
-        platform::posixSyscallError([this] {
-            //
-            return ::close(state_.fd);
-        });
+        logger_.trace("~ClientContext(fd={}, id={}).", static_cast<int>(state_.fd), id_);
     }
 
     ClientContext(const ClientContext&)                = delete;

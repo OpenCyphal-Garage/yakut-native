@@ -13,6 +13,7 @@
 #include <libcyphal/executor.hpp>
 
 #include <memory>
+#include <string>
 
 namespace ocvsmd
 {
@@ -26,7 +27,9 @@ class Daemon
 public:
     using Ptr = std::shared_ptr<Daemon>;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor);
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory,
+                                   libcyphal::IExecutor&       executor,
+                                   const std::string&          connection);
 
     Daemon(Daemon&&)                 = delete;
     Daemon(const Daemon&)            = delete;

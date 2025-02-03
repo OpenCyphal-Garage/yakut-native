@@ -6,6 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_SOCKET_BASE_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_SOCKET_BASE_HPP_INCLUDED
 
+#include "io/io.hpp"
 #include "ipc/ipc_types.hpp"
 #include "logging.hpp"
 
@@ -36,7 +37,7 @@ public:
             Payload
         };
 
-        int         fd{-1};
+        io::OwnFd   fd{};
         std::size_t read_msg_size{0};
         ReadPhase   read_phase{ReadPhase::Header};
 

@@ -18,7 +18,7 @@ namespace common
 namespace io
 {
 
-OwnFd::~OwnFd()
+void OwnFd::reset() noexcept
 {
     if (fd_ >= 0)
     {
@@ -28,7 +28,14 @@ OwnFd::~OwnFd()
             const int err = errno;
             getLogger("io")->error("Failed to close file descriptor {}: {}.", fd_, std::strerror(err));
         }
+
+        fd_ = -1;
     }
+}
+
+OwnFd::~OwnFd()
+{
+    reset();
 }
 
 }  // namespace io

@@ -23,13 +23,9 @@ add_library(ocvsmd_common
         io/io.cpp
         io/socket_address.cpp
         ipc/client_router.cpp
-        ipc/pipe/net_socket_client.cpp
-        ipc/pipe/net_socket_server.cpp
         ipc/pipe/socket_base.cpp
-        ipc/pipe/socket_client_base.cpp
-        ipc/pipe/socket_server_base.cpp
-        ipc/pipe/unix_socket_client.cpp
-        ipc/pipe/unix_socket_server.cpp
+        ipc/pipe/socket_client.cpp
+        ipc/pipe/socket_server.cpp
         ipc/server_router.cpp
 )
 target_link_libraries(ocvsmd_common
