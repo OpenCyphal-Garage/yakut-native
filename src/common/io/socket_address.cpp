@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <utility>
 
@@ -109,7 +110,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
 
 cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDomain(const std::string& str)
 {
-    if (0 != str.find("unix:"))
+    if (0 != str.find("unix:"))  // NOLINT(modernize-use-starts-ends-with)
     {
         return cetl::nullopt;
     }
@@ -135,7 +136,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
 
 cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstractUnixDomain(const std::string& str)
 {
-    if (0 != str.find("unix-abstract:"))
+    if (0 != str.find("unix-abstract:"))  // NOLINT(modernize-use-starts-ends-with)
     {
         return cetl::nullopt;
     }
