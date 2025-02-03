@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <string>
 #include <sys/socket.h>
+#include <utility>
 
 namespace ocvsmd
 {
@@ -33,6 +34,8 @@ public:
         using Var     = cetl::variant<Success, Failure>;
     };
     static ParseResult::Var parse(const std::string& str, const std::uint16_t port_hint);
+
+    std::pair<const sockaddr*, socklen_t> getRaw() const;
 
 private:
     SocketAddress() noexcept;

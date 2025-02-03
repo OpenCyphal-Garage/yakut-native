@@ -20,6 +20,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <utility>
 
 namespace ocvsmd
 {
@@ -33,6 +34,12 @@ SocketAddress::SocketAddress() noexcept
     , addr_len_{0}
     , addr_storage_{}
 {
+}
+
+std::pair<const sockaddr*, socklen_t> SocketAddress::getRaw() const
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    return {reinterpret_cast<const sockaddr*>(&addr_storage_), addr_len_};
 }
 
 SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, const std::uint16_t port_hint)
@@ -102,7 +109,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
 
 cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDomain(const std::string& str)
 {
-    if (0 != str.find_first_of("unix:"))
+    if (0 != str.find("unix:"))
     {
         return cetl::nullopt;
     }
@@ -112,13 +119,15 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
     auto&         result_un = reinterpret_cast<sockaddr_un&>(result.addr_storage_);  // NOLINT
     result_un.sun_family    = AF_UNIX;
 
-    if (path.size() >= sizeof(result_un.sun_path))
+    // Reserve one byte for the null terminator.
+    if ((path.size() + 1) > sizeof(result_un.sun_path))
     {
         getLogger("io")->error("Unix domain path is too long (path='{}').", str);
         return EINVAL;
     }
+
     // NOLINTNEXTLINE(*-array-to-pointer-decay, *-no-array-decay)
-    std::strcpy(result_un.sun_path, path.c_str());
+    std::strncpy(result_un.sun_path, path.c_str(), sizeof(result_un.sun_path));
 
     result.addr_len_ = offsetof(sockaddr_un, sun_path) + path.size() + 1;
     return result;
@@ -126,7 +135,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
 
 cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstractUnixDomain(const std::string& str)
 {
-    if (0 != str.find_first_of("unix-abstract:"))
+    if (0 != str.find("unix-abstract:"))
     {
         return cetl::nullopt;
     }
@@ -136,15 +145,19 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstrac
     auto&         result_un = reinterpret_cast<sockaddr_un&>(result.addr_storage_);  // NOLINT
     result_un.sun_family    = AF_UNIX;
 
-    if (path.size() >= sizeof(result_un.sun_path))
+    // Reserve +1 byte for the null terminator. Not required for abstract domain but it is harmless.
+    if ((path.size() + 1) > (sizeof(result_un.sun_path) - 1))  // `-1` b/c path starts at `[1]` (see `memcpy` below).
     {
         getLogger("io")->error("Unix domain path is too long (path='{}').", str);
         return EINVAL;
     }
-    // NOLINTNEXTLINE(*-array-to-pointer-decay, *-no-array-decay, *-pointer-arithmetic)
-    std::memcpy(result_un.sun_path + 1, path.c_str(), path.size() + 1);
 
-    result.addr_len_ = offsetof(sockaddr_un, sun_path) + path.size() + 1;
+    result_un.sun_path[0] = '\0';
+    // `memcpy` (instead of `strcpy`) b/c `path` is allowed to contain null characters.
+    // NOLINTNEXTLINE(*-array-to-pointer-decay, *-no-array-decay, *-pointer-arithmetic)
+    std::memcpy(&result_un.sun_path[1], path.c_str(), path.size() + 1);
+
+    result.addr_len_ = offsetof(sockaddr_un, sun_path) + path.size() + 1;  // include prefix null byte
     return result;
 }
 
@@ -164,11 +177,12 @@ int SocketAddress::extractFamilyHostAndPort(const std::string& str, std::string&
             getLogger("io")->error("Invalid IPv6 address; unclosed '[' (addr='{}').", str);
             return AF_UNSPEC;
         }
-        host = str.substr(1, end_bracket_pos);
+        host = str.substr(1, end_bracket_pos - 1);
 
         if (str.size() > end_bracket_pos + 1)
         {
-            if (0 != str.find_first_of(':', end_bracket_pos + 1))
+            const auto expected_colon_pos = end_bracket_pos + 1;
+            if (str[expected_colon_pos] != ':')
             {
                 getLogger("io")->error("Invalid IPv6 address; expected port suffix after ']': (addr='{}').", str);
                 return AF_UNSPEC;

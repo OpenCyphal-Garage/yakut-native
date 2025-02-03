@@ -50,6 +50,20 @@
       ]
     },
     {
+      "name": "OCVSMD-Linux-Coverage",
+      "displayName": "Linux OCVSMD (Coverage)",
+      "description": "Configures OCVSMD for Linux with coverage.",
+      "inherits": [
+        "config-common",
+        "config-linux"
+      ],
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "--coverage",
+        "CMAKE_CXX_FLAGS": "--coverage",
+        "NO_STATIC_ANALYSIS": "ON"
+      }
+    },
+    {
       "name": "OCVSMD-BSD",
       "displayName": "BSD OCVSMD",
       "description": "Configures OCVSMD for BSD",
@@ -69,6 +83,13 @@
       "displayName": "Linux OCVSMD (Debug)",
       "description": "Builds OCVSMD for Linux",
       "configurePreset": "OCVSMD-Linux",
+      "configuration": "Debug"
+    },
+    {
+      "name": "OCVSMD-Linux-Debug-Coverage",
+      "displayName": "Linux OCVSMD (Debug, Coverage)",
+      "description": "Builds OCVSMD for Linux with coverage",
+      "configurePreset": "OCVSMD-Linux-Coverage",
       "configuration": "Debug"
     },
     {

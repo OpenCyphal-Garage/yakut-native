@@ -22,7 +22,8 @@ interfaces = [
 # Connection strings for the IPC server.
 # Currently, only one connection is supported.
 # Supported formats:
-# - 'tcp://<ip>:<port>'
+# - 'tcp://<ip4>:<port>'
+# - 'tcp://[<ip6>]:<port>'
 # - 'unix:<file_path>'
 # - 'unix-abstract:<reverse-dns>' (linux only)
 connections = [
