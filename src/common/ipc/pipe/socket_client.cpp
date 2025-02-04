@@ -46,7 +46,7 @@ int SocketClient::start(EventHandler event_handler)
 
     if (const auto err = makeSocketHandle())
     {
-        logger().error("Failed to make socket handle: {}.", std::strerror(err));
+        logger().error("Failed to make client socket handle: {}.", std::strerror(err));
         return err;
     }
 

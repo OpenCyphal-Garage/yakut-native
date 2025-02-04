@@ -44,6 +44,12 @@ public:
         return asGenericAddr().sa_family == AF_UNIX;
     }
 
+    bool isAnyInet() const noexcept
+    {
+        const auto family = asGenericAddr().sa_family;
+        return (family == AF_INET) || (family == AF_INET6);
+    }
+
     struct SocketResult
     {
         using Failure = int;  // aka errno
@@ -54,10 +60,10 @@ public:
 
     int                   bind(const OwnFd& socket_fd) const;
     int                   connect(const OwnFd& socket_fd) const;
-    cetl::optional<OwnFd> accept(const OwnFd& socket_fd);
+    cetl::optional<OwnFd> accept(const OwnFd& server_fd);
 
 private:
-    static void                             configureNoDelay(const OwnFd& fd);
+    static void configureNoDelay(const OwnFd& fd);
     static cetl::optional<ParseResult::Var> tryParseAsUnixDomain(const std::string& str);
     static cetl::optional<ParseResult::Var> tryParseAsAbstractUnixDomain(const std::string& str);
     static int extractFamilyHostAndPort(const std::string& str, std::string& host, std::uint16_t& port);

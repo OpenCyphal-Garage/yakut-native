@@ -73,7 +73,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
 
     // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
     //
-    if (is_stream && ((addr_generic.sa_family == AF_INET) || (addr_generic.sa_family == AF_INET6)))
+    if (is_stream && isAnyInet())
     {
         configureNoDelay(out_fd);
     }
@@ -106,7 +106,7 @@ int SocketAddress::bind(const OwnFd& socket_fd) const
     });
     if (err != 0)
     {
-        getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
+        getLogger("io")->error("Failed to bind socket: {}.", std::strerror(err));
     }
     return err;
 }
@@ -147,7 +147,13 @@ cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
 #endif
         if (client_fd.get() >= 0)
         {
-            configureNoDelay(client_fd);
+            // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
+            //
+            if (isAnyInet())
+            {
+                configureNoDelay(client_fd);
+            }
+
             return client_fd;
         }
 

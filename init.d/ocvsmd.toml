@@ -35,7 +35,7 @@ connections = [
 # See also README documentation for more details.
 [logging]
 # The path to the log file.
-file = '/etc/var/ocvsmd.log'
+file = '/var/log/ocvsmd.log'
 # Supported log levels: 'trace', 'debug', 'info', 'warning', 'error', 'critical', 'off'.
 level = 'info'
 # By default, the log file is not immediately flushed to disk (at `off` level).

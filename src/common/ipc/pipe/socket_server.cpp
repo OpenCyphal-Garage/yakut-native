@@ -36,7 +36,7 @@ namespace pipe
 namespace
 {
 
-constexpr int MaxConnections = 5;
+constexpr int MaxConnections = 32;
 
 }  // namespace
 
@@ -57,7 +57,7 @@ int SocketServer::start(EventHandler event_handler)
 
     if (const auto err = makeSocketHandle())
     {
-        logger().error("Failed to make socket handle: {}.", std::strerror(err));
+        logger().error("Failed to make server socket handle: {}.", std::strerror(err));
         return err;
     }
 
@@ -92,6 +92,18 @@ int SocketServer::makeSocketHandle()
     }
     auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
     CETL_DEBUG_ASSERT(socket_fd.get() != -1, "");
+
+    // Set SO_REUSEADDR to allow binding to the same address.
+    // Otherwise, you have to wait for 5 minutes after the server is stopped to bind to the same address.
+    if (const auto err = platform::posixSyscallError([this, &socket_fd] {
+            //
+            constexpr int enable = 1;
+            return ::setsockopt(socket_fd.get(), SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+        }))
+    {
+        logger().error("Failed to set server socket SO_REUSEADDR=1: {}.", std::strerror(err));
+        return err;
+    }
 
     const int err = socket_address_.bind(socket_fd);
     if (err != 0)
