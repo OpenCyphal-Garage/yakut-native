@@ -89,9 +89,10 @@ int main(const int argc, const char** const argv)
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            const std::vector<std::uint16_t> node_ids = {42, 43, 44};
+            const std::vector<std::uint16_t> node_ids = {42, 143, 144};
             // auto sender     = node_cmd_client->restart({node_ids.data(), node_ids.size()});
-            auto sender     = node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
+            auto sender =
+                node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
 
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))

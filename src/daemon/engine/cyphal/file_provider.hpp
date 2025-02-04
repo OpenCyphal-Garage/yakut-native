@@ -6,6 +6,8 @@
 #ifndef OCVSMD_DAEMON_ENGINE_CYPHAL_FILE_PROVIDER_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_CYPHAL_FILE_PROVIDER_HPP_INCLUDED
 
+#include "config.hpp"
+
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -36,7 +38,8 @@ public:
     using Ptr = std::unique_ptr<FileProvider>;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&            memory,
-                                   libcyphal::presentation::Presentation& presentation);
+                                   libcyphal::presentation::Presentation& presentation,
+                                   Config::Ptr                            config);
 
     FileProvider(const FileProvider&)                = delete;
     FileProvider(FileProvider&&) noexcept            = delete;

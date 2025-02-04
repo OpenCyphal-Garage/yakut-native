@@ -28,18 +28,6 @@ namespace engine
 namespace
 {
 
-struct Default
-{
-    struct Cyphal
-    {
-        struct Udp
-        {
-            constexpr static auto Iface = "127.0.0.1";
-        };
-    };
-
-};  // Default
-
 class ConfigImpl final : public Config
 {
 public:
@@ -102,6 +90,18 @@ public:
     auto getCyphalTransportInterfaces() const -> std::vector<std::string> override
     {
         return find_or(root_, "cyphal", "transport", "interfaces", std::vector<std::string>{});
+    }
+
+    auto getFileServerRoots() const -> std::vector<std::string> override
+    {
+        return find_or(root_, "file_server", "roots", std::vector<std::string>{});
+    }
+
+    void setFileServerRoots(const std::vector<std::string>& roots) override
+    {
+        auto& toml_fs_roots = root_["file_server"]["roots"];
+        toml_fs_roots       = roots;
+        is_dirty_           = true;
     }
 
     auto getIpcConnections() const -> std::vector<std::string> override

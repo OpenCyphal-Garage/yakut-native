@@ -17,6 +17,14 @@ interfaces = [
     'udp:127.0.0.1',
 ]
 
+# File Server settings.
+[file_server]
+# List of file server roots.
+# The daemon will canonicalize paths and resolve symlinks.
+roots = [
+    '.',
+]
+
 # IPC server settings.
 [ipc]
 # Connection strings for the IPC server.

@@ -50,6 +50,9 @@ public:
 
     CETL_NODISCARD virtual auto getCyphalTransportInterfaces() const -> std::vector<std::string> = 0;
 
+    CETL_NODISCARD virtual auto getFileServerRoots() const -> std::vector<std::string>    = 0;
+    virtual void                setFileServerRoots(const std::vector<std::string>& roots) = 0;
+
     CETL_NODISCARD virtual auto getIpcConnections() const -> std::vector<std::string> = 0;
 
     CETL_NODISCARD virtual auto getLoggingFile() const -> cetl::optional<std::string>       = 0;

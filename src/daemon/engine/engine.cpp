@@ -83,7 +83,7 @@ cetl::optional<std::string> Engine::init()
 
     // 5. Bring up various providers.
     //
-    file_provider_ = cyphal::FileProvider::make(memory_, *presentation_);
+    file_provider_ = cyphal::FileProvider::make(memory_, *presentation_, config_);
     if (file_provider_ == nullptr)
     {
         std::string msg = "Failed to create cyphal file provider.";
