@@ -35,6 +35,8 @@ public:
     };
     static ParseResult::Var parse(const std::string& str, const std::uint16_t port_hint);
 
+    SocketAddress() noexcept;
+
     std::pair<const sockaddr*, socklen_t> getRaw() const noexcept;
 
     bool isUnix() const noexcept
@@ -50,12 +52,12 @@ public:
     };
     SocketResult::Var socket(const int type) const;
 
-    int bind(const OwnFd& socket_fd) const;
-    int connect(const OwnFd& socket_fd) const;
+    int                   bind(const OwnFd& socket_fd) const;
+    int                   connect(const OwnFd& socket_fd) const;
+    cetl::optional<OwnFd> accept(const OwnFd& socket_fd);
 
 private:
-    SocketAddress() noexcept;
-
+    static void                             configureNoDelay(const OwnFd& fd);
     static cetl::optional<ParseResult::Var> tryParseAsUnixDomain(const std::string& str);
     static cetl::optional<ParseResult::Var> tryParseAsAbstractUnixDomain(const std::string& str);
     static int extractFamilyHostAndPort(const std::string& str, std::string& host, std::uint16_t& port);

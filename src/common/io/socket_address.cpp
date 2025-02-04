@@ -57,7 +57,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
     OwnFd out_fd;
 
     const auto& addr_generic = asGenericAddr();
-    if (auto err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
+    if (const auto err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
             //
             const int fd = ::socket(addr_generic.sa_family, static_cast<int>(socket_type), 0);
             if (fd != -1)
@@ -75,16 +75,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
     //
     if (is_stream && ((addr_generic.sa_family == AF_INET) || (addr_generic.sa_family == AF_INET6)))
     {
-        if (auto err = platform::posixSyscallError([&out_fd] {
-                //
-                // TODO: Enable!
-                constexpr int enable = 0;
-                return ::setsockopt(out_fd.get(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
-            }))
-        {
-            getLogger("io")->error("Failed to set TCP_NODELAY=1: {}.", std::strerror(err));
-            return err;
-        }
+        configureNoDelay(out_fd);
     }
 
     return out_fd;
@@ -98,7 +89,7 @@ int SocketAddress::bind(const OwnFd& socket_fd) const
     // Disable IPv6-only mode for dual-stack sockets (aka wildcard).
     if (is_wildcard_)
     {
-        if (auto err = platform::posixSyscallError([raw_fd] {
+        if (const auto err = platform::posixSyscallError([raw_fd] {
                 //
                 int disable = 0;
                 return ::setsockopt(raw_fd, IPPROTO_IPV6, IPV6_V6ONLY, &disable, sizeof(disable));
@@ -139,6 +130,87 @@ int SocketAddress::connect(const OwnFd& socket_fd) const
         getLogger("io")->error("Failed to connect to server: {}.", std::strerror(err));
         return err;
     }
+    }
+}
+
+cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
+{
+    CETL_DEBUG_ASSERT(server_fd.get() != -1, "");
+
+    while (true)
+    {
+        addr_len_ = sizeof(addr_storage_);
+#if __linux__
+        OwnFd client_fd{::accept4(server_fd.get(), &asGenericAddr(), &addr_len_, SOCK_NONBLOCK | SOCK_CLOEXEC)};
+#else
+        OwnFd client_fd{::accept(server_fd.get(), &asGenericAddr(), &addr_len_)};
+#endif
+        if (client_fd.get() >= 0)
+        {
+            configureNoDelay(client_fd);
+            return client_fd;
+        }
+
+        const int err = errno;
+        switch (err)
+        {
+        case EAGAIN:
+#if EAGAIN != EWOULDBLOCK
+        case EWOULDBLOCK:
+#endif
+        {
+            // Not ready yet - just exit.
+            return cetl::nullopt;
+        }
+
+        // The list of errors below is a guess of temporary network errors (vs permanent ones).
+        //
+        case EINTR:
+        case ENETDOWN:
+        case ETIMEDOUT:
+        case EHOSTDOWN:
+        case ENETUNREACH:
+        case ECONNABORTED:
+        case EHOSTUNREACH:
+#ifdef EPROTO
+        case EPROTO:  // not defined on OpenBSD
+#endif
+        {
+            // Just log and retry.
+            getLogger("io")->debug("Failed to accept connection; retrying (fd={}, err={}).", server_fd.get(), err);
+            break;
+        }
+
+        default: {
+            // Just log and exit.
+            getLogger("io")->warn("Failed to accept connection (fd={}, err={}): {}.",
+                                  server_fd.get(),
+                                  err,
+                                  std::strerror(err));
+            return cetl::nullopt;
+        }
+        }  // switch err
+
+    }  // while(true)
+
+    return cetl::nullopt;
+}
+
+void SocketAddress::configureNoDelay(const OwnFd& fd)
+{
+    // TODO: Temporary disabled, but enable when `receiveMessage` could accept partial payloads!
+    constexpr int enable = 0;
+
+    if (const auto err = platform::posixSyscallError([&fd, &enable] {
+            //
+            return ::setsockopt(fd.get(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+        }))
+    {
+        getLogger("io")->warn("Failed to set TCP_NODELAY={} (fd={}, err={}): {}.",
+                              enable,
+                              fd.get(),
+                              err,
+                              std::strerror(err));
     }
 }
 

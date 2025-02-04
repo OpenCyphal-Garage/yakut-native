@@ -6,6 +6,8 @@
 #include "socket_server.hpp"
 
 #include "client_context.hpp"
+#include "io/io.hpp"
+#include "io/socket_address.hpp"
 #include "ipc/ipc_types.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
@@ -117,32 +119,30 @@ void SocketServer::handleAccept()
 {
     CETL_DEBUG_ASSERT(server_fd_.get() != -1, "");
 
-    io::OwnFd client_fd;
-    if (const auto err = platform::posixSyscallError([this, &client_fd] {
-            //
-            client_fd = io::OwnFd{::accept(server_fd_.get(), nullptr, nullptr)};
-            return client_fd.get();
-        }))
+    io::SocketAddress client_address;
+    if (auto client_fd = client_address.accept(server_fd_))
     {
-        logger().warn("Failed to accept client connection: {}.", std::strerror(err));
-        return;
+        const ClientId new_client_id = ++unique_client_id_counter_;
+
+        // Log to default logger (syslog) the client connection.
+        getLogger("")->debug("New client connection (id={}).", new_client_id);
+
+        const int raw_fd = client_fd->get();
+        CETL_DEBUG_ASSERT(raw_fd != -1, "");
+
+        auto client_context = std::make_unique<ClientContext>(new_client_id, std::move(*client_fd), logger());
+        //
+        client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
+            [this, new_client_id](const auto&) {
+                //
+                handleClientRequest(new_client_id);
+            },
+            platform::IPosixExecutorExtension::Trigger::Readable{raw_fd}));
+
+        client_id_to_context_.emplace(new_client_id, std::move(client_context));
+
+        event_handler_(Event::Connected{new_client_id});
     }
-    const int raw_fd = client_fd.get();
-    CETL_DEBUG_ASSERT(raw_fd != -1, "");
-
-    const ClientId new_client_id  = ++unique_client_id_counter_;
-    auto           client_context = std::make_unique<ClientContext>(new_client_id, std::move(client_fd), logger());
-    //
-    client_context->setCallback(posix_executor_ext_->registerAwaitableCallback(
-        [this, new_client_id](const auto&) {
-            //
-            handleClientRequest(new_client_id);
-        },
-        platform::IPosixExecutorExtension::Trigger::Readable{raw_fd}));
-
-    client_id_to_context_.emplace(new_client_id, std::move(client_context));
-
-    event_handler_(Event::Connected{new_client_id});
 }
 
 void SocketServer::handleClientRequest(const ClientId client_id)
