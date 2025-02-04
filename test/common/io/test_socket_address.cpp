@@ -49,8 +49,9 @@ TEST_F(TestSocketAddress, parse_unix_domain)
     }
 
     // try max possible path length
+    constexpr auto MaxPath = sizeof(sockaddr_un::sun_path);
     {
-        const std::string max_path(108 - 1, 'x');
+        const std::string max_path(MaxPath - 1, 'x');
         auto              maybe_socket_addr = SocketAddress::parse("unix:" + max_path, 0);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -63,7 +64,7 @@ TEST_F(TestSocketAddress, parse_unix_domain)
 
     // try beyond max possible path length
     {
-        const std::string too_long_path(108, 'x');
+        const std::string too_long_path(MaxPath, 'x');
         auto              maybe_socket_addr = SocketAddress::parse("unix:" + too_long_path, 0);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
     }
@@ -100,8 +101,9 @@ TEST_F(TestSocketAddress, parse_abstract_unix_domain)
     }
 
     // try max possible path length
+    constexpr auto MaxPath = sizeof(sockaddr_un::sun_path);
     {
-        const std::string max_path(108 - 2, 'x');
+        const std::string max_path(MaxPath - 2, 'x');
         auto              maybe_socket_addr = SocketAddress::parse("unix-abstract:" + max_path, 0);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -115,7 +117,7 @@ TEST_F(TestSocketAddress, parse_abstract_unix_domain)
 
     // try beyond max possible path length
     {
-        const std::string too_long_path(108 - 1, 'x');
+        const std::string too_long_path(MaxPath - 1, 'x');
         auto              maybe_socket_addr = SocketAddress::parse("unix-abstract:" + too_long_path, 0);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
     }

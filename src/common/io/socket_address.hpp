@@ -63,7 +63,7 @@ public:
     cetl::optional<OwnFd> accept(const OwnFd& server_fd);
 
 private:
-    static void configureNoDelay(const OwnFd& fd);
+    static void                             configureNoDelay(const OwnFd& fd);
     static cetl::optional<ParseResult::Var> tryParseAsUnixDomain(const std::string& str);
     static cetl::optional<ParseResult::Var> tryParseAsAbstractUnixDomain(const std::string& str);
     static int extractFamilyHostAndPort(const std::string& str, std::string& host, std::uint16_t& port);
