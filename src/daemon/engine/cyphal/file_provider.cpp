@@ -296,14 +296,15 @@ private:
         // Don't allow reading beyond the end of the file.
         //
         const auto& file_path = path_and_stat->first;
-        if (arg.request.offset >= path_and_stat->second.st_size)
+        const auto& file_stat = path_and_stat->second;
+        if (arg.request.offset >= file_stat.st_size)
         {
             response._error.value = uavcan::file::Error_1_0::OK;
             return response;
         }
 
         auto&      buffer        = response.data.value;
-        const auto bytes_to_read = std::min<std::size_t>(path_and_stat->second.st_size - arg.request.offset, MaxDataSize);
+        const auto bytes_to_read = std::min<std::size_t>(file_stat.st_size - arg.request.offset, MaxDataSize);
         buffer.resize(bytes_to_read);
         try
         {
