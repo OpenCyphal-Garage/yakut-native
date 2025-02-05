@@ -130,7 +130,7 @@ TEST_F(TestSocketAddress, parse_ipv4)
     using Result = SocketAddress::ParseResult;
 
     {
-        const std::string test_addr         = "127.0.0.1";
+        const std::string test_addr         = "tcp://127.0.0.1";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 0x1234);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -145,7 +145,7 @@ TEST_F(TestSocketAddress, parse_ipv4)
 
     // try with port
     {
-        const std::string test_addr         = "192.168.1.123:8080";
+        const std::string test_addr         = "tcp://192.168.1.123:8080";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 80);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -158,14 +158,14 @@ TEST_F(TestSocketAddress, parse_ipv4)
 
     // try invalid ip
     {
-        const std::string test_addr         = "127.0.0.256";
+        const std::string test_addr         = "tcp://127.0.0.256";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 80);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
     }
 
     // try unsupported
     {
-        const std::string test_addr         = "localhost";
+        const std::string test_addr         = "tcp://localhost";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 80);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
     }
@@ -176,7 +176,7 @@ TEST_F(TestSocketAddress, parse_ipv6)
     using Result = SocketAddress::ParseResult;
 
     {
-        const std::string test_addr         = "::1";
+        const std::string test_addr         = "tcp://::1";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 0x1234);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -192,7 +192,7 @@ TEST_F(TestSocketAddress, parse_ipv6)
 
     // try with port
     {
-        const std::string test_addr         = "[2001:db8::1]:8080";
+        const std::string test_addr         = "tcp://[2001:db8::1]:8080";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 0);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -207,16 +207,16 @@ TEST_F(TestSocketAddress, parse_ipv6)
     // try invalid
     {
         // missing closing bracket
-        ASSERT_THAT(SocketAddress::parse("[::1", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1", 0), VariantWith<Result::Failure>(EINVAL));
 
         // missing colon after bracket
-        ASSERT_THAT(SocketAddress::parse("[::1]8080", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1]8080", 0), VariantWith<Result::Failure>(EINVAL));
 
         // invalid port number
-        ASSERT_THAT(SocketAddress::parse("[::1]:80_80", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1]:80_80", 0), VariantWith<Result::Failure>(EINVAL));
 
         // too big port number
-        ASSERT_THAT(SocketAddress::parse("[::1]:65536", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1]:65536", 0), VariantWith<Result::Failure>(EINVAL));
     }
 }
 
@@ -225,7 +225,7 @@ TEST_F(TestSocketAddress, parse_wildcard)
     using Result = SocketAddress::ParseResult;
 
     {
-        const std::string test_addr         = "*";
+        const std::string test_addr         = "tcp://*";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 0x1234);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
@@ -241,7 +241,7 @@ TEST_F(TestSocketAddress, parse_wildcard)
 
     // try with port
     {
-        const std::string test_addr         = "*:8080";
+        const std::string test_addr         = "tcp://*:8080";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 0x1234);
         ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Success>(_));
         auto              socket_address      = cetl::get<Result::Success>(maybe_socket_addr);
