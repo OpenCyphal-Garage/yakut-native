@@ -57,6 +57,7 @@
         "config-common",
         "config-linux"
       ],
+      "binaryDir": "${sourceDir}/cmake-build-coverage",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "--coverage",
         "CMAKE_CXX_FLAGS": "--coverage",

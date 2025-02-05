@@ -18,6 +18,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <utility>
@@ -60,7 +61,7 @@ int SocketBase::send(const State& state, const Payloads payloads)
     if (const int err = platform::posixSyscallError([total_size, &state] {
             //
             const MsgHeader msg_header{MsgSignature, static_cast<std::uint32_t>(total_size)};
-            return ::write(state.fd.get(), &msg_header, sizeof(msg_header));
+            return ::send(state.fd.get(), &msg_header, sizeof(msg_header), MSG_DONTWAIT | MSG_MORE);
         }))
     {
         return err;
@@ -72,7 +73,7 @@ int SocketBase::send(const State& state, const Payloads payloads)
     {
         if (const int err = platform::posixSyscallError([payload, &state] {
                 //
-                return ::write(state.fd.get(), payload.data(), payload.size());
+                return ::send(state.fd.get(), payload.data(), payload.size(), MSG_DONTWAIT);
             }))
         {
             return err;
@@ -91,7 +92,7 @@ int SocketBase::receiveMessage(State& state, std::function<int(Payload)>&& actio
         ssize_t   bytes_read = 0;
         if (const auto err = platform::posixSyscallError([&state, &msg_header, &bytes_read] {
                 //
-                return bytes_read = ::read(state.fd.get(), &msg_header, sizeof(msg_header));
+                return bytes_read = ::recv(state.fd.get(), &msg_header, sizeof(msg_header), MSG_DONTWAIT);
             }))
         {
             if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
@@ -127,7 +128,7 @@ int SocketBase::receiveMessage(State& state, std::function<int(Payload)>&& actio
             ssize_t read = 0;
             if (const auto err = platform::posixSyscallError([this, &state, buf_span, &read] {
                     //
-                    return read = ::read(state.fd.get(), buf_span.data(), buf_span.size());
+                    return read = ::recv(state.fd.get(), buf_span.data(), buf_span.size(), MSG_DONTWAIT);
                 }))
             {
                 if ((errno == EAGAIN) || (errno == EWOULDBLOCK))

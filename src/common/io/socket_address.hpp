@@ -56,7 +56,7 @@ public:
         using Success = OwnFd;
         using Var     = cetl::variant<Success, Failure>;
     };
-    SocketResult::Var socket(const int type) const;
+    SocketResult::Var socket(const int socket_type) const;
 
     int                   bind(const OwnFd& socket_fd) const;
     int                   connect(const OwnFd& socket_fd) const;

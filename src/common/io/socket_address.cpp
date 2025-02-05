@@ -45,21 +45,14 @@ std::pair<const sockaddr*, socklen_t> SocketAddress::getRaw() const noexcept
     return {&asGenericAddr(), addr_len_};
 }
 
-SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
+SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) const
 {
-    const bool is_stream   = (SOCK_STREAM == type);
-    uint       socket_type = type;
-#if __linux__
-    socket_type |= static_cast<uint>(SOCK_NONBLOCK);
-    socket_type |= static_cast<uint>(SOCK_CLOEXEC);
-#endif
-
     OwnFd out_fd;
 
     const auto& addr_generic = asGenericAddr();
     if (const auto err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
             //
-            const int fd = ::socket(addr_generic.sa_family, static_cast<int>(socket_type), 0);
+            const int fd = ::socket(addr_generic.sa_family, socket_type, 0);
             if (fd != -1)
             {
                 out_fd = OwnFd{fd};
@@ -71,9 +64,19 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int type) const
         return err;
     }
 
+    if (const auto err = platform::posixSyscallError([this, &out_fd] {
+            //
+            // NOLINTNEXTLINE(*-vararg)
+            return ::fcntl(out_fd.get(), F_SETFL, O_NONBLOCK);
+        }))
+    {
+        getLogger("io")->error("Failed to set socket O_NONBLOCK: {}.", std::strerror(err));
+        return err;
+    }
+
     // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
     //
-    if (is_stream && isAnyInet())
+    if ((SOCK_STREAM == socket_type) && isAnyInet())
     {
         configureNoDelay(out_fd);
     }
@@ -202,11 +205,11 @@ cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
     return cetl::nullopt;
 }
 
+/// Disables Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
+///
 void SocketAddress::configureNoDelay(const OwnFd& fd)
 {
-    // TODO: Temporary disabled, but enable when `receiveMessage` could accept partial payloads!
-    constexpr int enable = 0;
-
+    constexpr int enable = 1;
     if (const auto err = platform::posixSyscallError([&fd, &enable] {
             //
             return ::setsockopt(fd.get(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
