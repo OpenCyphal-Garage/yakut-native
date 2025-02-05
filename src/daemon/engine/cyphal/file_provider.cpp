@@ -23,8 +23,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cstddef>
-#include <exception>
 #include <fstream>
 #include <ios>
 #include <memory>
@@ -303,7 +303,7 @@ private:
         }
 
         auto&      buffer        = response.data.value;
-        const auto bytes_to_read = std::min(path_and_stat->second.st_size - arg.request.offset, MaxDataSize);
+        const auto bytes_to_read = std::min<std::size_t>(path_and_stat->second.st_size - arg.request.offset, MaxDataSize);
         buffer.resize(bytes_to_read);
         try
         {

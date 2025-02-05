@@ -61,7 +61,7 @@ int SocketBase::send(const State& state, const Payloads payloads)
     if (const int err = platform::posixSyscallError([total_size, &state] {
             //
             const MsgHeader msg_header{MsgSignature, static_cast<std::uint32_t>(total_size)};
-            return ::send(state.fd.get(), &msg_header, sizeof(msg_header), MSG_DONTWAIT | MSG_MORE);
+            return ::send(state.fd.get(), &msg_header, sizeof(msg_header), MSG_DONTWAIT);
         }))
     {
         return err;
