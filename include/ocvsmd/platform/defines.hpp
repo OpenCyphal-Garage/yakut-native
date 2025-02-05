@@ -61,7 +61,8 @@ void waitPollingUntil(Executor& executor, Predicate predicate)
         }
     }
 
-    spdlog::debug("Predicate is fulfilled (worst_lateness={}us).", worst_lateness.count());
+    spdlog::debug("Predicate is fulfilled (worst_lateness={}us).",
+                  std::chrono::duration_cast<std::chrono::microseconds>(worst_lateness).count());
 }
 
 }  // namespace platform

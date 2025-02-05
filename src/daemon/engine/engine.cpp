@@ -21,6 +21,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -138,9 +139,11 @@ void Engine::runWhile(const std::function<bool()>& loop_predicate)
 {
     using std::chrono_literals::operator""s;
 
+    libcyphal::Duration worst_lateness{0};
     while (loop_predicate())
     {
         const auto spin_result = executor_.spinOnce();
+        worst_lateness         = std::max(worst_lateness, spin_result.worst_lateness);
 
         // Poll awaitable resources but awake at least once per second.
         libcyphal::Duration timeout{1s};
@@ -154,6 +157,8 @@ void Engine::runWhile(const std::function<bool()>& loop_predicate)
             spdlog::warn("Failed to poll awaitable resources.");
         }
     }
+    spdlog::debug("Run loop predicate is fulfilled (worst_lateness={}us).",
+                  std::chrono::duration_cast<std::chrono::microseconds>(worst_lateness).count());
 }
 
 Engine::UniqueId Engine::getUniqueId() const
