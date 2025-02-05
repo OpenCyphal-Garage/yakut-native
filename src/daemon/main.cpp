@@ -301,15 +301,15 @@ ocvsmd::daemon::engine::Config::Ptr loadConfig(const int          err_fd,
                                                const int          argc,
                                                const char** const argv)
 {
-    const std::string cfg_file_nm   = "ocvsmd.toml";
+    static const std::string cfg_file_name      = "ocvsmd.toml";
+    static const std::string config_file_prefix = "CONFIG_FILE=";
+
     const std::string cfg_file_dir  = is_daemonized ? "/etc/ocvsmd/" : "./";
-    auto              cfg_file_path = cfg_file_dir + cfg_file_nm;
-    //
-    const std::string config_file_prefix = "CONFIG_FILE=";
+    auto              cfg_file_path = cfg_file_dir + cfg_file_name;
     for (int i = 1; i < argc; i++)
     {
-        const std::string arg_str = argv[i];        // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        if (arg_str.find(config_file_prefix) == 0)  // NOLINT(modernize-use-starts-ends-with)
+        const std::string arg_str = argv[i];  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        if (0 == arg_str.compare(0, config_file_prefix.size(), config_file_prefix))
         {
             cfg_file_path = arg_str.substr(config_file_prefix.size());
         }

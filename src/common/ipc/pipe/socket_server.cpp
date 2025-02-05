@@ -137,7 +137,7 @@ void SocketServer::handleAccept()
         const ClientId new_client_id = ++unique_client_id_counter_;
 
         // Log to default logger (syslog) the client connection.
-        getLogger("")->debug("New client connection (id={}).", new_client_id);
+        getLogger("")->debug("New client connection (id={}, addr='{}').", new_client_id, client_address.toString());
 
         const int raw_fd = client_fd->get();
         CETL_DEBUG_ASSERT(raw_fd != -1, "");

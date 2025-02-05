@@ -43,13 +43,14 @@ struct UdpTransportBag final
 
     libcyphal::transport::udp::IUdpTransport* create(const Config::Ptr& config)
     {
+        static const std::string udp_prefix = "udp://";
+
         CETL_DEBUG_ASSERT(config, "");
 
         std::string udp_ifaces;
         for (const auto& iface : config->getCyphalTransportInterfaces())
         {
-            const static std::string udp_prefix = "udp:";
-            if (0 == iface.find(udp_prefix))
+            if (0 == iface.compare(0, udp_prefix.size(), udp_prefix))
             {
                 udp_ifaces += iface.substr(udp_prefix.size());
                 udp_ifaces += ",";

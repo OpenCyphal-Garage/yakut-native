@@ -65,11 +65,12 @@ inline void loadFlushLevels(const std::string& flush_levels)
 ///
 inline void loadArgvFlushLevels(const int argc, const char** const argv)
 {
-    const std::string spdlog_level_prefix = "SPDLOG_FLUSH_LEVEL=";
+    static const std::string spdlog_level_prefix = "SPDLOG_FLUSH_LEVEL=";
+
     for (int i = 1; i < argc; i++)
     {
         const std::string arg_str = argv[i];  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        if (arg_str.find(spdlog_level_prefix) == 0)
+        if (0 == arg_str.compare(0, spdlog_level_prefix.size(), spdlog_level_prefix))
         {
             const auto levels_str = arg_str.substr(spdlog_level_prefix.size());
             loadFlushLevels(levels_str);

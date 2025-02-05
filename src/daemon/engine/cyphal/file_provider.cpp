@@ -177,6 +177,7 @@ private:
         switch (code)
         {
         case EIO:
+        case EPERM:
             return uavcan::file::Error_1_0::IO_ERROR;
         case ENOENT:
             return uavcan::file::Error_1_0::NOT_FOUND;
@@ -253,27 +254,39 @@ private:
 
     Svc::GetInfo::Response serveGetInfoRequest(const Svc::GetInfo::CallbackArg& arg) const
     {
-        const auto request_path = stringFrom(arg.request.path);
-        logger_->trace("'GetInfo' request (from={}, path='{}').", arg.metadata.remote_node_id, request_path);
-
         Svc::GetInfo::Response response{&memory_};
-        if (const auto path_and_stat = findFirstValidFile(request_path))
-        {
-            const auto& file_path = path_and_stat->first;
-            logger_->debug("Found file info (request='{}', real_path='{}').", request_path, file_path);
-            const auto& stat = path_and_stat->second;
 
-            response._error.value                        = uavcan::file::Error_1_0::OK;
-            response.size                                = stat.st_size;
-            response.unix_timestamp_of_last_modification = stat.st_mtime;
-            response.is_file_not_directory               = !S_ISDIR(stat.st_mode);
-            response.is_link                             = false;  // `::realpath()` resolved all possible links
-            response.is_readable                         = (0 == ::access(file_path.c_str(), R_OK));
-            response.is_writeable                        = (0 == ::access(file_path.c_str(), W_OK));
+        // Find the first valid file candidate in the list of roots.
+        //
+        const auto request_path  = stringFrom(arg.request.path);
+        const auto path_and_stat = findFirstValidFile(request_path);
+        if (!path_and_stat)
+        {
+            logger_->warn(  //
+                "'GetInfo' file not found (node={}, path='{}').",
+                arg.metadata.remote_node_id,
+                request_path);
+
+            response._error.value = uavcan::file::Error_1_0::NOT_FOUND;
             return response;
         }
+        const auto& file_path = path_and_stat->first;
+        const auto& file_stat = path_and_stat->second;
 
-        response._error.value = uavcan::file::Error_1_0::NOT_FOUND;
+        logger_->debug(  //
+            "'GetInfo' found file info (node={}, path='{}', size={}, real='{}').",
+            arg.metadata.remote_node_id,
+            request_path,
+            file_stat.st_size,
+            file_path);
+
+        response._error.value                        = uavcan::file::Error_1_0::OK;
+        response.size                                = file_stat.st_size;
+        response.unix_timestamp_of_last_modification = file_stat.st_mtime;
+        response.is_file_not_directory               = !S_ISDIR(file_stat.st_mode);
+        response.is_link                             = false;  // `::realpath()` resolved all possible links
+        response.is_readable                         = (0 == ::access(file_path.c_str(), R_OK));
+        response.is_writeable                        = (0 == ::access(file_path.c_str(), W_OK));
         return response;
     }
 
@@ -283,26 +296,49 @@ private:
         constexpr auto MaxDataSize = DataType::_traits_::ArrayCapacity::value;
 
         Svc::Read::Response response{&memory_};
+        response._error.value = uavcan::file::Error_1_0::OK;
 
         // Find the first valid file candidate in the list of roots.
         //
-        const auto path_and_stat = findFirstValidFile(stringFrom(arg.request.path));
+        const auto request_path  = stringFrom(arg.request.path);
+        const auto path_and_stat = findFirstValidFile(request_path);
         if (!path_and_stat)
         {
+            logger_->warn(  //
+                "'Read' file not found (node={}, path='{}', off=0x{:X}).",
+                arg.metadata.remote_node_id,
+                request_path,
+                arg.request.offset);
+
             response._error.value = uavcan::file::Error_1_0::NOT_FOUND;
             return response;
         }
+        const auto& file_path = path_and_stat->first;
+        const auto& file_stat = path_and_stat->second;
 
         // Don't allow reading beyond the end of the file.
         //
-        const auto& file_path = path_and_stat->first;
-        const auto& file_stat = path_and_stat->second;
         if (arg.request.offset >= file_stat.st_size)
         {
-            response._error.value = uavcan::file::Error_1_0::OK;
+            logger_->debug(  //
+                "'Read' eof (node={}, path='{}', off=0x{:X}, eof=0x{:X}, real='{}').",
+                arg.metadata.remote_node_id,
+                request_path,
+                arg.request.offset,
+                file_stat.st_size,
+                file_path);
+
             return response;
         }
 
+        // Read the next chunk of data at the given offset.
+        //
+        // Currently, we don't have any "state" in this file provider,
+        // so we match, validate and re-open the file every time from scratch.
+        // OS normally heavily caches file system entries and data anyway.
+        // If in the future we need to optimize this, we can add a configurable "soft" caching here
+        // (f.e. LRU + flush on change of roots and maybe on some expiration period; refresh on 'GetInfo').
+        //
         auto&      buffer        = response.data.value;
         const auto bytes_to_read = std::min<std::size_t>(file_stat.st_size - arg.request.offset, MaxDataSize);
         buffer.resize(bytes_to_read);
@@ -310,15 +346,53 @@ private:
         {
             std::ifstream file{file_path.c_str(), std::ios::binary};
             file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
             file.seekg(static_cast<std::streamoff>(arg.request.offset));
             file.read(reinterpret_cast<char*>(buffer.data()), bytes_to_read);  // NOLINT
+
+            // The read count should be the same as `bytes_to_read` but let's be sure.
+            // The `resize` method does nothing if the new size is the same as the old one.
             buffer.resize(file.gcount());
-            response._error.value = uavcan::file::Error_1_0::OK;
+            CETL_DEBUG_ASSERT(buffer.size() <= bytes_to_read, "");
+
+            // Limit the log output to the first and/or last request in the sequence. Otherwise,
+            // the log will be flooded with almost the same messages - not useful even under trace level.
+            // It's still possible to do the flooding (if one keeps reading the first/last chunk over and over),
+            // but it's an edge case (anyway, we have a log file limit and rotation policy in place).
+            //
+            if ((arg.request.offset + buffer.size()) >= file_stat.st_size)  // last?
+            {
+                logger_->debug(  //
+                    "'Read' last (node={}, path='{}', off=0x{:X}, eof=0x{:X}, real='{}').",
+                    arg.metadata.remote_node_id,
+                    request_path,
+                    arg.request.offset,
+                    file_stat.st_size,
+                    file_path);
+            }
+            else if (arg.request.offset == 0)  // first?
+            {
+                logger_->debug(  //
+                    "'Read' first (node={}, path='{}', eof=0x{:X}, real='{}')…",
+                    arg.metadata.remote_node_id,
+                    request_path,
+                    file_stat.st_size,
+                    file_path);
+            }
 
         } catch (const std::ios_base::failure& ex)
         {
-            buffer.clear();
-            logger_->error("Failed to read file '{}' (err={}): {}.", file_path, ex.code().value(), ex.what());
+            logger_->warn(  //
+                "'Read' failed (node={}, path='{}', off=0x{:X}, eof=0x{:X}, real='{}', err={}): {}.",
+                arg.metadata.remote_node_id,
+                request_path,
+                arg.request.offset,
+                file_stat.st_size,
+                file_path,
+                ex.code().value(),
+                ex.what());
+
+            buffer.clear();  // No need to send any garbage data.
             response._error.value = convertErrorCode(ex.code().value());
         }
         return response;

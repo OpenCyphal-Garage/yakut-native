@@ -11,7 +11,10 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <spdlog/fmt/fmt.h>
+
 #include <arpa/inet.h>
+#include <array>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -45,6 +48,75 @@ std::pair<const sockaddr*, socklen_t> SocketAddress::getRaw() const noexcept
     return {&asGenericAddr(), addr_len_};
 }
 
+std::uint16_t SocketAddress::getPort() const
+{
+    switch (asGenericAddr().sa_family)
+    {
+    case AF_INET:
+        return ntohs(asInetAddr().sin_port);
+    case AF_INET6:
+        return ntohs(asInet6Addr().sin6_port);
+    default:
+        return 0;
+    }
+}
+
+std::pair<std::string, std::string> SocketAddress::getUnixPrefixAndPath() const
+{
+    CETL_DEBUG_ASSERT(isUnix(), "");
+    CETL_DEBUG_ASSERT(addr_len_ >= offsetof(sockaddr_un, sun_path), "");
+
+    if (const auto path_len = addr_len_ - offsetof(sockaddr_un, sun_path))
+    {
+        const auto& addr_un = asUnixAddr();
+        if (addr_un.sun_path[0] == '\0')
+        {
+            // NOLINTNEXTLINE(*-array-to-pointer-decay, *-no-array-decay, *-pointer-arithmetic)
+            return {"unix-abstract:", std::string{&addr_un.sun_path[1], path_len - 1}};
+        }
+
+        // NOLINTNEXTLINE(*-array-to-pointer-decay, *-no-array-decay)
+        return {"unix:", std::string{addr_un.sun_path, path_len}};
+    }
+    return {"unix:", ""};
+}
+
+std::string SocketAddress::toString() const
+{
+    if (is_wildcard_)
+    {
+        return fmt::format("*:{}", getPort());
+    }
+
+    switch (asGenericAddr().sa_family)
+    {
+    case AF_INET: {
+        std::array<char, INET_ADDRSTRLEN> buf{};
+        if (const auto* addr = ::inet_ntop(AF_INET, &asInetAddr().sin_addr, buf.data(), buf.size()))
+        {
+            return fmt::format("{}:{}", addr, getPort());
+        }
+        break;
+    }
+    case AF_INET6: {
+        std::array<char, INET6_ADDRSTRLEN> buf{};
+        if (const auto* addr = ::inet_ntop(AF_INET6, &asInet6Addr().sin6_addr, buf.data(), buf.size()))
+        {
+            return fmt::format("[{}]:{}", addr, getPort());
+        }
+        break;
+    }
+    case AF_UNIX: {
+        const auto prefix_and_path = getUnixPrefixAndPath();
+        return prefix_and_path.first + prefix_and_path.second;
+    }
+    default:
+        break;
+    }
+
+    return fmt::format("<unknown>(family={})", asGenericAddr().sa_family);
+}
+
 SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) const
 {
     OwnFd out_fd;
@@ -64,13 +136,13 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
         return err;
     }
 
-    if (const auto err = platform::posixSyscallError([this, &out_fd] {
+    if (const auto err = platform::posixSyscallError([&out_fd] {
             //
             // NOLINTNEXTLINE(*-vararg)
             return ::fcntl(out_fd.get(), F_SETFL, O_NONBLOCK);
         }))
     {
-        getLogger("io")->error("Failed to set socket O_NONBLOCK: {}.", std::strerror(err));
+        getLogger("io")->error("Failed to fcntl(O_NONBLOCK) socket: {}.", std::strerror(err));
         return err;
     }
 
@@ -143,13 +215,19 @@ cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
     while (true)
     {
         addr_len_ = sizeof(addr_storage_);
-#if __linux__
-        OwnFd client_fd{::accept4(server_fd.get(), &asGenericAddr(), &addr_len_, SOCK_NONBLOCK | SOCK_CLOEXEC)};
-#else
         OwnFd client_fd{::accept(server_fd.get(), &asGenericAddr(), &addr_len_)};
-#endif
         if (client_fd.get() >= 0)
         {
+            if (const auto err = platform::posixSyscallError([&client_fd] {
+                    //
+                    // NOLINTNEXTLINE(*-vararg)
+                    return ::fcntl(client_fd.get(), F_SETFL, O_NONBLOCK);
+                }))
+            {
+                getLogger("io")->warn("Failed to fcntl(O_NONBLOCK) accept socket: {}.", std::strerror(err));
+                return cetl::nullopt;
+            }
+
             // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
             //
             if (isAnyInet())
@@ -223,24 +301,42 @@ void SocketAddress::configureNoDelay(const OwnFd& fd)
     }
 }
 
-SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, const std::uint16_t port_hint)
+SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& conn_str, const std::uint16_t port_hint)
 {
     // Unix domain?
     //
-    if (auto result = tryParseAsUnixDomain(str))
+    if (auto result = tryParseAsUnixDomain(conn_str))
     {
         return *result;
     }
-    if (auto result = tryParseAsAbstractUnixDomain(str))
+    if (auto result = tryParseAsAbstractUnixDomain(conn_str))
     {
         return *result;
     }
+    if (auto result = tryParseAsTcpAddress(conn_str, port_hint))
+    {
+        return *result;
+    }
+
+    getLogger("io")->error("Unsupported connection string format (conn_str='{}').", conn_str);
+    return EINVAL;
+}
+
+cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsTcpAddress(const std::string&  conn_str,
+                                                                                    const std::uint16_t port_hint)
+{
+    static const std::string tcp_prefix = "tcp://";
+    if (0 != conn_str.compare(0, tcp_prefix.size(), tcp_prefix))
+    {
+        return cetl::nullopt;
+    }
+    const auto addr_str = conn_str.substr(tcp_prefix.size());
 
     // Extract the family, host, and port.
     //
     std::string   host;
     std::uint16_t port   = port_hint;
-    const int     family = extractFamilyHostAndPort(str, host, port);
+    const int     family = extractFamilyHostAndPort(addr_str, host, port);
     if (family == AF_UNSPEC)
     {
         return EINVAL;
@@ -277,7 +373,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
         return result;
     }
     case 0: {
-        getLogger("io")->error("Unsupported address (addr='{}').", host);
+        getLogger("io")->error("Unsupported ip address format (addr='{}').", host);
         return EINVAL;
     }
     default: {
@@ -288,13 +384,14 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& str, con
     }
 }
 
-cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDomain(const std::string& str)
+cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDomain(const std::string& conn_str)
 {
-    if (0 != str.find("unix:"))  // NOLINT(modernize-use-starts-ends-with)
+    static const std::string unix_prefix = "unix:";
+    if (0 != conn_str.compare(0, unix_prefix.size(), unix_prefix))
     {
         return cetl::nullopt;
     }
-    const auto path = str.substr(std::strlen("unix:"));
+    const auto path = conn_str.substr(unix_prefix.size());
 
     SocketAddress result{};
     auto&         result_un = result.asUnixAddr();
@@ -303,7 +400,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
     // Reserve one byte for the null terminator.
     if ((path.size() + 1) > sizeof(result_un.sun_path))
     {
-        getLogger("io")->error("Unix domain path is too long (path='{}').", str);
+        getLogger("io")->error("Unix domain path is too long (path='{}').", conn_str);
         return EINVAL;
     }
 
@@ -314,13 +411,14 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
     return result;
 }
 
-cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstractUnixDomain(const std::string& str)
+cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstractUnixDomain(const std::string& conn_str)
 {
-    if (0 != str.find("unix-abstract:"))  // NOLINT(modernize-use-starts-ends-with)
+    static const std::string unix_prefix = "unix-abstract:";
+    if (0 != conn_str.compare(0, unix_prefix.size(), unix_prefix))
     {
         return cetl::nullopt;
     }
-    const auto path = str.substr(std::strlen("unix-abstract:"));
+    const auto path = conn_str.substr(unix_prefix.size());
 
     SocketAddress result{};
     auto&         result_un = result.asUnixAddr();
@@ -329,7 +427,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstrac
     // Reserve +1 byte for the null terminator. Not required for abstract domain but it is harmless.
     if ((path.size() + 1) > (sizeof(result_un.sun_path) - 1))  // `-1` b/c path starts at `[1]` (see `memcpy` below).
     {
-        getLogger("io")->error("Unix domain path is too long (path='{}').", str);
+        getLogger("io")->error("Unix domain path is too long (path='{}').", conn_str);
         return EINVAL;
     }
 

@@ -10,11 +10,11 @@ unique_id = []
 # Cyphal transport layer settings.
 [cyphal.transport]
 # List of redundant interfaces for the Cyphal network.
-# Currently, only one interface is supported.
+# Currently, only one (the first) interface is supported.
 # Supported formats:
-# - 'udp:<ip>'
+# - 'udp://<ip4>'
 interfaces = [
-    'udp:127.0.0.1',
+    'udp://127.0.0.1',
 ]
 
 # File Server settings.
@@ -28,7 +28,7 @@ roots = [
 # IPC server settings.
 [ipc]
 # Connection strings for the IPC server.
-# Currently, only one connection is supported.
+# Currently, only one (the first) connection is supported.
 # Supported formats:
 # - 'tcp://*:<port>'
 # - 'tcp://<ip4>:<port>'

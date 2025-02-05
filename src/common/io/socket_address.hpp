@@ -33,11 +33,12 @@ public:
         using Success = SocketAddress;
         using Var     = cetl::variant<Success, Failure>;
     };
-    static ParseResult::Var parse(const std::string& str, const std::uint16_t port_hint);
+    static ParseResult::Var parse(const std::string& conn_str, const std::uint16_t port_hint);
 
     SocketAddress() noexcept;
 
     std::pair<const sockaddr*, socklen_t> getRaw() const noexcept;
+    std::uint16_t                         getPort() const;
 
     bool isUnix() const noexcept
     {
@@ -49,6 +50,8 @@ public:
         const auto family = asGenericAddr().sa_family;
         return (family == AF_INET) || (family == AF_INET6);
     }
+
+    std::string toString() const;
 
     struct SocketResult
     {
@@ -64,10 +67,14 @@ public:
 
 private:
     static void                             configureNoDelay(const OwnFd& fd);
-    static cetl::optional<ParseResult::Var> tryParseAsUnixDomain(const std::string& str);
-    static cetl::optional<ParseResult::Var> tryParseAsAbstractUnixDomain(const std::string& str);
+    static cetl::optional<ParseResult::Var> tryParseAsUnixDomain(const std::string& conn_str);
+    static cetl::optional<ParseResult::Var> tryParseAsAbstractUnixDomain(const std::string& conn_str);
+    static cetl::optional<ParseResult::Var> tryParseAsTcpAddress(const std::string&  conn_str,
+                                                                 const std::uint16_t port_hint);
     static int extractFamilyHostAndPort(const std::string& str, std::string& host, std::uint16_t& port);
     static cetl::optional<ParseResult::Success> tryParseAsWildcard(const std::string& host, const std::uint16_t port);
+
+    std::pair<std::string, std::string> getUnixPrefixAndPath() const;
 
     sockaddr& asGenericAddr()
     {
@@ -84,15 +91,30 @@ private:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         return reinterpret_cast<sockaddr_un&>(addr_storage_);
     }
+    const sockaddr_un& asUnixAddr() const
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        return reinterpret_cast<const sockaddr_un&>(addr_storage_);
+    }
     sockaddr_in& asInetAddr()
     {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         return reinterpret_cast<sockaddr_in&>(addr_storage_);
     }
+    const sockaddr_in& asInetAddr() const
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        return reinterpret_cast<const sockaddr_in&>(addr_storage_);
+    }
     sockaddr_in6& asInet6Addr()
     {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         return reinterpret_cast<sockaddr_in6&>(addr_storage_);
+    }
+    const sockaddr_in6& asInet6Addr() const
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        return reinterpret_cast<const sockaddr_in6&>(addr_storage_);
     }
 
     bool             is_wildcard_;
