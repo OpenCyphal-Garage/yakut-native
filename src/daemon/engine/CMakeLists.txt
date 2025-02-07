@@ -45,11 +45,11 @@ target_include_directories(canard
 
 add_library(ocvsmd_engine
         config.cpp
-        cyphal/file_provider.cpp
+#➕        cyphal/file_provider.cpp
         engine.cpp
         platform/can/socketcan.c
         platform/udp/udp.c
-        svc/node/exec_cmd_service.cpp
+#➕        svc/node/exec_cmd_service.cpp
 )
 target_link_libraries(ocvsmd_engine
         PUBLIC udpard

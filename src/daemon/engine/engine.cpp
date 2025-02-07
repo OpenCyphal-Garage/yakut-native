@@ -6,15 +6,15 @@
 #include "engine.hpp"
 
 #include "config.hpp"
-#include "cyphal/can_transport_bag.hpp"
-#include "cyphal/file_provider.hpp"
+// ➕ #include "cyphal/can_transport_bag.hpp"
+// ➕ #include "cyphal/file_provider.hpp"
 #include "cyphal/udp_transport_bag.hpp"
 #include "io/socket_address.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
 #include "ipc/server_router.hpp"
-#include "svc/node/exec_cmd_service.hpp"
-#include "svc/svc_helpers.hpp"
+// ➕ #include "svc/node/exec_cmd_service.hpp"
+// ➕ #include "svc/svc_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
@@ -57,11 +57,11 @@ cetl::optional<std::string> Engine::init()
     }
     else
     {
-        if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
-        {
-            any_transport_bag_ = std::move(maybe_can_transport_bag);
-        }
-        else
+        // ➕ if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
+        // ➕ {
+        // ➕     any_transport_bag_ = std::move(maybe_can_transport_bag);
+        // ➕ }
+        // ➕ else
         {
             std::string msg = "Failed to create Cyphal transport.";
             logger_->error(msg);
@@ -101,13 +101,13 @@ cetl::optional<std::string> Engine::init()
 
     // 5. Bring up various providers.
     //
-    file_provider_ = cyphal::FileProvider::make(memory_, *presentation_, config_);
-    if (file_provider_ == nullptr)
-    {
-        std::string msg = "Failed to create cyphal file provider.";
-        logger_->error(msg);
-        return msg;
-    }
+    // ➕ file_provider_ = cyphal::FileProvider::make(memory_, *presentation_, config_);
+    // ➕ if (file_provider_ == nullptr)
+    // ➕ {
+    // ➕     std::string msg = "Failed to create cyphal file provider.";
+    // ➕     logger_->error(msg);
+    // ➕     return msg;
+    // ➕ }
 
     // 6. Bring up the IPC router and its services.
     //
@@ -138,8 +138,8 @@ cetl::optional<std::string> Engine::init()
     //
     ipc_router_ = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
     //
-    const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
-    svc::node::ExecCmdService::registerWithContext(svc_context);
+    // ➕ const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
+    // ➕ svc::node::ExecCmdService::registerWithContext(svc_context);
     //
     if (0 != ipc_router_->start())
     {

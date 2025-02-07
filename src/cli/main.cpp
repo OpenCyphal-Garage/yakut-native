@@ -8,7 +8,7 @@
 #include <ocvsmd/platform/defines.hpp>
 #include <ocvsmd/sdk/daemon.hpp>
 #include <ocvsmd/sdk/execution.hpp>
-#include <ocvsmd/sdk/node_command_client.hpp>
+//➕ #include <ocvsmd/sdk/node_command_client.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -82,7 +82,7 @@ int main(const int argc, const char** const argv)
             std::cerr << "Failed to create daemon.";
             return EXIT_FAILURE;
         }
-
+/*➕
         // Demo of daemon's node command client, sending a command to node 42, 43 & 44.
         {
             using Command = ocvsmd::sdk::NodeCommandClient::Command;
@@ -109,7 +109,7 @@ int main(const int argc, const char** const argv)
                 }
             }
         }
-
+➕*/
         if (g_running == 0)
         {
             spdlog::debug("Received termination signal.");
