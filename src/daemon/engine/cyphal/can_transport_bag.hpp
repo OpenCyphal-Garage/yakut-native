@@ -53,7 +53,7 @@ public:
     {
         CETL_DEBUG_ASSERT(config, "");
 
-        static constexpr std::string can_prefix{"socketcan:"};
+        static const std::string can_prefix{"socketcan:"};
 
         std::string can_ifaces;
         for (const auto& iface : config->getCyphalTransportInterfaces())

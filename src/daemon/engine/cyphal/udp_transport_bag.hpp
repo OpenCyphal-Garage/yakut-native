@@ -55,7 +55,7 @@ public:
     {
         CETL_DEBUG_ASSERT(config, "");
 
-        static constexpr std::string udp_prefix{"udp://"};
+        static const std::string udp_prefix{"udp://"};
 
         std::string udp_ifaces;
         for (const auto& iface : config->getCyphalTransportInterfaces())
