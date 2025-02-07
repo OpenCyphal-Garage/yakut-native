@@ -146,7 +146,7 @@ private:
 ➕*/
 }  // namespace
 
-Config::Ptr Config::make(std::string file_path)
+Config::Ptr Config::make(const std::string file_path)
 {
     (void) file_path;
     return nullptr;
