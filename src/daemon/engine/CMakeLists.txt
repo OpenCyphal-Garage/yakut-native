@@ -36,15 +36,24 @@ target_include_directories(udpard
         INTERFACE SYSTEM ${submodules_dir}/libudpard/libudpard
 )
 
+add_library(canard
+        ${submodules_dir}/libcanard/libcanard/canard.c
+)
+target_include_directories(canard
+        INTERFACE SYSTEM ${submodules_dir}/libcanard/libcanard
+)
+
 add_library(ocvsmd_engine
         config.cpp
         cyphal/file_provider.cpp
         engine.cpp
+        platform/can/socketcan.c
         platform/udp/udp.c
         svc/node/exec_cmd_service.cpp
 )
 target_link_libraries(ocvsmd_engine
         PUBLIC udpard
+        PUBLIC canard
         PUBLIC ${engine_transpiled}
         PUBLIC ocvsmd_common
 )

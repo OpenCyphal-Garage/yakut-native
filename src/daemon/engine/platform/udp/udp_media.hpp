@@ -9,6 +9,7 @@
 #include "udp_sockets.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
@@ -105,7 +106,7 @@ struct UdpMediaCollection
 
     void parse(const cetl::string_view iface_addresses)
     {
-        // Split addresses by spaces.
+        // Split addresses by commas.
         //
         std::size_t index = 0;
         std::size_t curr  = 0;
@@ -119,7 +120,7 @@ struct UdpMediaCollection
                 index++;
             }
 
-            curr = std::max(next + 1, next);  // `+1` to skip the space
+            curr = std::max(next + 1, next);  // `+1` to skip the comma
         }
 
         media_ifaces_ = {};

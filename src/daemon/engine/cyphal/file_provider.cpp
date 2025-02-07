@@ -161,7 +161,7 @@ private:
     {
         server.setOnRequestCallback([handle = std::forward<Handler>(handler)](const auto& arg, auto& continuation) {
             //
-            constexpr auto timeout = std::chrono::seconds{1};
+            constexpr auto timeout = std::chrono::milliseconds{100};
             continuation(arg.approx_now + timeout, handle(arg));
         });
     }

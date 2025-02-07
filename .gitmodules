@@ -5,6 +5,10 @@
 	path = submodules/libudpard
 	url = https://github.com/OpenCyphal/libudpard
 	branch = v2
+[submodule "submodules/libcanard"]
+	path = submodules/libcanard
+	url = https://github.com/UAVCAN/libcanard
+	branch = v4
 [submodule "submodules/nunavut"]
 	path = submodules/nunavut
 	url = https://github.com/OpenCyphal/nunavut.git

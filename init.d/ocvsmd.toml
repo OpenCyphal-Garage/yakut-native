@@ -9,10 +9,12 @@ unique_id = []
 
 # Cyphal transport layer settings.
 [cyphal.transport]
-# List of redundant interfaces for the Cyphal network.
-# Currently, only one (the first) interface is supported.
+# List of interfaces for the Cyphal network.
+# Up to three redundant homogeneous interfaces are supported.
+# UDP has priorioty over CAN if both types are present.
 # Supported formats:
 # - 'udp://<ip4>'
+# - 'socketcan:<can_device>'
 interfaces = [
     'udp://127.0.0.1',
 ]

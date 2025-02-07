@@ -6,7 +6,9 @@
 #include "engine.hpp"
 
 #include "config.hpp"
+#include "cyphal/can_transport_bag.hpp"
 #include "cyphal/file_provider.hpp"
+#include "cyphal/udp_transport_bag.hpp"
 #include "io/socket_address.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
@@ -46,19 +48,34 @@ cetl::optional<std::string> Engine::init()
 {
     logger_->trace("Initializing engine...");
 
-    // 1. Create the transport layer object.
+    // 1. Create the transport layer object (try first UDP, then CAN).
+    //    Set the local node ID if configured.
     //
-    auto* const transport_iface = udp_transport_bag_.create(config_);
-    if (transport_iface == nullptr)
+    if (auto maybe_udp_transport_bag = cyphal::UdpTransportBag::make(memory_, executor_, config_))
     {
-        std::string msg = "Failed to create cyphal UDP transport.";
-        logger_->error(msg);
-        return msg;
+        any_transport_bag_ = std::move(maybe_udp_transport_bag);
+    }
+    else
+    {
+        if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
+        {
+            any_transport_bag_ = std::move(maybe_can_transport_bag);
+        }
+        else
+        {
+            std::string msg = "Failed to create Cyphal transport.";
+            logger_->error(msg);
+            return msg;
+        }
+    }
+    if (const auto node_id = config_->getCyphalAppNodeId())
+    {
+        any_transport_bag_->getTransport().setLocalNodeId(node_id.value());
     }
 
     // 2. Create the presentation layer object.
     //
-    presentation_.emplace(memory_, executor_, *transport_iface);
+    presentation_.emplace(memory_, executor_, any_transport_bag_->getTransport());
     presentation_->setTransferIdMap(&transfer_id_map_);
 
     // 3. Create the node object with name.

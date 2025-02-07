@@ -26,6 +26,7 @@ Checks: >-
   -modernize-use-starts-ends-with,
   -readability-avoid-const-params-in-decls,
   -readability-identifier-length,
+  -*-use-designated-initializers,
   -*-use-trailing-return-type,
   -*-named-parameter,
   -misc-include-cleaner,

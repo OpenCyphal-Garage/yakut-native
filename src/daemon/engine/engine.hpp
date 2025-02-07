@@ -7,8 +7,8 @@
 #define OCVSMD_DAEMON_ENGINE_HPP_INCLUDED
 
 #include "config.hpp"
+#include "cyphal/any_transport_bag.hpp"
 #include "cyphal/file_provider.hpp"
-#include "cyphal/udp_transport_bag.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/defines.hpp"
 
@@ -69,9 +69,9 @@ private:
 
     Config::Ptr                                           config_;
     common::LoggerPtr                                     logger_{common::getLogger("engine")};
-    ocvsmd::platform::SingleThreadedExecutor              executor_;
+    platform::SingleThreadedExecutor                      executor_;
     cetl::pmr::memory_resource&                           memory_{*cetl::pmr::get_default_resource()};
-    cyphal::UdpTransportBag                               udp_transport_bag_{memory_, executor_};
+    cyphal::AnyTransportBag::Ptr                          any_transport_bag_;
     TransferIdMap                                         transfer_id_map_;
     cetl::optional<libcyphal::presentation::Presentation> presentation_;
     cetl::optional<libcyphal::application::Node>          node_;
