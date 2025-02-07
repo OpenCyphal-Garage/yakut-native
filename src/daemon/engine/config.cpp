@@ -146,9 +146,9 @@ private:
 ➕*/
 }  // namespace
 
-Config::Ptr Config::make(const std::string file_path)
+Config::Ptr Config::make(std::string file_path)
 {
-    (void) file_path;
+    (void) std::move(file_path);
     return nullptr;
     // ➕ auto root = toml::parse<ConfigImpl::TomlConf>(file_path);
     // ➕ return std::make_shared<ConfigImpl>(std::move(file_path), std::move(root));
