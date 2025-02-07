@@ -6,8 +6,8 @@
 #ifndef OCVSMD_DAEMON_ENGINE_PLATFORM_UDP_SOCKETS_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_PLATFORM_UDP_SOCKETS_HPP_INCLUDED
 
-#include "platform/posix_executor_extension.hpp"
-#include "platform/posix_platform_error.hpp"
+#include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "ocvsmd/platform/posix_platform_error.hpp"
 #include "udp.h"
 
 #include <cetl/cetl.hpp>
@@ -50,7 +50,7 @@ public:
         const auto  result = ::udpTxInit(&handle, ::udpParseIfaceAddress(iface_address));
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{ocvsmd::platform::PosixPlatformError{-result}};
         }
 
         auto tx_socket = libcyphal::makeUniquePtr<ITxSocket, UdpTxSocket>(memory, executor, handle);
@@ -99,7 +99,7 @@ private:
                                                 payload_fragments[0].data());
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{ocvsmd::platform::PosixPlatformError{-result}};
         }
 
         return SendResult::Success{result == 1};
@@ -108,7 +108,7 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        auto* const posix_executor_ext = cetl::rtti_cast<common::platform::IPosixExecutorExtension*>(&executor_);
+        auto* const posix_executor_ext = cetl::rtti_cast<ocvsmd::platform::IPosixExecutorExtension*>(&executor_);
         if (nullptr == posix_executor_ext)
         {
             return {};
@@ -117,7 +117,7 @@ private:
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
         return posix_executor_ext->registerAwaitableCallback(  //
             std::move(function),
-            common::platform::IPosixExecutorExtension::Trigger::Writable{udp_handle_.fd});
+            ocvsmd::platform::IPosixExecutorExtension::Trigger::Writable{udp_handle_.fd});
     }
 
     // MARK: Data members:
@@ -143,7 +143,7 @@ public:
             ::udpRxInit(&handle, ::udpParseIfaceAddress(address.c_str()), endpoint.ip_address, endpoint.udp_port);
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{ocvsmd::platform::PosixPlatformError{-result}};
         }
 
         auto rx_socket = libcyphal::makeUniquePtr<IRxSocket, UdpRxSocket>(memory, executor, handle, memory);
@@ -192,7 +192,7 @@ private:
         const std::int16_t                 result     = ::udpRxReceive(&udp_handle_, &inout_size, buffer.data());
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{ocvsmd::platform::PosixPlatformError{-result}};
         }
         if (result == 0)
         {
@@ -214,7 +214,7 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        auto* const posix_executor_ext = cetl::rtti_cast<common::platform::IPosixExecutorExtension*>(&executor_);
+        auto* const posix_executor_ext = cetl::rtti_cast<ocvsmd::platform::IPosixExecutorExtension*>(&executor_);
         if (nullptr == posix_executor_ext)
         {
             return {};
@@ -223,7 +223,7 @@ private:
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
         return posix_executor_ext->registerAwaitableCallback(  //
             std::move(function),
-            common::platform::IPosixExecutorExtension::Trigger::Readable{udp_handle_.fd});
+            ocvsmd::platform::IPosixExecutorExtension::Trigger::Readable{udp_handle_.fd});
     }
 
     // MARK: Data members:

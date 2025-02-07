@@ -14,7 +14,7 @@ enable_testing()
 
 set(NO_STATIC_ANALYSIS OFF CACHE BOOL "disable static analysis")
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -32,10 +32,10 @@ if (NOT clang_format)
     message(STATUS "Could not locate clang-format")
 else ()
     file(GLOB_RECURSE format_files
-            ${include_dir}/**/*.hpp
-            ${src_dir}/**/*.[ch]
-            ${src_dir}/**/*.[ch]pp
-            ${test_dir}/**/*.[ch]pp
+            ${include_dir}/ocvsmd/*.hpp
+            ${src_dir}/*.[ch]
+            ${src_dir}/*.[ch]pp
+            ${test_dir}/*.[ch]pp
     )
     message(STATUS "Using clang-format: ${clang_format}")
     add_custom_target(format COMMAND ${clang_format} -i -fallback-style=none -style=file --verbose ${format_files})
@@ -53,6 +53,16 @@ if (NOT NO_STATIC_ANALYSIS)
     set(CMAKE_CXX_CLANG_TIDY ${clang_tidy})
 endif ()
 
+# Pull in Nunavut's cmake integration
+find_package("Nunavut" 3.0 REQUIRED)
+
+# libcyphal requires PMR support for Nunavut generated code.
+if (${CMAKE_CXX_STANDARD} STREQUAL "14")
+    set(CYPHAL_LANGUAGE_STANDARD "cetl++14-17")
+else ()
+    set(CYPHAL_LANGUAGE_STANDARD "c++${CMAKE_CXX_STANDARD}-pmr")
+endif ()
+
 # Forward the revision information to the compiler so that we could expose it at runtime. This is entirely optional.
 execute_process(
         COMMAND git rev-parse --short=16 HEAD
@@ -67,13 +77,13 @@ add_definitions(
         -DVCS_REVISION_ID=0x${vcs_revision_id}ULL
         -DNODE_NAME="org.opencyphal.ocvsmd"
 )
-if (DEFINED PLATFORM_LINUX_TYPE)
-    if(${PLATFORM_LINUX_TYPE} STREQUAL "bsd")
-        add_definitions(-DPLATFORM_LINUX_TYPE_BSD)
-    elseif(${PLATFORM_LINUX_TYPE} STREQUAL "debian")
-        add_definitions(-DPLATFORM_LINUX_TYPE_DEBIAN)
-    endif()
-endif()
+if (DEFINED PLATFORM_OS_TYPE)
+    if (${PLATFORM_OS_TYPE} STREQUAL "bsd")
+        add_definitions(-DPLATFORM_OS_TYPE_BSD)
+    elseif (${PLATFORM_OS_TYPE} STREQUAL "linux")
+        add_definitions(-DPLATFORM_OS_TYPE_LINUX)
+    endif ()
+endif ()
 
 add_subdirectory(src)
 add_subdirectory(test)
