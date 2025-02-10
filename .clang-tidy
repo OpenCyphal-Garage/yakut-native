@@ -23,10 +23,13 @@ Checks: >-
   -modernize-use-constraints,
   -modernize-use-default-member-init,
   -modernize-use-nodiscard,
+  -modernize-use-starts-ends-with,
   -readability-avoid-const-params-in-decls,
   -readability-identifier-length,
+  -*-use-designated-initializers,
   -*-use-trailing-return-type,
   -*-named-parameter,
+  -misc-include-cleaner,
 CheckOptions:
   - key:   readability-function-cognitive-complexity.Threshold
     value: '90'
