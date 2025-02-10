@@ -38,6 +38,7 @@ target_include_directories(ocvsmd_common
 target_include_directories(ocvsmd_common SYSTEM
         PUBLIC ${submodules_dir}/cetl/include
         PUBLIC ${submodules_dir}/libcyphal/include
+        PUBLIC ${submodules_dir}/spdlog/include
 )
 add_dependencies(ocvsmd_common
         ${common_transpiled}
