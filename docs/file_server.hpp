@@ -23,7 +23,7 @@ public:
     /// so the list will be automatically restored on the next daemon start.
     /// Returns `cetl::nullopt` on success.
     ///
-    virtual cetl::optinal<Failure> push_root(const cetl::string_view path, const bool back);
+    virtual cetl::optional<Failure> push_root(const cetl::string_view path, const bool back);
 
     /// Does nothing if such root does not exist (no error reported).
     /// If such root is listed more than once, only one copy is removed (see `back` param).
@@ -33,7 +33,7 @@ public:
     /// so the list will be automatically restored on the next daemon start.
     /// Returns `cetl::nullopt` on success (or if path not found).
     ///
-    virtual cetl::optinal<Failure> pop_root(const cetl::string_view path, const bool back);
+    virtual cetl::optional<Failure> pop_root(const cetl::string_view path, const bool back);
 
     /// The returned paths are the same as they were added by `push_root`.
     /// The entries are not unique. The order is preserved.
