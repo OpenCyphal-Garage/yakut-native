@@ -49,6 +49,7 @@ add_library(ocvsmd_engine
         engine.cpp
         platform/can/socketcan.c
         platform/udp/udp.c
+        svc/file_server/list_roots_service.cpp
         svc/node/exec_cmd_service.cpp
 )
 target_link_libraries(ocvsmd_engine

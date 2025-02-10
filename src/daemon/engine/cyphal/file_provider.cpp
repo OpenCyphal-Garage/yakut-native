@@ -4,10 +4,10 @@
 //
 
 #include "config.hpp"
-#include "file_provider.hpp"
-
 #include "engine_helpers.hpp"
+#include "file_provider.hpp"
 #include "logging.hpp"
+#include "svc/file_server/list_roots_spec.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -101,6 +101,9 @@ public:
         , modify_srv_{std::move(modify_srv)}
         , get_info_srv_{std::move(get_info_srv)}
     {
+        using ListRootsSpec       = common::svc::file_server::ListRootsSpec;
+        constexpr auto MaxRootLen = ListRootsSpec::Response::_traits_::TypeOf::item::_traits_::ArrayCapacity::path;
+
         logger_->trace("FileProviderImpl().");
 
         roots_ = config_->getFileServerRoots();
@@ -109,7 +112,14 @@ public:
         {
             if (const auto real_root = canonicalizePath(roots_[i]))
             {
-                logger_->trace("{:4} '{}' → '{}'", i, roots_[i], *real_root);
+                if (roots_[i].size() <= MaxRootLen)
+                {
+                    logger_->trace("{:4} '{}' → '{}'", i, roots_[i], *real_root);
+                }
+                else
+                {
+                    logger_->warn("{:4} 🟡 too long '{}' → '{}'", i, roots_[i], *real_root);
+                }
             }
             else
             {
@@ -138,6 +148,13 @@ public:
     }
 
     // FileProvider
+
+    /// Gets the list of roots that the file provider is serving.
+    ///
+    const std::vector<std::string>& getListOfRoots() const override
+    {
+        return roots_;
+    }
 
 private:
     using Presentation = libcyphal::presentation::Presentation;

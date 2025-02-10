@@ -13,6 +13,8 @@
 #include <libcyphal/presentation/presentation.hpp>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace ocvsmd
 {
@@ -47,6 +49,8 @@ public:
     FileProvider& operator=(FileProvider&&) noexcept = delete;
 
     virtual ~FileProvider() = default;
+
+    virtual const std::vector<std::string>& getListOfRoots() const = 0;
 
 protected:
     FileProvider() = default;

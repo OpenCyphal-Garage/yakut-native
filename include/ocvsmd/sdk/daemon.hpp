@@ -6,6 +6,7 @@
 #ifndef OCVSMD_SDK_DAEMON_HPP_INCLUDED
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
+#include "file_server.hpp"
 #include "node_command_client.hpp"
 
 #include <cetl/cetl.hpp>
@@ -38,7 +39,8 @@ public:
 
     virtual ~Daemon() = default;
 
-    virtual NodeCommandClient::Ptr getNodeCommandClient() = 0;
+    virtual FileServer::Ptr        getFileServer() const        = 0;
+    virtual NodeCommandClient::Ptr getNodeCommandClient() const = 0;
 
 protected:
     Daemon() = default;

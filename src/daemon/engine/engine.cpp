@@ -13,6 +13,7 @@
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
 #include "ipc/server_router.hpp"
+#include "svc/file_server/list_roots_service.hpp"
 #include "svc/node/exec_cmd_service.hpp"
 #include "svc/svc_helpers.hpp"
 
@@ -140,6 +141,7 @@ cetl::optional<std::string> Engine::init()
     //
     const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
     svc::node::ExecCmdService::registerWithContext(svc_context);
+    svc::file_server::ListRootService::registerWithContext(svc_context, *file_provider_);
     //
     if (0 != ipc_router_->start())
     {

@@ -12,6 +12,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <spdlog/fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <cerrno>
@@ -83,17 +84,18 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
+#if 0  // NOLINT`
+
         // Demo of daemon's node command client, sending a command to node 42, 43 & 44.
         {
             using Command = ocvsmd::sdk::NodeCommandClient::Command;
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            const std::vector<std::uint16_t> node_ids = {42};
+            const std::vector<std::uint16_t> node_ids = {42, 43, 44};
             // auto sender     = node_cmd_client->restart({node_ids.data(), node_ids.size()});
             auto sender     = node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
-
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
             {
                 spdlog::error("Failed to send command: {}", std::strerror(*err));
@@ -109,6 +111,28 @@ int main(const int argc, const char** const argv)
                 }
             }
         }
+#endif
+#if 1  // NOLINT`
+
+        // Demo of daemon's file server, getting the list of roots.
+        {
+            using ListRoots = ocvsmd::sdk::FileServer::ListRoots;
+
+            auto file_server = daemon->getFileServer();
+
+            auto sender     = file_server->listRoots();
+            auto cmd_result = ocvsmd::sdk::sync_wait<ListRoots::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<ListRoots::Failure>(&cmd_result))
+            {
+                spdlog::error("Failed to list FS roots: {}", std::strerror(*err));
+            }
+            else
+            {
+                const auto roots_list = cetl::get<ListRoots::Success>(std::move(cmd_result));
+                spdlog::info("File Server responded with list of roots: {}.", roots_list);
+            }
+        }
+#endif
 
         if (g_running == 0)
         {
