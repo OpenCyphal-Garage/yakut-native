@@ -16,3 +16,7 @@
 [submodule "submodules/cetl"]
 	path = submodules/cetl
 	url = https://github.com/OpenCyphal/CETL.git
+[submodule "submodules/spdlog"]
+	path = submodules/spdlog
+	url = https://github.com/gabime/spdlog.git
+	branch = v1.x

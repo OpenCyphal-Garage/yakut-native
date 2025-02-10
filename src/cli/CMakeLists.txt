@@ -11,6 +11,9 @@ add_executable(ocvsmd-cli
 target_link_libraries(ocvsmd-cli
         PUBLIC ocvsmd_sdk
 )
+target_include_directories(ocvsmd-cli SYSTEM
+        PUBLIC ${submodules_dir}/spdlog/include
+)
 add_dependencies(ocvsmd-cli
         ocvsmd
 )
