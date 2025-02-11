@@ -84,7 +84,7 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-#if 0  // NOLINT`
+#if 0  // NOLINT
 
         // Demo of daemon's node command client, sending a command to node 42, 43 & 44.
         {
@@ -112,7 +112,7 @@ int main(const int argc, const char** const argv)
             }
         }
 #endif
-#if 1  // NOLINT`
+#if 1  // NOLINT
 
         // Demo of daemon's file server, getting the list of roots.
         {
@@ -128,8 +128,12 @@ int main(const int argc, const char** const argv)
             }
             else
             {
-                const auto roots_list = cetl::get<ListRoots::Success>(std::move(cmd_result));
-                spdlog::info("File Server responded with list of roots: {}.", roots_list);
+                const auto roots = cetl::get<ListRoots::Success>(std::move(cmd_result));
+                spdlog::info("File Server responded with list of roots (cnt={}):", roots.size());
+                for (std::size_t i = 0; i < roots.size(); ++i)
+                {
+                    spdlog::info("{:4} → '{}'", i, roots[i]);
+                }
             }
         }
 #endif

@@ -41,7 +41,7 @@ public:
     {
     }
 
-    void operator()(Channel&& channel, const Spec::Request&) const
+    void operator()(Channel channel, const Spec::Request&) const
     {
         logger_->debug("New '{}' service channel.", Spec::svc_full_name());
 
