@@ -25,8 +25,8 @@ class AsSender final : public SenderOf<Result>
 public:
     AsSender(cetl::string_view op_name, typename SvcClient::Ptr&& svc_client, common::LoggerPtr logger)
         : op_name_{op_name}
-    , svc_client_{std::forward<typename SvcClient::Ptr>(svc_client)}
-    , logger_{std::move(logger)}
+        , svc_client_{std::forward<typename SvcClient::Ptr>(svc_client)}
+        , logger_{std::move(logger)}
     {
     }
 
@@ -52,4 +52,4 @@ private:
 }  // namespace sdk
 }  // namespace ocvsmd
 
-#endif // OCVSMD_SDK_SVC_AS_SENDER_HPP_INCLUDED
+#endif  // OCVSMD_SDK_SVC_AS_SENDER_HPP_INCLUDED
