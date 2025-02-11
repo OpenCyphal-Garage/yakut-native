@@ -36,10 +36,10 @@ class PopRootClientImpl final : public PopRootClient
 public:
     PopRootClientImpl(cetl::pmr::memory_resource&           memory,
                       const common::ipc::ClientRouter::Ptr& ipc_router,
-                      const Spec::Request&                  request)
+                      Spec::Request                         request)
         : memory_{memory}
         , logger_{common::getLogger("svc")}
-        , request_{request}
+        , request_{std::move(request)}
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
