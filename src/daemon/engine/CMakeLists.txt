@@ -63,6 +63,7 @@ target_include_directories(ocvsmd_engine
 target_include_directories(ocvsmd_engine SYSTEM
         PUBLIC ${submodules_dir}/cetl/include
         PUBLIC ${submodules_dir}/libcyphal/include
+        PRIVATE ${submodules_dir}/toml11/include
 )
 add_dependencies(ocvsmd_engine
         ${engine_transpiled}

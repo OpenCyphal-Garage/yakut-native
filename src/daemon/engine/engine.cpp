@@ -6,9 +6,10 @@
 #include "engine.hpp"
 
 #include "config.hpp"
-// ➕ #include "cyphal/can_transport_bag.hpp"
+#include "cyphal/can_transport_bag.hpp"
 // ➕ #include "cyphal/file_provider.hpp"
 #include "cyphal/udp_transport_bag.hpp"
+#include "engine_helpers.hpp"
 #include "io/socket_address.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
@@ -57,11 +58,11 @@ cetl::optional<std::string> Engine::init()
     }
     else
     {
-        // ➕ if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
-        // ➕ {
-        // ➕     any_transport_bag_ = std::move(maybe_can_transport_bag);
-        // ➕ }
-        // ➕ else
+        if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
+        {
+            any_transport_bag_ = std::move(maybe_can_transport_bag);
+        }
+        else
         {
             std::string msg = "Failed to create Cyphal transport.";
             logger_->error(msg);
@@ -169,9 +170,9 @@ void Engine::runWhile(const std::function<bool()>& loop_predicate)
             timeout = std::min(timeout, spin_result.next_exec_time.value() - executor_.now());
         }
 
-        if (const auto maybe_poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+        if (const auto poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
         {
-            spdlog::warn("Failed to poll awaitable resources.");
+            spdlog::warn("Failed to poll awaitable resources (err={}).", failureToErrorCode(*poll_failure));
         }
     }
     spdlog::debug("Run loop predicate is fulfilled (worst_lateness={}us).",

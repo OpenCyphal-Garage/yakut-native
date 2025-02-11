@@ -27,6 +27,7 @@ Checks: >-
   -readability-avoid-const-params-in-decls,
   -readability-identifier-length,
   -*-use-designated-initializers,
+  -*-use-ranges,
   -*-use-trailing-return-type,
   -*-named-parameter,
   -misc-include-cleaner,
