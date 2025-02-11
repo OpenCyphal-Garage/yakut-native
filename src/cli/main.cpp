@@ -120,7 +120,7 @@ int main(const int argc, const char** const argv)
 
             auto file_server = daemon->getFileServer();
 
-            const std::string path{"/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"};
+            const std::string path{"key"};
             auto              sender     = file_server->pushRoot(path, true);
             auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
             if (const auto* const err = cetl::get_if<PushRoot::Failure>(&cmd_result))
