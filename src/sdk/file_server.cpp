@@ -32,8 +32,8 @@ public:
 
     SenderOf<ListRoots::Result>::Ptr listRoots() override
     {
-        common::svc::file_server::ListRootsSpec::Request request{&memory_};
-        auto svc_client = ListRootsClient::make(memory_, ipc_router_, std::move(request));
+        const common::svc::file_server::ListRootsSpec::Request request{&memory_};
+        auto svc_client = ListRootsClient::make(memory_, ipc_router_, request);
 
         return std::make_unique<ListRootsSender>(std::move(svc_client));
     }

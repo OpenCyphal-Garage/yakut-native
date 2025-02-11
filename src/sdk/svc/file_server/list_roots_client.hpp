@@ -39,7 +39,7 @@ public:
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
                                    const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   Spec::Request&&                       request);
+                                   const Spec::Request&                  request);
 
     ListRootsClient(ListRootsClient&&)                 = delete;
     ListRootsClient(const ListRootsClient&)            = delete;
