@@ -8,7 +8,7 @@
 #include <ocvsmd/platform/defines.hpp>
 #include <ocvsmd/sdk/daemon.hpp>
 #include <ocvsmd/sdk/execution.hpp>
-//➕ #include <ocvsmd/sdk/node_command_client.hpp>
+#include <ocvsmd/sdk/node_command_client.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -82,18 +82,19 @@ int main(const int argc, const char** const argv)
             std::cerr << "Failed to create daemon.";
             return EXIT_FAILURE;
         }
-/*➕
-        // Demo of daemon's node command client, sending a command to node 42, 43 & 44.
+
+#if 1  // NOLINT
+
+        // Demo of daemon's node command client - sending a command to node 42, 43 & 44.
         {
             using Command = ocvsmd::sdk::NodeCommandClient::Command;
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            const std::vector<std::uint16_t> node_ids = {42};
+            const std::vector<std::uint16_t> node_ids = {42, 43, 44};
             // auto sender     = node_cmd_client->restart({node_ids.data(), node_ids.size()});
             auto sender     = node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
-
             if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
             {
                 spdlog::error("Failed to send command: {}", std::strerror(*err));
@@ -109,7 +110,8 @@ int main(const int argc, const char** const argv)
                 }
             }
         }
-➕*/
+#endif
+
         if (g_running == 0)
         {
             spdlog::debug("Received termination signal.");

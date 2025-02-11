@@ -66,7 +66,7 @@ public:
                 udp_ifaces += ",";
             }
         }
-        common::getLogger("io")->trace("Attempting to create UDP transport (ifaces='{}')…", udp_ifaces);
+        common::getLogger("io")->trace("Attempting to create UDP transport (ifaces=[{}])…", udp_ifaces);
 
         auto transport_bag = std::make_unique<UdpTransportBag>(Spec{}, memory, executor);
 

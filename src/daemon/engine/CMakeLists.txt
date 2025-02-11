@@ -49,7 +49,8 @@ add_library(ocvsmd_engine
         engine.cpp
         platform/can/socketcan.c
         platform/udp/udp.c
-#➕        svc/node/exec_cmd_service.cpp
+        svc/node/exec_cmd_service.cpp
+        svc/node/services.cpp
 )
 target_link_libraries(ocvsmd_engine
         PUBLIC udpard

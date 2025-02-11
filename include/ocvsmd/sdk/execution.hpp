@@ -114,7 +114,7 @@ protected:
 
 /// Initiates an operation execution by submitting a given receiver to the sender.
 ///
-/// The submit "consumes" the receiver (no longer usable after this call).
+/// Submit "consumes" the receiver (no longer usable after this call).
 ///
 template <typename Sender, typename Receiver>
 void submit(Sender& sender, Receiver&& receiver)

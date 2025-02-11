@@ -18,8 +18,8 @@ add_cyphal_library(
 
 add_library(ocvsmd_sdk
         daemon.cpp
-#➕        node_command_client.cpp
-#➕        svc/node/exec_cmd_client.cpp
+        node_command_client.cpp
+        svc/node/exec_cmd_client.cpp
 )
 target_link_libraries(ocvsmd_sdk
         PUBLIC ${sdk_transpiled}
