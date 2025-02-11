@@ -33,7 +33,7 @@ public:
         using UniqueId = std::array<std::uint8_t, 16>;  // NOLINT(*-magic-numbers)
     };
 
-    CETL_NODISCARD static Ptr make(const std::string& file_path);  // ➕
+    CETL_NODISCARD static Ptr make(std::string file_path);
 
     Config(const Config&)                = delete;
     Config(Config&&) noexcept            = delete;

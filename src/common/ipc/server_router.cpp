@@ -70,7 +70,7 @@ public:
     void registerChannelFactory(const detail::ServiceDesc service_desc,  //
                                 TypeErasedChannelFactory  channel_factory) override
     {
-        logger_->debug("Registering '{}' service (id=0x{:X}).", service_desc.name, service_desc.id);
+        logger_->trace("Registering '{}' service (id=0x{:X}).", service_desc.name, service_desc.id);
         service_id_to_channel_factory_[service_desc.id] = std::move(channel_factory);
     }
 

@@ -1,0 +1,60 @@
+# Cyphal application layer settings.
+[cyphal.application]
+# The ID assigned to OCVSMD Cyphal node.
+# Must be unique in the Cyphal network.
+# Supported values: 0-65534 (for UDP)
+node_id = 0
+# The Unique-ID (16 bytes) of the Cyphal node. Automatically generated on the first run.
+unique_id = []
+
+# Cyphal transport layer settings.
+[cyphal.transport]
+# List of interfaces for the Cyphal network.
+# Up to three redundant homogeneous interfaces are supported.
+# UDP has priorioty over CAN if both types are present.
+# Supported formats:
+# - 'udp://<ip4>'
+# - 'socketcan:<can_device>'
+interfaces = [
+    'udp://127.0.0.1',
+]
+
+# File Server settings.
+[file_server]
+# List of file server roots.
+# The daemon will canonicalize paths and resolve symlinks.
+roots = [
+    '.',
+]
+
+# IPC server settings.
+[ipc]
+# Connection strings for the IPC server.
+# Currently, only one (the first) connection is supported.
+# Supported formats:
+# - 'tcp://*:<port>'
+# - 'tcp://<ip4>:<port>'
+# - 'tcp://[<ip6>]:<port>'
+# - 'unix:<file_path>'
+# - 'unix-abstract:<reverse-dns>' (linux only)
+connections = [
+    'unix-abstract:org.opencyphal.ocvsmd.ipc',
+]
+
+# Logging related settings.
+# See also README documentation for more details.
+[logging]
+# The path to the log file.
+file = '/var/log/ocvsmd.log'
+# Supported log levels: 'trace', 'debug', 'info', 'warning', 'error', 'critical', 'off'.
+level = 'info'
+# By default, the log file is not immediately flushed to disk (at `off` level).
+flush_level = 'off'
+
+# Metadata of the configuration file.
+[__meta__]
+# The version of the configuration file.
+version = 1
+# The last modified date of the configuration file.
+last_modified = 1970-01-01T00:00:00Z
+

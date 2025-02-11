@@ -4,7 +4,7 @@
 //
 
 #include "config.hpp"
-/*➕
+
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <spdlog/spdlog.h>
@@ -18,7 +18,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-➕*/
+
 namespace ocvsmd
 {
 namespace daemon
@@ -27,7 +27,7 @@ namespace engine
 {
 namespace
 {
-/*➕
+
 class ConfigImpl final : public Config
 {
 public:
@@ -143,15 +143,13 @@ private:
     bool        is_dirty_;
 
 };  // ConfigImpl
-➕*/
+
 }  // namespace
 
-Config::Ptr Config::make(const std::string& file_path)  // ➕
+Config::Ptr Config::make(std::string file_path)
 {
-    (void) file_path;  // ➕
-    return nullptr;    // ➕
-    // ➕ auto root = toml::parse<ConfigImpl::TomlConf>(file_path);
-    // ➕ return std::make_shared<ConfigImpl>(std::move(file_path), std::move(root));
+    auto root = toml::parse<ConfigImpl::TomlConf>(file_path);
+    return std::make_shared<ConfigImpl>(std::move(file_path), std::move(root));
 }
 
 }  // namespace engine
