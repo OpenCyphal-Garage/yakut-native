@@ -40,6 +40,22 @@ public:
     };
     virtual SenderOf<ListRoots::Result>::Ptr listRoots() = 0;
 
+    struct PopRoot final
+    {
+        using Success = cetl::monostate;
+        using Failure = int;  // `errno`-like error code.
+        using Result  = cetl::variant<Success, Failure>;
+    };
+    virtual SenderOf<PopRoot::Result>::Ptr popRoot(const std::string& path, const bool back) = 0;
+
+    struct PushRoot final
+    {
+        using Success = cetl::monostate;
+        using Failure = int;  // `errno`-like error code.
+        using Result  = cetl::variant<Success, Failure>;
+    };
+    virtual SenderOf<PushRoot::Result>::Ptr pushRoot(const std::string& path, const bool back) = 0;
+
 protected:
     FileServer() = default;
 

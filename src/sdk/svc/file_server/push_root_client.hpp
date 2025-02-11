@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_SDK_SVC_FILE_SERVER_LIST_ROOTS_CLIENT_HPP_INCLUDED
-#define OCVSMD_SDK_SVC_FILE_SERVER_LIST_ROOTS_CLIENT_HPP_INCLUDED
+#ifndef OCVSMD_SDK_SVC_FILE_SERVER_PUSH_ROOT_CLIENT_HPP_INCLUDED
+#define OCVSMD_SDK_SVC_FILE_SERVER_PUSH_ROOT_CLIENT_HPP_INCLUDED
 
 #include "ipc/client_router.hpp"
-#include "svc/file_server/list_roots_spec.hpp"
+#include "svc/file_server/push_root_spec.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -15,9 +15,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
-#include <string>
 #include <utility>
-#include <vector>
 
 namespace ocvsmd
 {
@@ -28,13 +26,13 @@ namespace svc
 namespace file_server
 {
 
-class ListRootsClient
+class PushRootClient
 {
 public:
-    using Ptr  = std::shared_ptr<ListRootsClient>;
-    using Spec = common::svc::file_server::ListRootsSpec;
+    using Ptr  = std::shared_ptr<PushRootClient>;
+    using Spec = common::svc::file_server::PushRootSpec;
 
-    using Success = std::vector<std::string>;
+    using Success = cetl::monostate;
     using Failure = int;  // `errno`-like error code
     using Result  = cetl::variant<Success, Failure>;
 
@@ -42,12 +40,12 @@ public:
                                    const common::ipc::ClientRouter::Ptr& ipc_router,
                                    const Spec::Request&                  request);
 
-    ListRootsClient(ListRootsClient&&)                 = delete;
-    ListRootsClient(const ListRootsClient&)            = delete;
-    ListRootsClient& operator=(ListRootsClient&&)      = delete;
-    ListRootsClient& operator=(const ListRootsClient&) = delete;
+    PushRootClient(PushRootClient&&)                 = delete;
+    PushRootClient(const PushRootClient&)            = delete;
+    PushRootClient& operator=(PushRootClient&&)      = delete;
+    PushRootClient& operator=(const PushRootClient&) = delete;
 
-    virtual ~ListRootsClient() = default;
+    virtual ~PushRootClient() = default;
 
     template <typename Receiver>
     void submit(Receiver&& receiver)
@@ -59,15 +57,15 @@ public:
     }
 
 protected:
-    ListRootsClient() = default;
+    PushRootClient() = default;
 
     virtual void submitImpl(std::function<void(Result&&)>&& receiver) = 0;
 
-};  // ListRootsClient
+};  // PushRootClient
 
 }  // namespace file_server
 }  // namespace svc
 }  // namespace sdk
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_SDK_SVC_FILE_SERVER_LIST_ROOTS_CLIENT_HPP_INCLUDED
+#endif  // OCVSMD_SDK_SVC_FILE_SERVER_PUSH_ROOT_CLIENT_HPP_INCLUDED

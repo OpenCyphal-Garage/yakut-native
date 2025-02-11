@@ -112,9 +112,38 @@ protected:
 
 };  // SenderOf
 
+/// A sender factory that returns a sender which completes immediately
+/// by calling the receiver `operator()` with the given pack of arguments.
+///
+template <typename Result, typename... Args>
+typename SenderOf<Result>::Ptr just(Args&&... args)
+{
+    class Sender final : public SenderOf<Result>
+    {
+    public:
+        explicit Sender(Args&&... args)
+            : result_{std::forward<Args>(args)...}
+        {
+        }
+
+    private:
+        // SenderOf
+
+        void submitImpl(std::function<void(Result&&)>&& receiver) override
+        {
+            std::move(receiver)(std::move(result_));
+        }
+
+        Result result_;
+
+    };  // Sender
+
+    return std::make_unique<Sender>(std::forward<Args>(args)...);
+}
+
 /// Initiates an operation execution by submitting a given receiver to the sender.
 ///
-/// The submit "consumes" the receiver (no longer usable after this call).
+/// Submit "consumes" the receiver (no longer usable after this call).
 ///
 template <typename Sender, typename Receiver>
 void submit(Sender& sender, Receiver&& receiver)

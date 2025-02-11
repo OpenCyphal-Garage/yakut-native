@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_SVC_FILE_SERVER_LIST_ROOTS_SERVICE_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_SVC_FILE_SERVER_LIST_ROOTS_SERVICE_HPP_INCLUDED
+#ifndef OCVSMD_DAEMON_ENGINE_SVC_FILE_SERVER_PUSH_ROOT_SERVICE_HPP_INCLUDED
+#define OCVSMD_DAEMON_ENGINE_SVC_FILE_SERVER_PUSH_ROOT_SERVICE_HPP_INCLUDED
 
 #include "cyphal/file_provider.hpp"
 #include "svc/svc_helpers.hpp"
@@ -20,13 +20,13 @@ namespace svc
 namespace file_server
 {
 
-class ListRootsService
+class PushRootService
 {
 public:
-    ListRootsService() = delete;
+    PushRootService() = delete;
     static void registerWithContext(const ScvContext& context, cyphal::FileProvider& file_provider);
 
-};  // ListRootsService
+};  // PushRootService
 
 }  // namespace file_server
 }  // namespace svc
@@ -34,4 +34,4 @@ public:
 }  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_SVC_FILE_SERVER_LIST_ROOTS_SERVICE_HPP_INCLUDED
+#endif  // OCVSMD_DAEMON_ENGINE_SVC_FILE_SERVER_PUSH_ROOT_SERVICE_HPP_INCLUDED

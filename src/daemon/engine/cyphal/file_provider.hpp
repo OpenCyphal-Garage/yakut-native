@@ -50,7 +50,9 @@ public:
 
     virtual ~FileProvider() = default;
 
-    virtual const std::vector<std::string>& getListOfRoots() const = 0;
+    virtual auto getListOfRoots() const -> const std::vector<std::string>& = 0;
+    virtual void popRoot(const std::string& path, const bool back)         = 0;
+    virtual void pushRoot(const std::string& path, const bool back)        = 0;
 
 protected:
     FileProvider() = default;

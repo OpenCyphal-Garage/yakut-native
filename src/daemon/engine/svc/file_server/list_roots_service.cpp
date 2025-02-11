@@ -29,13 +29,13 @@ namespace file_server
 namespace
 {
 
-class ListRootServiceImpl final
+class ListRootsServiceImpl final
 {
 public:
     using Spec    = common::svc::file_server::ListRootsSpec;
     using Channel = common::ipc::Channel<Spec::Request, Spec::Response>;
 
-    explicit ListRootServiceImpl(const ScvContext& context, cyphal::FileProvider& file_provider)
+    explicit ListRootsServiceImpl(const ScvContext& context, cyphal::FileProvider& file_provider)
         : context_{context}
         , file_provider_{file_provider}
     {
@@ -52,7 +52,7 @@ public:
             constexpr auto MaxRootLen = Spec::Response::_traits_::TypeOf::item::_traits_::ArrayCapacity::path;
             if (root.size() > MaxRootLen)
             {
-                logger_->warn("ListRootSvc: Can't list too long path (max_len={}, root='{}').", MaxRootLen, root);
+                logger_->warn("ListRootsSvc: Can't list too long path (max_len={}, root='{}').", MaxRootLen, root);
                 continue;
             }
 
@@ -60,7 +60,7 @@ public:
             std::copy(root.cbegin(), root.cend(), std::back_inserter(ipc_response.item.path));
             if (const auto err = channel.send(ipc_response))
             {
-                logger_->warn("ListRootSvc: failed to send ipc response (err={}).", err);
+                logger_->warn("ListRootsSvc: failed to send ipc response (err={}).", err);
             }
         }
 
@@ -72,13 +72,13 @@ private:
     cyphal::FileProvider& file_provider_;
     common::LoggerPtr     logger_{common::getLogger("engine")};
 
-};  // ExecCmdServiceImpl
+};  // ListRootsServiceImpl
 
 }  // namespace
 
-void ListRootService::registerWithContext(const ScvContext& context, cyphal::FileProvider& file_provider)
+void ListRootsService::registerWithContext(const ScvContext& context, cyphal::FileProvider& file_provider)
 {
-    using Impl = ListRootServiceImpl;
+    using Impl = ListRootsServiceImpl;
     context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl{context, file_provider});
 }
 

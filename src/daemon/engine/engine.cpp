@@ -9,12 +9,13 @@
 #include "cyphal/can_transport_bag.hpp"
 #include "cyphal/file_provider.hpp"
 #include "cyphal/udp_transport_bag.hpp"
+#include "engine_helpers.hpp"
 #include "io/socket_address.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
 #include "ipc/server_router.hpp"
-#include "svc/file_server/list_roots_service.hpp"
-#include "svc/node/exec_cmd_service.hpp"
+#include "svc/file_server/services.hpp"
+#include "svc/node/services.hpp"
 #include "svc/svc_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -140,8 +141,8 @@ cetl::optional<std::string> Engine::init()
     ipc_router_ = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
     //
     const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
-    svc::node::ExecCmdService::registerWithContext(svc_context);
-    svc::file_server::ListRootService::registerWithContext(svc_context, *file_provider_);
+    svc::node::registerAllServices(svc_context);
+    svc::file_server::registerAllServices(svc_context, *file_provider_);
     //
     if (0 != ipc_router_->start())
     {
@@ -171,9 +172,9 @@ void Engine::runWhile(const std::function<bool()>& loop_predicate)
             timeout = std::min(timeout, spin_result.next_exec_time.value() - executor_.now());
         }
 
-        if (const auto maybe_poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+        if (const auto poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
         {
-            spdlog::warn("Failed to poll awaitable resources.");
+            spdlog::warn("Failed to poll awaitable resources (err={}).", failureToErrorCode(*poll_failure));
         }
     }
     spdlog::debug("Run loop predicate is fulfilled (worst_lateness={}us).",

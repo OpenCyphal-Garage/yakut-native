@@ -151,9 +151,38 @@ public:
 
     /// Gets the list of roots that the file provider is serving.
     ///
-    const std::vector<std::string>& getListOfRoots() const override
+    auto getListOfRoots() const -> const std::vector<std::string>& override
     {
         return roots_;
+    }
+
+    void popRoot(const std::string& path, const bool back) override
+    {
+        decltype(roots_.end()) it;
+        if (back)
+        {
+            // Search in reverse order, and convert back to forward iterator.
+            //
+            const auto rev_it = std::find(roots_.rbegin(), roots_.rend(), path);
+            it                = rev_it.base() - 1;
+        }
+        else
+        {
+            // Search in forward order.
+            it = std::find(roots_.begin(), roots_.end(), path);
+        }
+
+        if (it != roots_.end())
+        {
+            roots_.erase(it);
+            config_->setFileServerRoots(roots_);
+        }
+    }
+
+    void pushRoot(const std::string& path, const bool back) override
+    {
+        roots_.insert(back ? roots_.end() : roots_.begin(), path);
+        config_->setFileServerRoots(roots_);
     }
 
 private:

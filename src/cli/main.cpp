@@ -86,7 +86,7 @@ int main(const int argc, const char** const argv)
 
 #if 0  // NOLINT
 
-        // Demo of daemon's node command client, sending a command to node 42, 43 & 44.
+        // Demo of daemon's node command client - sending a command to node 42, 43 & 44.
         {
             using Command = ocvsmd::sdk::NodeCommandClient::Command;
 
@@ -114,7 +114,49 @@ int main(const int argc, const char** const argv)
 #endif
 #if 1  // NOLINT
 
-        // Demo of daemon's file server, getting the list of roots.
+        // Demo of daemon's file server - push root.
+        {
+            using PushRoot = ocvsmd::sdk::FileServer::PushRoot;
+
+            auto file_server = daemon->getFileServer();
+
+            const std::string path{"/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"};
+            auto              sender     = file_server->pushRoot(path, true);
+            auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<PushRoot::Failure>(&cmd_result))
+            {
+                spdlog::error("Failed to push FS root (path='{}'): {}.", path, std::strerror(*err));
+            }
+            else
+            {
+                spdlog::info("File Server responded ok on 'PushRoot'.");
+            }
+        }
+#endif
+#if 0  // NOLINT
+
+        // Demo of daemon's file server - pop root.
+        {
+            using PopRoot = ocvsmd::sdk::FileServer::PopRoot;
+
+            auto file_server = daemon->getFileServer();
+
+            const std::string path{"key"};
+            auto              sender     = file_server->popRoot(path, true);
+            auto              cmd_result = ocvsmd::sdk::sync_wait<PopRoot::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<PopRoot::Failure>(&cmd_result))
+            {
+                spdlog::error("Failed to pop FS root (path='{}'): {}.", path, std::strerror(*err));
+            }
+            else
+            {
+                spdlog::info("File Server responded ok on 'PopRoot'.");
+            }
+        }
+#endif
+#if 1  // NOLINT
+
+        // Demo of daemon's file server - getting the list of roots.
         {
             using ListRoots = ocvsmd::sdk::FileServer::ListRoots;
 
