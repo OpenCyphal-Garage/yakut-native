@@ -129,9 +129,6 @@ SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::restart(  /
     return sendCommand(node_ids, node_request, timeout);
 }
 
-/// A convenience method for invoking `sendCommand` with COMMAND_BEGIN_SOFTWARE_UPDATE.
-/// The file_path is relative to one of the roots configured in the file server.
-///
 SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::beginSoftwareUpdate(  //
     const cetl::span<const std::uint16_t> node_ids,
     const cetl::string_view               file_path,

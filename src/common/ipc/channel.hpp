@@ -59,6 +59,20 @@ protected:
 
 };  // AnyChannel
 
+/// Defines an abstract bidirectional communication channel.
+///
+/// Supports sending of messages (plural!) of type `Output`,
+/// and receiving messages of type `Input` via `EventHandler` callback.
+///
+/// Channel could be opened permanently (f.e. for receiving some kind of notifications, like status updates),
+/// but usually it represents one RPC session, which could be completed (finished) with an optional error code.
+/// Such completion normally done at server side (when RPC request has been fulfilled),
+/// but client could also complete the channel. Any unexpected IPC communication error (like f.e. sudden death of
+/// either client or server process) also leads to channel completion (with `ipc::ErrorCode::Disconnected` error).
+///
+/// Channel could be moved, but not copied.
+/// Channel lifetime is managed by its owner - an IPC service client or server.
+///
 template <typename Input_, typename Output_>
 class Channel final : public AnyChannel
 {
@@ -69,10 +83,12 @@ public:
     using EventVar     = cetl::variant<Connected, Input, Completed>;
     using EventHandler = std::function<void(const EventVar&)>;
 
+    // Move-only.
     ~Channel()                                   = default;
     Channel(Channel&& other) noexcept            = default;
     Channel& operator=(Channel&& other) noexcept = default;
 
+    // No copy.
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
@@ -89,7 +105,7 @@ public:
             });
     }
 
-    void complete(const int error_code)
+    void complete(const int error_code = 0)
     {
         return gateway_->complete(error_code);
     }

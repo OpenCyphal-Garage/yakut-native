@@ -36,6 +36,11 @@ namespace ipc
 namespace
 {
 
+/// Defines implementation of the IPC server-side router.
+///
+/// It subscribes to the server pipe events and dispatches them to the registered channel factories.
+/// In case of the pipe disconnection, it is broadcast-ed to all currently existing gateways (aka channels).
+///
 class ServerRouterImpl final : public ServerRouter
 {
 public:
@@ -84,6 +89,11 @@ private:
         const ClientId client_id;
     };
 
+    /// Defines private IPC gateway entity of this server-side IPC router.
+    ///
+    /// Gateway is a glue between this IPC router and a service channel.
+    /// Lifetime of a gateway is exactly the same as the lifetime of the associated service channel.
+    ///
     class GatewayImpl final : public std::enable_shared_from_this<GatewayImpl>, public detail::Gateway
     {
         struct Private
@@ -177,9 +187,10 @@ private:
 
     };  // GatewayImpl
 
-    using ServiceIdToChannelFactory = std::unordered_map<detail::ServiceDesc::Id, TypeErasedChannelFactory>;
+    // Lifetime of a gateway is strictly managed by its channel. But router needs to "weakly" keep track of them.
     using MapOfWeakGateways         = std::unordered_map<Endpoint::Tag, detail::Gateway::WeakPtr>;
     using ClientIdToMapOfGateways   = std::unordered_map<Endpoint::ClientId, MapOfWeakGateways>;
+    using ServiceIdToChannelFactory = std::unordered_map<detail::ServiceDesc::Id, TypeErasedChannelFactory>;
 
     CETL_NODISCARD bool isConnected(const Endpoint& endpoint) const noexcept
     {
@@ -220,7 +231,7 @@ private:
         return 0;
     }
 
-    void onGatewaySubscription(const Endpoint endpoint)
+    void onGatewaySubscription(const Endpoint endpoint) const
     {
         if (isConnected(endpoint))
         {
@@ -266,7 +277,7 @@ private:
         }
     }
 
-    CETL_NODISCARD int handlePipeEvent(const pipe::ServerPipe::Event::Connected& pipe_conn)
+    CETL_NODISCARD int handlePipeEvent(const pipe::ServerPipe::Event::Connected& pipe_conn) const
     {
         logger_->debug("Pipe is connected (cl={}).", pipe_conn.client_id);
 

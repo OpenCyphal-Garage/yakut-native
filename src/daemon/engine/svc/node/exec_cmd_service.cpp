@@ -39,7 +39,7 @@ namespace node
 namespace
 {
 
-/// Defines 'Execute Command' service implementation.
+/// Defines 'Node: Execute Command' service implementation.
 ///
 /// It's passed (as a functor) to the IPC server router to handle incoming service requests.
 /// See `ipc::ServerRouter::registerChannel` for details, and below `operator()` for the actual implementation.
@@ -273,6 +273,7 @@ private:
 void ExecCmdService::registerWithContext(const ScvContext& context)
 {
     using Impl = ExecCmdServiceImpl;
+
     context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl{context});
 }
 

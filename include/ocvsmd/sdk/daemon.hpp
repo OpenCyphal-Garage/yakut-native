@@ -6,7 +6,6 @@
 #ifndef OCVSMD_SDK_DAEMON_HPP_INCLUDED
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
-#include "file_server.hpp"
 #include "node_command_client.hpp"
 
 #include <cetl/cetl.hpp>

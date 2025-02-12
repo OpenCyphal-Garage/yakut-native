@@ -21,6 +21,10 @@ namespace engine
 namespace svc
 {
 
+/// Defines common context for all server-side services.
+///
+/// Contains references to the core engine components. Most (if not all) services require these.
+///
 struct ScvContext
 {
     cetl::pmr::memory_resource&            memory;
