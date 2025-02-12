@@ -38,7 +38,7 @@ namespace platform
 namespace Linux
 {
 
-/// @brief Defines Linux platform specific single-threaded executor based on `epoll` mechanism.
+/// @brief Defines Linux platform-specific single-threaded executor based on `epoll` mechanism.
 ///
 class EpollSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor,
                                           public IPosixExecutorExtension

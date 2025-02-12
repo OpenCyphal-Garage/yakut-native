@@ -19,6 +19,8 @@ namespace svc
 namespace node
 {
 
+/// Defines registration factory of an 'Exec Command' service.
+///
 class ExecCmdService
 {
 public:

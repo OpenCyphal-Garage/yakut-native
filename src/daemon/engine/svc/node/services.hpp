@@ -19,6 +19,8 @@ namespace svc
 namespace node
 {
 
+/// Registers all "node"-related services.
+///
 void registerAllServices(const ScvContext& context);
 
 }  // namespace node

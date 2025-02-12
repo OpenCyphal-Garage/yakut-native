@@ -39,6 +39,11 @@ namespace node
 namespace
 {
 
+/// Defines 'Execute Command' service implementation.
+///
+/// It's passed (as a functor) to the IPC server router to handle incoming service requests.
+/// See `ipc::ServerRouter::registerChannel` for details, and below `operator()` for the actual implementation.
+///
 class ExecCmdServiceImpl final
 {
 public:
@@ -50,6 +55,10 @@ public:
     {
     }
 
+    /// Handles the initial `node::ExecCmd` service request of a new IPC channel.
+    ///
+    /// Defined as a functor operator - as it's required/expected by the IPC server router.
+    ///
     void operator()(Channel&& channel, const Spec::Request& request)
     {
         const auto fsm_id = next_fsm_id_++;
@@ -62,7 +71,16 @@ public:
     }
 
 private:
-    class Fsm  // Finite State Machine
+    // Defines private Finite State Machine (FSM) which tracks the progress of a single service request.
+    // There is one FSM per each service request channel.
+    //
+    // 1. On its `start` a set of Cyphal RPC clients is created (one per each node ID in the request),
+    //    and a command request is sent to each of them.
+    // 2. Then, the FSM waits for the RPC responses from the Cyphal nodes, collecting them.
+    // 3. Finally, FSM sends the accumulated result (when all responses are received or timed out)
+    //    and completes the channel.
+    //
+    class Fsm final
     {
     public:
         using Id  = std::uint64_t;
