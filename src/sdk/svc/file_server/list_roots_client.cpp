@@ -32,6 +32,8 @@ namespace file_server
 namespace
 {
 
+/// Defines implementation of the 'File Server: List Roots' service client.
+///
 class ListRootsClientImpl final : public ListRootsClient
 {
 public:

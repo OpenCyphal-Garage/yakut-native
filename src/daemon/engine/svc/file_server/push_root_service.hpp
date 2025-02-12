@@ -20,6 +20,8 @@ namespace svc
 namespace file_server
 {
 
+/// Defines registration factory of the 'File Server: Push Root' service.
+///
 class PushRootService
 {
 public:

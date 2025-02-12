@@ -24,6 +24,8 @@ namespace common
 namespace ipc
 {
 
+/// Defines interface of the IPC server-side router.
+///
 class ServerRouter
 {
 public:
@@ -31,6 +33,7 @@ public:
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, pipe::ServerPipe::Ptr server_pipe);
 
+    // No copy/move.
     ServerRouter(const ServerRouter&)                = delete;
     ServerRouter(ServerRouter&&) noexcept            = delete;
     ServerRouter& operator=(const ServerRouter&)     = delete;

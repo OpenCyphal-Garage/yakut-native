@@ -35,6 +35,11 @@ struct ServiceDesc
 
 };  // ServiceDesc
 
+/// Defines internal interface for the IPC gateway.
+///
+/// Gateway is a glue between the IPC router and a service channel.
+/// Lifetime of a gateway is exactly the same as the lifetime of the associated service channel.
+///
 class Gateway
 {
 public:
@@ -61,6 +66,7 @@ public:
 
     using EventHandler = std::function<int(const Event::Var&)>;
 
+    // No copying or moving.
     Gateway(const Gateway&)                = delete;
     Gateway(Gateway&&) noexcept            = delete;
     Gateway& operator=(const Gateway&)     = delete;

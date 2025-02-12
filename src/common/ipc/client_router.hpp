@@ -22,6 +22,8 @@ namespace common
 namespace ipc
 {
 
+/// Defines interface of the IPC client-side router.
+///
 class ClientRouter
 {
 public:
@@ -29,6 +31,7 @@ public:
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource& memory, pipe::ClientPipe::Ptr client_pipe);
 
+    // No copy/move.
     ClientRouter(const ClientRouter&)                = delete;
     ClientRouter(ClientRouter&&) noexcept            = delete;
     ClientRouter& operator=(const ClientRouter&)     = delete;

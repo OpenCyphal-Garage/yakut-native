@@ -29,6 +29,11 @@ namespace file_server
 namespace
 {
 
+/// Defines 'File Server: List Roots' service implementation.
+///
+/// It's passed (as a functor) to the IPC server router to handle incoming service requests.
+/// See `ipc::ServerRouter::registerChannel` for details, and below `operator()` for the actual implementation.
+///
 class ListRootsServiceImpl final
 {
 public:
@@ -41,6 +46,13 @@ public:
     {
     }
 
+    /// Handles the `file_server::ListRoots` service request of a new IPC channel.
+    ///
+    /// The service itself is stateless (the state is stored inside the given file provider), has no async operations,
+    /// sends multiple responses (per each root), and then completes the channel immediately.
+    ///
+    /// Defined as a functor operator - as it's required/expected by the IPC server router.
+    ///
     void operator()(Channel channel, const Spec::Request&) const
     {
         logger_->debug("New '{}' service channel.", Spec::svc_full_name());
@@ -49,6 +61,9 @@ public:
         const auto&    roots = file_provider_.getListOfRoots();
         for (const auto& root : roots)
         {
+            // Check if a root path is too long. Such paths could be read from the configuration file -
+            // they will work fine in terms of the file system, but we can't send them over IPC.
+            //
             constexpr auto MaxRootLen = Spec::Response::_traits_::TypeOf::item::_traits_::ArrayCapacity::path;
             if (root.size() > MaxRootLen)
             {
@@ -64,7 +79,7 @@ public:
             }
         }
 
-        channel.complete(0);
+        channel.complete();
     }
 
 private:
@@ -79,6 +94,7 @@ private:
 void ListRootsService::registerWithContext(const ScvContext& context, cyphal::FileProvider& file_provider)
 {
     using Impl = ListRootsServiceImpl;
+
     context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl{context, file_provider});
 }
 

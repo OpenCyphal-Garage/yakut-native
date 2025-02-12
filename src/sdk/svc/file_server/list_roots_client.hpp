@@ -28,6 +28,8 @@ namespace svc
 namespace file_server
 {
 
+/// Defines interface of the 'File Server: List Roots' service client.
+///
 class ListRootsClient
 {
 public:

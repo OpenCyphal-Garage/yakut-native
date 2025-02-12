@@ -28,6 +28,8 @@ namespace svc
 namespace node
 {
 
+/// Defines interface of the 'Node: Exec Command' service client.
+///
 class ExecCmdClient
 {
 public:

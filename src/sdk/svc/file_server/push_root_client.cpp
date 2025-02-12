@@ -31,6 +31,8 @@ namespace file_server
 namespace
 {
 
+/// Defines implementation of the 'File Server: Push Root' service client.
+///
 class PushRootClientImpl final : public PushRootClient
 {
 public:

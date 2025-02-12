@@ -26,6 +26,8 @@ namespace svc
 namespace file_server
 {
 
+/// Defines interface of the 'File Server: Push Root' service client.
+///
 class PushRootClient
 {
 public:

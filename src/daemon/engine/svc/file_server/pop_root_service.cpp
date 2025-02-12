@@ -29,6 +29,11 @@ namespace file_server
 namespace
 {
 
+/// Defines 'File Server: Pop Root' service implementation.
+///
+/// It's passed (as a functor) to the IPC server router to handle incoming service requests.
+/// See `ipc::ServerRouter::registerChannel` for details, and below `operator()` for the actual implementation.
+///
 class PopRootServiceImpl final
 {
 public:
@@ -41,6 +46,13 @@ public:
     {
     }
 
+    /// Handles the initial `file_server::PopRoot` service request of a new IPC channel.
+    ///
+    /// The service itself is stateless (the state is stored inside the given file provider),
+    /// has no async operations, and completes the channel immediately.
+    ///
+    /// Defined as a functor operator - as it's required/expected by the IPC server router.
+    ///
     void operator()(Channel channel, const Spec::Request& request) const
     {
         logger_->debug("New '{}' service channel.", Spec::svc_full_name());
@@ -48,7 +60,7 @@ public:
         std::string path;
         std::copy(request.item.path.cbegin(), request.item.path.cend(), std::back_inserter(path));
         file_provider_.popRoot(path, request.is_back);
-        channel.complete(0);
+        channel.complete();
     }
 
 private:
@@ -63,6 +75,7 @@ private:
 void PopRootService::registerWithContext(const ScvContext& context, cyphal::FileProvider& file_provider)
 {
     using Impl = PopRootServiceImpl;
+
     context.ipc_router.registerChannel<Impl::Channel>(Impl::Spec::svc_full_name(), Impl{context, file_provider});
 }
 

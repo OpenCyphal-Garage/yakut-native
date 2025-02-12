@@ -31,6 +31,8 @@ namespace file_server
 namespace
 {
 
+/// Defines implementation of the 'File Server: Pop Root' service client.
+///
 class PopRootClientImpl final : public PopRootClient
 {
 public:
