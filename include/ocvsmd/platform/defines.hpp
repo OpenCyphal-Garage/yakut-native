@@ -31,6 +31,8 @@ using SingleThreadedExecutor = bsd::KqueueSingleThreadedExecutor;
 using SingleThreadedExecutor = Linux::EpollSingleThreadedExecutor;
 #endif
 
+/// Waits for the predicate to be fulfilled by spinning the executor and its awaitable resources.
+///
 template <typename Executor, typename Predicate>
 void waitPollingUntil(Executor& executor, Predicate predicate)
 {
@@ -55,13 +57,14 @@ void waitPollingUntil(Executor& executor, Predicate predicate)
             timeout = std::min(timeout, spin_result.next_exec_time.value() - executor.now());
         }
 
-        if (const auto maybe_poll_failure = executor.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
+        if (const auto poll_failure = executor.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
         {
-            spdlog::warn("Failed to poll awaitable resources.");
+            (void) poll_failure;
+            spdlog::warn("Failed to poll awaitable resources.");  // TODO: Log the error.
         }
     }
 
-    spdlog::debug("Predicate is fulfilled (worst_lateness={}us).",
+    spdlog::trace("Predicate is fulfilled (worst_lateness={}us).",
                   std::chrono::duration_cast<std::chrono::microseconds>(worst_lateness).count());
 }
 

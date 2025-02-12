@@ -20,6 +20,8 @@ namespace svc
 namespace file_server
 {
 
+/// Registers all "file_server"-related services.
+///
 void registerAllServices(const ScvContext& context, cyphal::FileProvider& file_provider);
 
 }  // namespace file_server
