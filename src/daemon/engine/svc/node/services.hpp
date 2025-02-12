@@ -6,7 +6,6 @@
 #ifndef OCVSMD_DAEMON_ENGINE_SVC_NODE_SERVICES_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_SVC_NODE_SERVICES_HPP_INCLUDED
 
-#include "cyphal/file_provider.hpp"
 #include "svc/svc_helpers.hpp"
 
 namespace ocvsmd
