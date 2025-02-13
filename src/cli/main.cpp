@@ -12,7 +12,6 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <spdlog/fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <cerrno>
