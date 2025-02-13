@@ -13,6 +13,7 @@
 #include "daemon/engine/cyphal/transport_mock.hpp"
 #include "ipc/channel.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
+#include "svc/node/services.hpp"
 #include "svc/svc_helpers.hpp"
 #include "tracking_memory_resource.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -138,7 +139,7 @@ TEST_F(TestExecCmdService, registerWithContext)
     EXPECT_THAT(ipc_router_mock_.getChannelFactory(svc_desc_), IsNull());
 
     EXPECT_CALL(ipc_router_mock_, registerChannelFactoryByName(svc_name_)).WillOnce(Return());
-    node::ExecCmdService::registerWithContext(svc_context);
+    node::registerAllServices(svc_context);
 
     EXPECT_THAT(ipc_router_mock_.getChannelFactory(svc_desc_), NotNull());
 }
