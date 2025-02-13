@@ -15,11 +15,8 @@
 
 #include <uavcan/file/Error_1_0.hpp>
 #include <uavcan/file/GetInfo_0_2.hpp>
-#include <uavcan/file/List_0_2.hpp>
-#include <uavcan/file/Modify_1_1.hpp>
 #include <uavcan/file/Path_2_0.hpp>
 #include <uavcan/file/Read_1_1.hpp>
-#include <uavcan/file/Write_1_1.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -55,10 +52,7 @@ class FileProviderImpl final : public FileProvider
     };
     struct Svc
     {
-        using List    = SvcSpec<uavcan::file::List_0_2>;
         using Read    = SvcSpec<uavcan::file::Read_1_1>;
-        using Write   = SvcSpec<uavcan::file::Write_1_1>;
-        using Modify  = SvcSpec<uavcan::file::Modify_1_1>;
         using GetInfo = SvcSpec<uavcan::file::GetInfo_0_2>;
 
     };  // Svc
@@ -68,37 +62,25 @@ public:
                     libcyphal::presentation::Presentation& presentation,
                     Config::Ptr                            config)
     {
-        auto list_srv     = makeServer<Svc::List>("List", presentation);
         auto read_srv     = makeServer<Svc::Read>("Read", presentation);
-        auto write_srv    = makeServer<Svc::Write>("Write", presentation);
-        auto modify_srv   = makeServer<Svc::Modify>("Modify", presentation);
         auto get_info_srv = makeServer<Svc::GetInfo>("GetInfo", presentation);
-        if (!list_srv || !read_srv || !write_srv || !modify_srv || !get_info_srv)
+        if (!read_srv || !get_info_srv)
         {
             return nullptr;
         }
         return std::make_unique<FileProviderImpl>(memory,
                                                   std::move(config),
-                                                  std::move(*list_srv),
                                                   std::move(*read_srv),
-                                                  std::move(*write_srv),
-                                                  std::move(*modify_srv),
                                                   std::move(*get_info_srv));
     }
 
     FileProviderImpl(cetl::pmr::memory_resource& memory,
                      Config::Ptr                 config,
-                     Svc::List::Server&&         list_srv,
                      Svc::Read::Server&&         read_srv,
-                     Svc::Write::Server&&        write_srv,
-                     Svc::Modify::Server&&       modify_srv,
                      Svc::GetInfo::Server&&      get_info_srv)
         : memory_{memory}
         , config_{std::move(config)}
-        , list_srv_{std::move(list_srv)}
         , read_srv_{std::move(read_srv)}
-        , write_srv_{std::move(write_srv)}
-        , modify_srv_{std::move(modify_srv)}
         , get_info_srv_{std::move(get_info_srv)}
     {
         using ListRootsSpec       = common::svc::file_server::ListRootsSpec;
@@ -446,10 +428,7 @@ private:
 
     cetl::pmr::memory_resource& memory_;
     Config::Ptr                 config_;
-    Svc::List::Server           list_srv_;
     Svc::Read::Server           read_srv_;
-    Svc::Write::Server          write_srv_;
-    Svc::Modify::Server         modify_srv_;
     Svc::GetInfo::Server        get_info_srv_;
     common::LoggerPtr           logger_{common::getLogger("engine")};
     std::vector<std::string>    roots_;

@@ -28,11 +28,8 @@ namespace cyphal
 /// @brief Defines 'File' provider component for the application node.
 ///
 /// Internally uses several `uavcan.file` cyphal servers:
-// - 'GetInfo'
-// - 'List'
-// - 'Modify'
-// - 'Read'
-// - 'Write'
+/// - 'Read'
+/// - 'GetInfo'
 ///
 class FileProvider
 {
