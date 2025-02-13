@@ -64,7 +64,7 @@ public:
                 can_ifaces += ",";
             }
         }
-        common::getLogger("io")->trace("Attempting to create CAN transport (ifaces='{}')…", can_ifaces);
+        common::getLogger("io")->trace("Attempting to create CAN transport (ifaces=[{}])…", can_ifaces);
 
         auto transport_bag = std::make_unique<CanTransportBag>(Spec{}, memory, executor);
 

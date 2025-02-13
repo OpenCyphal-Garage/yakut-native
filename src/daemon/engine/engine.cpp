@@ -14,8 +14,8 @@
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
 #include "ipc/server_router.hpp"
-// ➕ #include "svc/node/exec_cmd_service.hpp"
-// ➕ #include "svc/svc_helpers.hpp"
+#include "svc/node/services.hpp"
+#include "svc/svc_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
@@ -139,8 +139,9 @@ cetl::optional<std::string> Engine::init()
     //
     ipc_router_ = common::ipc::ServerRouter::make(memory_, std::move(server_pipe));
     //
-    // ➕ const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
-    // ➕ svc::node::ExecCmdService::registerWithContext(svc_context);
+    const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
+    svc::node::registerAllServices(svc_context);
+    // ➕ svc::file_server::registerAllServices(svc_context, *file_provider_);
     //
     if (0 != ipc_router_->start())
     {

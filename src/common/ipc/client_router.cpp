@@ -38,6 +38,11 @@ namespace ipc
 namespace
 {
 
+/// Defines implementation of the IPC client-side router.
+///
+/// It subscribes to the client pipe events and dispatches them to corresponding target gateway (by matching tags).
+/// In case of the pipe disconnection, it is broadcast-ed to all currently existing gateways (aka channels).
+///
 class ClientRouterImpl final : public ClientRouter
 {
 public:
@@ -88,6 +93,11 @@ private:
         const Tag tag;
     };
 
+    /// Defines private IPC gateway entity of this client-side IPC router.
+    ///
+    /// Gateway is a glue between this IPC router and a service channel.
+    /// Lifetime of a gateway is exactly the same as the lifetime of the associated service channel.
+    ///
     class GatewayImpl final : public std::enable_shared_from_this<GatewayImpl>, public detail::Gateway
     {
         struct Private
@@ -180,6 +190,7 @@ private:
 
     };  // GatewayImpl
 
+    // Lifetime of a gateway is strictly managed by its channel. But router needs to "weakly" keep track of them.
     using MapOfWeakGateways = std::unordered_map<Endpoint::Tag, detail::Gateway::WeakPtr>;
 
     CETL_NODISCARD bool isConnected(const Endpoint&) const noexcept

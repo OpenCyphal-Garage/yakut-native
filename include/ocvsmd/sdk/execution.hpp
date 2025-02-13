@@ -24,9 +24,11 @@ namespace sdk
 namespace detail
 {
 
+// Defines various internal types for `sync_wait` implementation.
+//
 template <typename Result>
 class StateOf;
-
+//
 template <typename Result>
 class ReceiverOf final
 {
@@ -46,7 +48,7 @@ private:
     std::shared_ptr<StateOf<Result>> state_;
 
 };  // ReceiverOf
-
+//
 template <typename Result>
 class StateOf final : public std::enable_shared_from_this<StateOf<Result>>
 {
@@ -78,13 +80,23 @@ private:
 
 /// Abstract interface of a result sender.
 ///
+/// There is no (at least for now) support of async failures via C++ exceptions in the SDK.
+/// So, if an async sender might fail, then the `Result` subtype
+/// is expected to cover both success and failure cases (f.e. using `variant`).
+///
 template <typename Result_>
 class SenderOf
 {
 public:
-    using Ptr    = std::unique_ptr<SenderOf>;
+    /// Defines the shared pointer type for the interface.
+    ///
+    using Ptr = std::unique_ptr<SenderOf>;
+
+    /// Defines the result type of the sender.
+    ///
     using Result = Result_;
 
+    // No copy/move semantics.
     SenderOf(SenderOf&&)                 = delete;
     SenderOf(const SenderOf&)            = delete;
     SenderOf& operator=(SenderOf&&)      = delete;
@@ -94,7 +106,9 @@ public:
 
     /// Initiates an operation execution by submitting a given receiver to this sender.
     ///
-    /// The submit "consumes" the receiver (no longer usable after this call).
+    /// @tparam Receiver The type of the receiver functor. Should be callable with the result of the sender.
+    /// @param receiver The receiver of the sender's result.
+    ///                 Method "consumes" the receiver (no longer usable after this call).
     ///
     template <typename Receiver>
     void submit(Receiver&& receiver)
@@ -108,13 +122,15 @@ public:
 protected:
     SenderOf() = default;
 
+    /// Implementation extension point for the derived classes.
+    ///
     virtual void submitImpl(std::function<void(Result&&)>&& receiver) = 0;
 
 };  // SenderOf
 
 /// Initiates an operation execution by submitting a given receiver to the sender.
 ///
-/// The submit "consumes" the receiver (no longer usable after this call).
+/// Submit "consumes" the receiver (no longer usable after this call).
 ///
 template <typename Sender, typename Receiver>
 void submit(Sender& sender, Receiver&& receiver)

@@ -13,6 +13,8 @@ namespace ocvsmd
 namespace platform
 {
 
+/// Wraps a POSIX syscall and retries it if it was interrupted by a signal.
+///
 template <typename Call>
 int posixSyscallError(const Call& call)
 {
