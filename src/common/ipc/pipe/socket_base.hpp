@@ -57,8 +57,7 @@ protected:
         return *logger_;
     }
 
-    CETL_NODISCARD static int send(const State& state, const Payloads payloads);
-
+    CETL_NODISCARD int send(const State& state, const Payloads payloads) const;
     CETL_NODISCARD int receiveMessage(State& state, std::function<int(Payload)>&& action) const;
 
 private:
