@@ -1,6 +1,7 @@
 [submodule "submodules/libcyphal"]
 	path = submodules/libcyphal
 	url = https://github.com/OpenCyphal-Garage/libcyphal.git
+	branch = sshirokov/rpi32
 [submodule "submodules/libudpard"]
 	path = submodules/libudpard
 	url = https://github.com/OpenCyphal/libudpard
@@ -12,7 +13,7 @@
 [submodule "submodules/nunavut"]
 	path = submodules/nunavut
 	url = https://github.com/OpenCyphal/nunavut.git
-	branch = 3.0.preview
+    branch = sshirokov/rpi32
 [submodule "submodules/cetl"]
 	path = submodules/cetl
 	url = https://github.com/OpenCyphal/CETL.git
