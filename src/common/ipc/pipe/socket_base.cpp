@@ -145,7 +145,8 @@ int SocketBase::receiveData(IoState& io_state) const
         //
         io_state.rx_partial_size = 0;
         auto payload_buffer = std::make_unique<std::uint8_t[]>(msg_header.payload_size);  // NOLINT(*-avoid-c-arrays)
-        io_state.rx_msg_part.emplace<IoState::MsgPayload>(msg_header.payload_size, std::move(payload_buffer));
+        io_state.rx_msg_part.emplace<IoState::MsgPayload>(
+            IoState::MsgPayload{msg_header.payload_size, std::move(payload_buffer)});
     }
 
     // 2. Read message payload.
@@ -196,8 +197,8 @@ int SocketBase::receiveData(IoState& io_state) const
         // Message payload has been completely received.
         // Switch to the first part - the message header again.
         //
-        io_state.rx_partial_size  = 0;
-        const auto payload = std::move(msg_payload);
+        io_state.rx_partial_size = 0;
+        const auto payload       = std::move(msg_payload);
         io_state.rx_msg_part.emplace<IoState::MsgHeader>();
 
         io_state.on_rx_msg_payload(Payload{payload.buffer.get(), payload.size});

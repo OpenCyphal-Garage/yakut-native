@@ -40,8 +40,8 @@ public:
         };
         struct MsgPayload final
         {
-            std::size_t                     size{0};
-            std::unique_ptr<std::uint8_t[]> buffer;  // NOLINT(*-avoid-c-arrays)
+            std::uint32_t                   size{0};
+            std::unique_ptr<std::uint8_t[]> buffer{nullptr};  // NOLINT(*-avoid-c-arrays)
         };
         using MsgPart = cetl::variant<MsgHeader, MsgPayload>;
 
