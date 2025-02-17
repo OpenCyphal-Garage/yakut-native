@@ -36,18 +36,19 @@ target_include_directories(udpard
         INTERFACE SYSTEM ${submodules_dir}/libudpard/libudpard
 )
 
-add_library(canard
-        ${submodules_dir}/libcanard/libcanard/canard.c
-)
-target_include_directories(canard
-        INTERFACE SYSTEM ${submodules_dir}/libcanard/libcanard
-)
+if (${PLATFORM_OS_TYPE} STREQUAL "linux")
+    add_library(canard
+            ${submodules_dir}/libcanard/libcanard/canard.c
+    )
+    target_include_directories(canard
+            INTERFACE SYSTEM ${submodules_dir}/libcanard/libcanard
+    )
+endif ()
 
 add_library(ocvsmd_engine
         config.cpp
         cyphal/file_provider.cpp
         engine.cpp
-        platform/can/socketcan.c
         platform/udp/udp.c
         svc/file_server/list_roots_service.cpp
         svc/file_server/pop_root_service.cpp
@@ -58,10 +59,17 @@ add_library(ocvsmd_engine
 )
 target_link_libraries(ocvsmd_engine
         PUBLIC udpard
-        PUBLIC canard
         PUBLIC ${engine_transpiled}
         PUBLIC ocvsmd_common
 )
+if (${PLATFORM_OS_TYPE} STREQUAL "linux")
+    target_sources(ocvsmd_engine
+            platform/can/socketcan.c
+    )
+    target_link_libraries(ocvsmd_engine
+            PUBLIC canard
+    )
+endif ()
 target_include_directories(ocvsmd_engine
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )

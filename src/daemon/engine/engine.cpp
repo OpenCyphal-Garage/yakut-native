@@ -6,7 +6,6 @@
 #include "engine.hpp"
 
 #include "config.hpp"
-#include "cyphal/can_transport_bag.hpp"
 #include "cyphal/file_provider.hpp"
 #include "cyphal/udp_transport_bag.hpp"
 #include "engine_helpers.hpp"
@@ -34,6 +33,10 @@
 #include <string>
 #include <utility>
 
+#ifdef __linux__
+#include "cyphal/can_transport_bag.hpp"
+#endif
+
 namespace ocvsmd
 {
 namespace daemon
@@ -59,11 +62,13 @@ cetl::optional<std::string> Engine::init()
     }
     else
     {
+#ifdef __linux__
         if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
         {
             any_transport_bag_ = std::move(maybe_can_transport_bag);
         }
         else
+#endif  // __linux__
         {
             std::string msg = "Failed to create Cyphal transport.";
             logger_->error(msg);
